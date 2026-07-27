@@ -1,7 +1,6 @@
 import { Company } from "./Company.js";
 import { User } from "./User.js";
 import { EmployeeProfile } from "./EmployeeProfile.js";
-import { Invitation } from "./Invitation.js";
 import { Salary } from "./Salary.js";
 import { Project } from "./Project.js";
 import { Allocation } from "./Allocation.js";
@@ -15,7 +14,6 @@ export {
     Company,
     User,
     EmployeeProfile,
-    Invitation,
     Salary,
     Project,
     Allocation,
@@ -31,7 +29,6 @@ export const entities = [
     Company,
     User,
     EmployeeProfile,
-    Invitation,
     Salary,
     Project,
     Allocation,

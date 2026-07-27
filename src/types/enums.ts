@@ -19,10 +19,6 @@ export const USER_STATUSES = ["invited", "active", "suspended", "terminated"] as
 export type UserStatus = (typeof USER_STATUSES)[number];
 export const isUserStatus = guard(USER_STATUSES);
 
-export const INVITATION_STATUSES = ["pending", "accepted", "expired", "revoked"] as const;
-export type InvitationStatus = (typeof INVITATION_STATUSES)[number];
-export const isInvitationStatus = guard(INVITATION_STATUSES);
-
 export const PROJECT_STATUSES = [
     "planned",
     "active",

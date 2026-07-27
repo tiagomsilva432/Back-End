@@ -26,6 +26,7 @@ import { EmployeeSkill } from "./EmployeeSkill.js";
 // (company_id, email), which Postgres uses for company_id lookups.
 @Entity("users")
 @Unique("uq_users_company_email", ["companyId", "email"])
+@Unique("uq_users_signup_token", ["signupToken"])
 export class User {
     @PrimaryColumn({ type: "bigint", transformer: bigintTransformer })
     @Generated("increment")
@@ -38,13 +39,34 @@ export class User {
     @JoinColumn({ name: "company_id" })
     company!: Company;
 
-    /** Final/personal login email. */
+    /**
+     * The work address provisioned for the employee, e.g.
+     * tiago.m.silva@company1.com. This is the login identity. Its domain
+     * belongs to exactly one company, which is why (company_id, email) can be
+     * unique per tenant without two companies ever colliding.
+     */
     @Column({ type: "varchar", length: 255 })
     email!: string;
 
-    /** NULL until the invited user completes their first sign-in. */
+    /**
+     * NULL until step 2 of signup. This is the only "has no password yet"
+     * marker: never write a placeholder hash here.
+     */
     @Column({ type: "varchar", length: 255, nullable: true })
     passwordHash!: string | null;
+
+    /**
+     * Single-use token for the signup link. The link is sent to the employee's
+     * personal address, which is not stored: the admin supplies it when
+     * creating the account and it is only used to deliver the email.
+     * Cleared once the password is set, which is what makes it single-use.
+     * Multiple NULLs coexist under the unique constraint.
+     */
+    @Column({ type: "uuid", nullable: true })
+    signupToken!: string | null;
+
+    @Column({ type: "timestamptz", nullable: true })
+    signupTokenExpiresAt!: Date | null;
 
     /** Validated in code via isUserRole - not constrained by the database. */
     @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: "employee" })
