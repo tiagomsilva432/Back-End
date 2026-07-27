@@ -1,13 +1,15 @@
-import express, { Request, Response, NextFunction } from "express";
+import express, { Request, Response } from "express";
+import { HttpResponse } from "./dtos/common/responses.dto.js";
+import { errorHandler } from "./middleware/errorHandler.js";
 
 export const app = express();
 
 app.use(express.json());
 
+//Rota não encontrada
 app.use((_req: Request, res: Response) => {
-    res.status(404).json({ Erro: "Rota não encontrada!" });
+    new HttpResponse(404).send(res);
 });
 
-app.use((_err: Error, _req: Request, res: Response, _next: NextFunction) => {
-    res.status(500).json({ Erro: "Erro de servidor!" });
-});
+//Tratamento de erros
+app.use(errorHandler);
