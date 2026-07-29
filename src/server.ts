@@ -15,5 +15,5 @@ try {
 }
 
 app.listen(PORT, () => {
-    console.log(`🔥Server a correr em: ${BASE_URL}:${PORT}🔥`);
+    console.log(`🔥Server a correr em: ${BASE_URL}:${PORT}`);
 });
