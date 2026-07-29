@@ -7,7 +7,11 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node dist/server.js",
     "build": "tsc -p .",
-    "dev": "tsx watch src/server.ts"
+    "dev": "tsx watch src/server.ts",
+    "typeorm": "node --import tsx ./node_modules/typeorm/cli.js -d src/data-source.ts",
+    "db:migrate": "npm run typeorm -- migration:run",
+    "db:revert": "npm run typeorm -- migration:revert",
+    "db:generate": "node --import tsx ./node_modules/typeorm/cli.js migration:generate -d src/data-source.ts"
   },
   "repository": {
     "type": "git",
@@ -25,7 +29,11 @@
     "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3"
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.22.0",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^0.3.31",
+    "typeorm-naming-strategies": "^4.1.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

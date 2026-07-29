@@ -21,7 +21,15 @@
     // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
-
+    // decorator
+    "experimentalDecorators": true,
+    // Deliberately off. Every @Column declares an explicit `type`, so TypeORM
+    // never needs design:type metadata - and emitting it makes the compiled
+    // ESM output crash, because the metadata is a real runtime reference to a
+    // class that circular entity imports have not initialised yet. Keeping it
+    // off also makes `tsc` behave exactly like tsx/esbuild, so what runs in
+    // dev is what runs in production.
+    "emitDecoratorMetadata": false,
     // Style Options
     // "noImplicitReturns": true,
     // "noImplicitOverride": true,
@@ -29,7 +37,7 @@
     // "noUnusedParameters": true,
     // "noFallthroughCasesInSwitch": true,
     // "noPropertyAccessFromIndexSignature": true,
-
+    
     // Recommended Options
     "strict": true,
     "jsx": "react-jsx",
