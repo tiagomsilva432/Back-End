@@ -8,5 +8,5 @@ export const createAccountSchema = z.object({
 
 //Schema REQUEST updateAccount
 //export const updateAccountSchema = z.object({});
-export type createAccountRequest = z.infer<typeof createAccountSchema>;
+export type CreateAccountRequest = z.infer<typeof createAccountSchema>;
 //export type updateAccountRequest = z.infer<typeof updateAccountSchema>;

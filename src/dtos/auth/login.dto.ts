@@ -6,4 +6,4 @@ export const loginSchema = z.object({
     password: z.string().min(8).meta({ example: "password123" })
 }).meta({ id: "LoginRequest", description: "Credenciais de autenticação" });
 
-export type loginRequest = z.infer<typeof loginSchema>;
+export type LoginRequest = z.infer<typeof loginSchema>;
