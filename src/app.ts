@@ -1,13 +1,23 @@
-import express, { Request, Response, NextFunction } from "express";
+import express, { Request, Response } from "express";
+import { HttpResponse } from "./dtos/common/responses.dto.js";
+import { errorHandler } from "./middleware/errorHandler.js";
+import { requestLogger } from "./middleware/requestLogger.js";
+import docsRouter from "./routes/docs.js";
+import healthRouter from "./routes/health.js";
 
 export const app = express();
-
+//Middlewares globais
 app.use(express.json());
+app.use(requestLogger);
 
+//Rotas
+app.use(docsRouter);
+app.use(healthRouter);
+
+//Rota não encontrada
 app.use((_req: Request, res: Response) => {
-    res.status(404).json({ Erro: "Rota não encontrada!" });
+    new HttpResponse(404).send(res);
 });
 
-app.use((_err: Error, _req: Request, res: Response, _next: NextFunction) => {
-    res.status(500).json({ Erro: "Erro de servidor!" });
-});
+//Tratamento de erros
+app.use(errorHandler);
