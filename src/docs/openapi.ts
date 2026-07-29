@@ -3,7 +3,6 @@ import { createAccountSchema } from "../dtos/auth/account.dto.js";
 import { loginSchema } from "../dtos/auth/login.dto.js";
 import { healthPaths } from "../routes/health.js";
 
-//`declaration: true` obriga a anotar o tipo (o tipo de retorno é interno à lib)
 export const openApiDocument: ReturnType<typeof createDocument> = createDocument({
     openapi: "3.1.0",
     info: {
@@ -22,11 +21,9 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
         { name: "Auth", description: "Autenticação e gestão de contas" },
     ],
     paths: {
-        //Cada ficheiro de rota exporta os seus paths
         ...healthPaths,
     },
     components: {
-        //DTOs ainda sem rota — registados para já aparecerem em #/components/schemas
         schemas: {
             LoginRequest: loginSchema,
             CreateAccountRequest: createAccountSchema,

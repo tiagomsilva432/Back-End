@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import { HttpError } from "../dtos/common/errors.dto.js";
 import { HttpResponse } from "../dtos/common/responses.dto.js";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function errorHandler(
   err: unknown,
   _req: Request,
@@ -20,7 +19,6 @@ export function errorHandler(
     return;
   }
 
-  // Unexpected errors — log and return a generic 500
   console.error("[Unhandled Error]", err);
 
   new HttpResponse(
