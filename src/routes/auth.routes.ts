@@ -12,7 +12,7 @@ import { createAccount } from "../controllers/auth.controller.js";
 const router = Router();
 
 router.post(
-    "/auth/account",
+    "/auth/account/create",
     validateBody(createAccountSchema),
     createAccount
 );
