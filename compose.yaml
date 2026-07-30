@@ -1,0 +1,58 @@
+# Everything below has a working default, so `docker compose up` works on a
+# fresh clone with no .env file. If a .env is present, Compose picks it up
+# automatically and its values win.
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-erp_ossilvas_dev}
+    ports:
+      # 5433 on the host: 5432 is usually taken by a locally installed Postgres.
+      # Only needed if you want to attach a GUI client.
+      - "${DB_EXPOSED_PORT:-5433}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      # depends_on alone only waits for the container to start, not for Postgres
+      # to accept connections. The api exits on a failed connection, so without
+      # this it would crash-loop on every cold start.
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-erp_ossilvas_dev}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    restart: unless-stopped
+    # Reaps zombies and forwards signals, so Ctrl-C and `compose down` are quick.
+    init: true
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      BASE_URL: ${BASE_URL:-http://localhost}
+      # `db` is the service name. localhost inside this container would be the
+      # container itself, which is the single most common Docker/DB mistake.
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-erp_ossilvas_dev}
+      DB_LOGGING: ${DB_LOGGING:-false}
+      JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+    ports:
+      - "${PORT:-3000}:3000"
+    # Migrations run before the server every start. They are tracked in the
+    # migrations table, so this is a no-op once they have been applied.
+    command: sh -c "npm run db:migrate:prod && node dist/server.js"
+
+volumes:
+  db_data:

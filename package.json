@@ -5,12 +5,14 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "prestart": "npm run build",
     "start": "node dist/server.js",
     "build": "tsc -p .",
     "dev": "tsx watch src/server.ts",
     "typeorm": "node --import tsx ./node_modules/typeorm/cli.js -d src/data-source.ts",
     "db:migrate": "npm run typeorm -- migration:run",
     "db:revert": "npm run typeorm -- migration:revert",
+    "db:migrate:prod": "node ./node_modules/typeorm/cli.js migration:run -d dist/data-source.js",
     "db:generate": "node --import tsx ./node_modules/typeorm/cli.js migration:generate -d src/data-source.ts"
   },
   "repository": {

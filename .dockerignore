@@ -1,0 +1,15 @@
+# Rebuilt inside the image - never copy the host's (Windows) build output or
+# native modules, they will not run on Linux.
+node_modules
+dist
+
+.git
+.gitignore
+
+# Secrets never belong in an image layer.
+.env
+.env.*
+!.env.example
+
+*.log
+npm-debug.log*
