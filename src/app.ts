@@ -10,6 +10,8 @@ export const app = express();
 app.use(express.json());
 app.use(requestLogger);
 
+
+
 //Rotas
 app.use(docsRouter);
 app.use(healthRouter);

@@ -1,28 +1,25 @@
 # syntax=docker/dockerfile:1
 
-# node:24-slim rather than alpine on purpose: bcrypt is a native addon and has
-# no prebuilt musl binary, so alpine would have to compile it from source and
-# would need build-base + python3 in the image.
+# Single stage, on purpose. This image is for development: it keeps the dev
+# dependencies (tsx, typescript) so the container can run `npm run dev` and
+# reload on file changes, and so migrations run straight from src/ with no
+# build step. A slim multi-stage build belongs here the day this gets deployed
+# somewhere, not before.
+#
+# node:24-slim rather than alpine, but only as a mild preference: glibc hits
+# fewer edge cases across the npm ecosystem. Nothing here requires it - bcrypt
+# ships prebuilt binaries for every platform including musl, so alpine would
+# also work and would save roughly 130MB if image size ever matters.
 
-FROM node:24-slim AS deps
+FROM node:24-slim
 WORKDIR /app
+
 COPY package.json ./
-# `npm install`, not `npm ci`: package-lock.json is gitignored in this repo, so
-# a fresh clone has no lockfile for `ci` to read. The trade-off is that builds
-# resolve dependency versions afresh rather than reproducibly.
+# npm install rather than npm ci: package-lock.json is gitignored in this repo,
+# so a fresh clone has no lockfile for `ci` to read.
 RUN npm install
 
-FROM deps AS build
-WORKDIR /app
-COPY tsconfig.json ./
-COPY src ./src
-RUN npm run build
+COPY . .
 
-FROM node:24-slim AS runtime
-ENV NODE_ENV=production
-WORKDIR /app
-COPY package.json ./
-RUN npm ins  tall --omit=dev
-COPY --from=build /app/dist ./dist
 EXPOSE 3000
-CMD ["node", "dist/server.js"]
+CMD ["npm", "run", "dev"]
