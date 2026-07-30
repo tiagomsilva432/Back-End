@@ -14,6 +14,25 @@ try {
     process.exit(1);
 }
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`🔥Server a correr em: ${BASE_URL}:${PORT}`);
 });
+
+
+let shuttingDown = false;
+const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`\n${signal} recebido, a encerrar...`);
+
+    server.close();
+    try {
+        await AppDataSource.destroy();
+    } catch (err) {
+        console.error("Erro ao fechar a base de dados:", err);
+    }
+    process.exit(0);
+};
+
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));
