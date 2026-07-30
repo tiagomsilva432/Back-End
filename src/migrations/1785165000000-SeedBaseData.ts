@@ -1,12 +1,5 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-/**
- * The first company and the shared skills catalog, matching the seed block in
- * db/reference/erp_schema.sql. Kept as a migration so a fresh database - a new
- * Docker volume, for instance - is usable without any manual setup step.
- *
- * Users are deliberately not seeded: the first admin is created by hand.
- */
 export class SeedBaseData1785165000000 implements MigrationInterface {
     name = 'SeedBaseData1785165000000'
 

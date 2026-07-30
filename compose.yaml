@@ -1,7 +1,3 @@
-# Development stack. `docker compose up` is the only command anyone needs:
-# no Node, no Postgres, no .env required. Every value below has a working
-# default; if a .env is present Compose picks it up automatically and wins.
-
 services:
   db:
     image: postgres:18-alpine
@@ -11,19 +7,10 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-erp_ossilvas_dev}
     ports:
-      # 5433 on the host: 5432 is usually taken by a locally installed Postgres.
-      # Only needed if you want to attach a GUI client such as pgAdmin.
       - "${DB_EXPOSED_PORT:-5433}:5432"
     volumes:
-      # Postgres 18+ wants a single mount at /var/lib/postgresql and puts the
-      # data in a major-version subdirectory beneath it, so that pg_upgrade can
-      # work across versions. Mounting /var/lib/postgresql/data (correct for 17
-      # and earlier) makes the 18 image refuse to start.
       - db_data:/var/lib/postgresql
     healthcheck:
-      # depends_on alone only waits for the container to start, not for Postgres
-      # to accept connections. The api exits on a failed connection, so without
-      # this it would crash-loop on every cold start.
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 3s
       timeout: 3s
@@ -32,7 +19,6 @@ services:
   api:
     build: .
     restart: unless-stopped
-    # Reaps zombies and forwards signals, so Ctrl-C and `compose down` are quick.
     init: true
     depends_on:
       db:
@@ -41,8 +27,6 @@ services:
       NODE_ENV: development
       PORT: 3000
       BASE_URL: ${BASE_URL:-http://localhost}
-      # `db` is the service name. localhost inside this container would mean the
-      # container itself, which is the single most common Docker/DB mistake.
       DB_HOST: db
       DB_PORT: 5432
       DB_USER: ${DB_USER:-postgres}
@@ -53,39 +37,16 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
       BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
     ports:
-      # The app always listens on 3000 inside the container. This only changes
-      # which host port it is published on, e.g. if something local owns 3000.
       - "${API_EXPOSED_PORT:-3000}:3000"
     volumes:
-      # Your working copy, live: edit a file on the host and nodemon restarts
-      # the server inside the container. This is what removes the need to run
-      # anything locally.
       - .:/app
-      # Anonymous volume shielding the container's node_modules from the host's.
-      # esbuild, which tsx depends on, publishes a separate package per platform
-      # and npm installs only the matching one - so a node_modules installed on
-      # Windows holds @esbuild/win32-x64 and nothing that runs on Linux. (bcrypt
-      # is fine either way: it bundles prebuilds for every platform.)
-      #
-      # After adding a dependency, rebuilding the image is NOT enough: this
-      # volume outlives the container and shadows the new image's node_modules,
-      # so the package appears missing. Renew it explicitly:
-      #   docker compose up -d --build --renew-anon-volumes api
       - /app/node_modules
     healthcheck:
-      # node's built-in fetch, because slim images have no curl or wget.
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
-    # Migrations run before the server on every start. They are tracked in the
-    # migrations table, so this is a no-op once they have been applied.
-    #
-    # dev:docker, not dev: tsx's watcher uses inotify, and filesystem events do
-    # not cross a Windows bind mount, so `tsx watch` never notices your edits.
-    # nodemon -L polls the files instead, which does work. Locally, outside a
-    # container, plain `npm run dev` is faster and needs no polling.
     command: sh -c "npm run db:migrate && npm run dev:docker"
 
 volumes:

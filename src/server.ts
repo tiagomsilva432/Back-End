@@ -18,11 +18,7 @@ const server = app.listen(PORT, () => {
     console.log(`🔥Server a correr em: ${BASE_URL}:${PORT}`);
 });
 
-/**
- * Docker sends SIGTERM on stop and restart. Node gets no default handler for it
- * when running as PID 1, so without this the container ignores the signal until
- * Docker gives up and SIGKILLs it ten seconds later.
- */
+
 let shuttingDown = false;
 const shutdown = async (signal: string) => {
     if (shuttingDown) return;
