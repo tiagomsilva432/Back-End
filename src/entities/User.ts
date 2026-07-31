@@ -19,6 +19,8 @@ import { EmployeeProfile } from "./EmployeeProfile.js";
 import { Salary } from "./Salary.js";
 import { Allocation } from "./Allocation.js";
 import { EmployeeSkill } from "./EmployeeSkill.js";
+import { randomUUID } from "node:crypto";
+import { signupTokenExpDate } from "../env-vars.js";
 
 // Soft-deleted users keep occupying their (company, email) pair, so deletion
 // must anonymize the email to deleted-{id}@anonymized.local (see schema notes).
@@ -105,4 +107,12 @@ export class User {
 
     @OneToMany(() => EmployeeSkill, (employeeSkill) => employeeSkill.user)
     skills!: EmployeeSkill[];
+
+    constructor (companyId: number, email: string, role: UserRole) {
+        this.companyId = companyId;
+        this.email = email;
+        this.role = role;
+        this.signupToken = role == UserRole.Admin ? null : randomUUID();
+        this.signupTokenExpiresAt = role == UserRole.Admin ? null : new Date(Date.now()+signupTokenExpDate());
+    }
 }
