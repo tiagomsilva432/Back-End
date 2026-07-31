@@ -1,53 +1,61 @@
 /**
  * The SQL schema's ENUM types, moved to the code side.
  *
- * These are plain VARCHAR columns in the database: adding a value here needs no
+ * These are plain VARCHAR columns in the database: adding a member here needs no
  * migration, but it also means the database will NOT reject an invalid value.
- * Everything writing to these columns must go through the guards below.
+ * The string values below are the exact bytes stored in those columns - renaming
+ * a member is free, changing its value is a data migration.
  */
 
-function guard<const T extends readonly string[]>(values: T) {
-    return (v: unknown): v is T[number] =>
-        typeof v === "string" && (values as readonly string[]).includes(v);
+/**
+ * Builds a runtime type predicate for a string enum. `Object.values` is exact
+ * here because string enums (unlike numeric ones) get no reverse mapping.
+ */
+function guard<T extends Record<string, string>>(enumObject: T) {
+    const values = new Set<string>(Object.values(enumObject));
+    return (v: unknown): v is T[keyof T] => typeof v === "string" && values.has(v);
 }
 
-export const USER_ROLES = ["admin", "employee"] as const;
-export type UserRole = (typeof USER_ROLES)[number];
-export const isUserRole = guard(USER_ROLES);
+export enum UserRole {
+    Admin = "admin",
+    Employee = "employee",
+}
+export const isUserRole = guard(UserRole);
 
-export const USER_STATUSES = ["invited", "active", "suspended", "terminated"] as const;
-export type UserStatus = (typeof USER_STATUSES)[number];
-export const isUserStatus = guard(USER_STATUSES);
+export enum UserStatus {
+    Invited = "invited",
+    Active = "active",
+    Suspended = "suspended",
+    Terminated = "terminated",
+}
+export const isUserStatus = guard(UserStatus);
 
-export const PROJECT_STATUSES = [
-    "planned",
-    "active",
-    "on_hold",
-    "completed",
-    "cancelled",
-] as const;
-export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
-export const isProjectStatus = guard(PROJECT_STATUSES);
+export enum ProjectStatus {
+    Planned = "planned",
+    Active = "active",
+    OnHold = "on_hold",
+    Completed = "completed",
+    Cancelled = "cancelled",
+}
+export const isProjectStatus = guard(ProjectStatus);
 
-export const SKILL_CATEGORIES = [
-    "language",
-    "framework",
-    "role",
-    "tool",
-    "soft_skill",
-    "other",
-] as const;
-export type SkillCategory = (typeof SKILL_CATEGORIES)[number];
-export const isSkillCategory = guard(SKILL_CATEGORIES);
+export enum SkillCategory {
+    Language = "language",
+    Framework = "framework",
+    Role = "role",
+    Tool = "tool",
+    SoftSkill = "soft_skill",
+    Other = "other",
+}
+export const isSkillCategory = guard(SkillCategory);
 
-export const REVIEW_REQUEST_STATUSES = [
-    "pending",
-    "submitted",
-    "declined",
-    "expired",
-] as const;
-export type ReviewRequestStatus = (typeof REVIEW_REQUEST_STATUSES)[number];
-export const isReviewRequestStatus = guard(REVIEW_REQUEST_STATUSES);
+export enum ReviewRequestStatus {
+    Pending = "pending",
+    Submitted = "submitted",
+    Declined = "declined",
+    Expired = "expired",
+}
+export const isReviewRequestStatus = guard(ReviewRequestStatus);
 
 /** Shared column definition so every enum-backed column is declared identically. */
 export const ENUM_COLUMN_LENGTH = 20;

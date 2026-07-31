@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import { HttpError } from "../dtos/common/errors.dto.js";
-import { HttpResponse } from "../dtos/common/responses.dto.js";
-import { envIsDev } from "../utils/consts.js";
+import { HttpError } from "../dtos/common/errors-dto.js";
+import { HttpResponse } from "../dtos/common/responses-dto.js";
+import { envIsDev } from "../env-vars.js";
 
 export function errorHandler(
   err: unknown,

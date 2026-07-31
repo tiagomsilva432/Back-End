@@ -1,10 +1,10 @@
 import express, { Request, Response } from "express";
-import { HttpResponse } from "./dtos/common/responses.dto.js";
+import { HttpResponse } from "./dtos/common/responses-dto.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { requestLogger } from "./middleware/requestLogger.js";
-import docsRouter from "./routes/docs.routes.js";
-import healthRouter from "./routes/health.routes.js";
-import authRouter from "./routes/auth.routes.js"
+import docsRouter from "./routes/docs-routes.js";
+import healthRouter from "./routes/health-routes.js";
+import authRouter from "./routes/auth-routes.js"
 
 export const app = express();
 //Middlewares globais
