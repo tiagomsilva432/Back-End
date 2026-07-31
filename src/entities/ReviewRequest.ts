@@ -11,7 +11,7 @@ import {
     Check,
 } from "typeorm";
 import { bigintTransformer } from "./transformers.js";
-import { ENUM_COLUMN_LENGTH, type ReviewRequestStatus } from "../types/enums.js";
+import { ENUM_COLUMN_LENGTH, ReviewRequestStatus } from "../types/enums.js";
 import { Company } from "./Company.js";
 import { User } from "./User.js";
 import { ReviewCycle } from "./ReviewCycle.js";
@@ -76,8 +76,8 @@ export class ReviewRequest {
     @JoinColumn({ name: "reviewee_id" })
     reviewee!: User;
 
-    /** Validated in code via isReviewRequestStatus. */
-    @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: "pending" })
+    /** Not constrained by the database; guard with isReviewRequestStatus before writing. */
+    @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: ReviewRequestStatus.Pending })
     status!: ReviewRequestStatus;
 
     @Column({ type: "date", nullable: true })

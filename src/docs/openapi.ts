@@ -1,7 +1,7 @@
 import { createDocument } from "zod-openapi";
-import { createAccountSchema } from "../dtos/auth/account.dto.js";
-import { loginSchema } from "../dtos/auth/login.dto.js";
-import { healthPaths } from "../routes/health.js";
+import { createAccountSchema } from "../dtos/auth/account-dto.js";
+import { loginSchema } from "../dtos/auth/login-dto.js";
+import { healthPaths } from "../routes/health-routes.js";
 
 export const openApiDocument: ReturnType<typeof createDocument> = createDocument({
     openapi: "3.1.0",

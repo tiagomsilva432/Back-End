@@ -1,6 +1,6 @@
 import { ZodOpenApiResponseObject } from "zod-openapi";
 import { z } from "zod";
-import { httpResponseSchema } from "../dtos/common/responses.dto.js";
+import { httpResponseSchema } from "../dtos/common/responses-dto.js";
 import { getDefaults } from "../utils/httpStatusDefaults.js";
 
 /**

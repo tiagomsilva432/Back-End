@@ -7,7 +7,7 @@ import {
     Unique,
 } from "typeorm";
 import { bigintTransformer } from "./transformers.js";
-import { ENUM_COLUMN_LENGTH, type SkillCategory } from "../types/enums.js";
+import { ENUM_COLUMN_LENGTH, SkillCategory } from "../types/enums.js";
 import { EmployeeSkill } from "./EmployeeSkill.js";
 
 @Entity("skills")
@@ -20,8 +20,8 @@ export class Skill {
     @Column({ type: "varchar", length: 100 })
     name!: string;
 
-    /** Validated in code via isSkillCategory. */
-    @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: "other" })
+    /** Not constrained by the database; guard with isSkillCategory before writing. */
+    @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: SkillCategory.Other })
     category!: SkillCategory;
 
     @OneToMany(() => EmployeeSkill, (employeeSkill) => employeeSkill.skill)

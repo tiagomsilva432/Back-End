@@ -11,7 +11,7 @@ import {
     Check,
 } from "typeorm";
 import { bigintTransformer } from "./transformers.js";
-import { ENUM_COLUMN_LENGTH, type ProjectStatus } from "../types/enums.js";
+import { ENUM_COLUMN_LENGTH, ProjectStatus } from "../types/enums.js";
 import { Company } from "./Company.js";
 import { User } from "./User.js";
 import { Allocation } from "./Allocation.js";
@@ -49,8 +49,8 @@ export class Project {
     @Column({ type: "varchar", length: 150, nullable: true })
     clientName!: string | null;
 
-    /** Validated in code via isProjectStatus. */
-    @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: "planned" })
+    /** Not constrained by the database; guard with isProjectStatus before writing. */
+    @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: ProjectStatus.Planned })
     status!: ProjectStatus;
 
     @Column({ type: "date", nullable: true })
