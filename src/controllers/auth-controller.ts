@@ -22,15 +22,10 @@ export const createAccount = async (req: Request, res: Response, next: NextFunct
 
         const activationUrl: string = `${BASE_URL}:${PORT}/auth/account/activate?token=${created.signupToken}`
 
-        if(envIsDev){
-            new HttpResponse(201, "Conta criada", undefined, created).send(res);
-            console.log(`Conta Criada - URL Ativação: ${activationUrl}`);
-            return;
-        }
-        //Enviar email com link
-        console.log("MODO ESTÁ COMO PRODUÇÃO");
-        
+        console.log(`Conta Criada - URL Ativação: ${activationUrl}`);
+
         return new HttpResponse(201, "Conta criada", undefined, created).send(res);
+        
     } catch (error) {
         next(error)
     }
