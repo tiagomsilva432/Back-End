@@ -9,12 +9,8 @@ import { HttpError } from "../dtos/common/errors-dto.js";
 const router = Router();
 const userRepository = AppDataSource.getRepository(User);
 
-router.get("/health", (_req: Request, res: Response, next: NextFunction) => {
-    try {
-        return new HttpResponse(200, "Ligação com a API OK").send(res);
-    } catch (error) {
-        next(error);
-    }
+router.get("/health", (_req: Request, res: Response) => {
+    return new HttpResponse(200, "Ligação com a API OK").send(res);
 });
 
 router.get("/health/db", async(_req: Request, res: Response, next: NextFunction) => {
