@@ -1,0 +1,16 @@
+{
+  // Este ficheiro NÃO é usado pelo Jest (o SWC não faz type-check).
+  // Serve para duas coisas:
+  //   1. o editor perceber a pasta tests/ e não marcar os imports a vermelho;
+  //   2. `npm run test:types` verificar os tipos dos testes de propósito.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false
+  },
+  "include": ["src", "tests"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -50,5 +50,9 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true
-  }
+  },
+  // Sem isto, `tsc -p .` varria também a pasta tests/ (que está fora de rootDir)
+  // e o build falharia com TS6059. Os testes são type-checked à parte,
+  // pelo tsconfig.test.json (`npm run test:types`).
+  "exclude": ["node_modules", "dist", "tests"]
 }
