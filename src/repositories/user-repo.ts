@@ -10,6 +10,22 @@ export async function getUserByEmailAndCompanyId(email: string, companyId: numbe
     });
 }
 
+export async function getUserByEmail(email: string): Promise <User | null> {
+    return await userRepo.findOneBy({
+        email
+    });
+}
+
+export async function getUserBySignupToken(signupToken:string): Promise <User | null> {
+    return await userRepo.findOneBy({
+        signupToken
+    });
+}
+
+export async function updateUser(user: User){
+    return await userRepo.save(user);
+}
+
 export async function createUser(user: User){
     return await userRepo.save(user);
 }
