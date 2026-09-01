@@ -13,12 +13,14 @@ import {
     Unique,
 } from "typeorm";
 import { bigintTransformer } from "./transformers.js";
-import { ENUM_COLUMN_LENGTH, type UserRole, type UserStatus } from "../types/enums.js";
+import { ENUM_COLUMN_LENGTH, UserRole, UserStatus } from "../types/enums.js";
 import { Company } from "./Company.js";
 import { EmployeeProfile } from "./EmployeeProfile.js";
 import { Salary } from "./Salary.js";
 import { Allocation } from "./Allocation.js";
 import { EmployeeSkill } from "./EmployeeSkill.js";
+import { randomUUID } from "node:crypto";
+import { signupTokenExpDate } from "../env-vars.js";
 
 // Soft-deleted users keep occupying their (company, email) pair, so deletion
 // must anonymize the email to deleted-{id}@anonymized.local (see schema notes).
@@ -68,12 +70,12 @@ export class User {
     @Column({ type: "timestamptz", nullable: true })
     signupTokenExpiresAt!: Date | null;
 
-    /** Validated in code via isUserRole - not constrained by the database. */
-    @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: "employee" })
+    /** Not constrained by the database; guard with isUserRole before writing. */
+    @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: UserRole.Employee })
     role!: UserRole;
 
-    /** Validated in code via isUserStatus - not constrained by the database. */
-    @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: "invited" })
+    /** Not constrained by the database; guard with isUserStatus before writing. */
+    @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: UserStatus.Invited })
     status!: UserStatus;
 
     @Column({ type: "boolean", default: true })
@@ -105,4 +107,12 @@ export class User {
 
     @OneToMany(() => EmployeeSkill, (employeeSkill) => employeeSkill.user)
     skills!: EmployeeSkill[];
+
+    constructor (companyId: number, email: string, role: UserRole) {
+        this.companyId = companyId;
+        this.email = email;
+        this.role = role;
+        this.signupToken = role == UserRole.Admin ? null : randomUUID();
+        this.signupTokenExpiresAt = role == UserRole.Admin ? null : new Date(Date.now()+signupTokenExpDate());
+    }
 }
