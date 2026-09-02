@@ -116,9 +116,20 @@ swaps `AppDataSource.getRepository` for one bound to the current transaction.
 Every repository in `src/repositories/` calls `getRepository` at module load, so
 replacing it once redirects the whole application.
 
-To write SQL against the test's own transaction, use the `sql` helper from
-`tests/setup/db.ts`. Do **not** use `AppDataSource.query()`: it takes a separate
-connection from the pool and cannot see what the test just wrote.
+Setup and assertions go through `repo(Entity)` from `tests/setup/db.ts`, which
+returns a normal TypeORM repository bound to the test's transaction. The same
+applies to the methods in `src/repositories/` - importing them into a test
+works, and their writes roll back like everything else.
+
+There is also a `sql` helper for raw queries inside that transaction, used in
+exactly three places: the snake_case column check in `create-account.test.ts`,
+and the migrations/version checks in `signup-flow.test.ts`. Those compare the
+entities against what the migrations actually built, which is the one thing a
+TypeORM-only assertion cannot do - it would share its mapping with the code that
+wrote the row. Everywhere else, `repo()` reads better.
+
+Do **not** use `AppDataSource.query()` in a test: it takes a separate connection
+from the pool and cannot see what the test just wrote.
 
 ### Cost
 

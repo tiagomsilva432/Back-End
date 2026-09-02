@@ -3,14 +3,15 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import { app } from "../../src/app.js";
 import { UserStatus } from "../../src/types/enums.js";
-import { criarUtilizador, criarUtilizadorAtivo } from "../helpers/factories.js";
+import { criarUtilizador } from "../helpers/factories.js";
 
 const PASSWORD = "Password1!";
 
 describe("POST /auth/login", () => {
     it("devolve um token utilizável para uma conta ativa", async () => {
-        const utilizador = await criarUtilizadorAtivo(PASSWORD, {
+        const utilizador = await criarUtilizador({
             email: "gabriel@empresa.pt",
+            password: PASSWORD,
         });
 
         const res = await request(app)
@@ -41,7 +42,7 @@ describe("POST /auth/login", () => {
     });
 
     it("aceita o email com maiúsculas e espaços", async () => {
-        await criarUtilizadorAtivo(PASSWORD, { email: "helena@empresa.pt" });
+        await criarUtilizador({ email: "helena@empresa.pt", password: PASSWORD });
 
         await request(app)
             .post("/auth/login")
@@ -50,7 +51,7 @@ describe("POST /auth/login", () => {
     });
 
     it("devolve 401, e a mesma resposta, para email inexistente e password errada", async () => {
-        await criarUtilizadorAtivo(PASSWORD, { email: "irene@empresa.pt" });
+        await criarUtilizador({ email: "irene@empresa.pt", password: PASSWORD });
 
         const emailErrado = await request(app)
             .post("/auth/login")
@@ -80,7 +81,7 @@ describe("POST /auth/login", () => {
         ["terminada", { status: UserStatus.Terminated }],
         ["com troca de password pendente", { mustChangePassword: true }],
     ])("devolve 403 para uma conta %s", async (_nome, opcoes) => {
-        await criarUtilizadorAtivo(PASSWORD, { email: "luis@empresa.pt", ...opcoes });
+        await criarUtilizador({ email: "luis@empresa.pt", password: PASSWORD, ...opcoes });
 
         const res = await request(app)
             .post("/auth/login")

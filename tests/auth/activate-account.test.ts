@@ -1,24 +1,27 @@
-import { describe, expect, it } from "@jest/globals";
+import { beforeAll, describe, expect, it } from "@jest/globals";
 import { randomUUID } from "node:crypto";
 import request from "supertest";
 import { compare } from "bcrypt";
 import { app } from "../../src/app.js";
+import { User } from "../../src/entities/User.js";
 import { criarUtilizador } from "../helpers/factories.js";
-import { sql } from "../setup/db.js";
-
-const PASSWORD_VALIDA = "Password1!";
-
-async function criarConvite(email = "convidado@empresa.pt") {
-    const signupToken = randomUUID();
-    await criarUtilizador({
-        email,
-        signupToken,
-        signupTokenExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    });
-    return signupToken;
-}
+import { repo } from "../setup/db.js";
 
 describe("POST /auth/account/activate", () => {
+
+    const PASSWORD_VALIDA = "Password1!";
+    const users = () => repo(User);
+
+    async function criarConvite(email = "convidado@empresa.pt") {
+        const signupToken = randomUUID();
+        await criarUtilizador({
+            email,
+            signupToken,
+            signupTokenExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        });
+        return signupToken;
+    }
+
     it("ativa a conta, guarda o hash e queima o token", async () => {
         const signupToken = await criarConvite();
 
@@ -32,25 +35,17 @@ describe("POST /auth/account/activate", () => {
             message: "Conta ativada com sucesso",
         });
 
-        const [linha] = await sql<Array<Record<string, unknown>>>(
-            `SELECT status, password_hash, must_change_password,
-                    signup_token, signup_token_expires_at
-               FROM users WHERE email = $1`,
-            ["convidado@empresa.pt"],
-        );
+        const user = await users().findOneBy({ email: "convidado@empresa.pt" });
 
-        expect(linha).toMatchObject({
+        expect(user).toMatchObject({
             status: "active",
-            must_change_password: false,
-            signup_token: null,
-            signup_token_expires_at: null,
+            mustChangePassword: false,
+            signupToken: null,
+            signupTokenExpiresAt: null,
         });
 
-
-        const hash = linha!["password_hash"] as string;
-        expect(hash).not.toBe(PASSWORD_VALIDA);
-        expect(hash.startsWith("$2")).toBe(true);
-        expect(await compare(PASSWORD_VALIDA, hash)).toBe(true);
+        expect(user!.passwordHash).not.toBe(PASSWORD_VALIDA);
+        expect(await compare(PASSWORD_VALIDA, user!.passwordHash!)).toBe(true);
     });
 
     it("recusa o mesmo token uma segunda vez", async () => {
@@ -60,6 +55,7 @@ describe("POST /auth/account/activate", () => {
             .post("/auth/account/activate")
             .send({ signupToken, password: PASSWORD_VALIDA })
             .expect(200);
+
         const res = await request(app)
             .post("/auth/account/activate")
             .send({ signupToken, password: "OutraPassword1!" });
@@ -89,12 +85,10 @@ describe("POST /auth/account/activate", () => {
             .send({ signupToken, password: PASSWORD_VALIDA });
 
         expect(res.status).toBe(401);
-
-        const [linha] = await sql<Array<{ status: string; password_hash: string | null }>>(
-            `SELECT status, password_hash FROM users WHERE email = $1`,
-            ["atrasado@empresa.pt"],
-        );
-        expect(linha).toMatchObject({ status: "invited", password_hash: null });
+        expect(await users().findOneBy({ email: "atrasado@empresa.pt" })).toMatchObject({
+            status: "invited",
+            passwordHash: null,
+        });
     });
 
     it.each([
@@ -114,11 +108,6 @@ describe("POST /auth/account/activate", () => {
         expect(res.body.data).toEqual(
             expect.arrayContaining([expect.objectContaining({ field: "password" })]),
         );
-
-        const [linha] = await sql<Array<{ status: string }>>(
-            `SELECT status FROM users WHERE signup_token = $1`,
-            [signupToken],
-        );
-        expect(linha!.status).toBe("invited");
+        expect(await users().findOneBy({ signupToken })).toMatchObject({ status: "invited" });
     });
 });

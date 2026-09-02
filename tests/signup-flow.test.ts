@@ -1,8 +1,10 @@
 import { describe, expect, it } from "@jest/globals";
 import request from "supertest";
 import { app } from "../src/app.js";
+import { Skill } from "../src/entities/Skill.js";
+import { User } from "../src/entities/User.js";
 import { criarEmpresa } from "./helpers/factories.js";
-import { sql } from "./setup/db.js";
+import { repo, sql } from "./setup/db.js";
 
 describe("registo completo: criar -> ativar -> entrar", () => {
     it("leva uma conta de convidada a autenticada", async () => {
@@ -33,33 +35,23 @@ describe("registo completo: criar -> ativar -> entrar", () => {
         expect(login.body.data.token).toEqual(expect.any(String));
         expect(login.body.data.user).toMatchObject({ email, role: "employee" });
 
-        const [linha] = await sql<Array<Record<string, unknown>>>(
-            `SELECT status, must_change_password, signup_token
-               FROM users WHERE email = $1`,
-            [email],
-        );
-        expect(linha).toMatchObject({
+        expect(await repo(User).findOneBy({ email })).toMatchObject({
             status: "active",
-            must_change_password: false,
-            signup_token: null,
+            mustChangePassword: false,
+            signupToken: null,
         });
     });
 });
 
 describe("a montagem dos testes", () => {
     it("não vê nada do que os testes anteriores gravaram", async () => {
-        const linhas = await sql<Array<{ total: number }>>(
-            `SELECT COUNT(*)::int AS total FROM users`,
-        );
-        expect(linhas[0]!.total).toBe(0);
+        expect(await repo(User).count()).toBe(0);
     });
 
     it("correu as migrações todas, incluindo o seed", async () => {
-        const skills = await sql<Array<{ total: number }>>(
-            `SELECT COUNT(*)::int AS total FROM skills`,
-        );
-        expect(skills[0]!.total).toBe(20);
+        expect(await repo(Skill).count()).toBe(20);
 
+        // A tabela de controlo do TypeORM não tem entidade: só se lê em SQL.
         const migracoes = await sql<Array<{ name: string }>>(
             `SELECT name FROM migrations ORDER BY timestamp`,
         );

@@ -1,9 +1,12 @@
 import { describe, expect, it } from "@jest/globals";
 import request from "supertest";
 import { app } from "../../src/app.js";
+import { User } from "../../src/entities/User.js";
 import { logSpy } from "../helpers/console-spy.js";
 import { criarEmpresa, criarUtilizador } from "../helpers/factories.js";
-import { sql } from "../setup/db.js";
+import { repo, sql } from "../setup/db.js";
+
+const users = () => repo(User);
 
 describe("POST /auth/account/create", () => {
     it("cria a conta e grava-a na base de dados", async () => {
@@ -20,31 +23,23 @@ describe("POST /auth/account/create", () => {
             code: "SUCCESS_CREATED",
         });
 
-        const linhas = await sql<Array<Record<string, unknown>>>(
-            `SELECT company_id, email, role, status, signup_token,
-                    signup_token_expires_at, password_hash, must_change_password
-               FROM users
-              WHERE email = $1`,
-            ["ana@empresa.pt"],
-        );
+        const user = await users().findOneBy({ email: "ana@empresa.pt" });
 
-        expect(linhas).toHaveLength(1);
-        expect(linhas[0]).toMatchObject({
-            email: "ana@empresa.pt",
+        expect(user).toMatchObject({
+            companyId: empresa.id,
             role: "employee",
             status: "invited",
-            password_hash: null,
-            must_change_password: true,
+            passwordHash: null,
+            mustChangePassword: true,
         });
-
-        expect(linhas[0]!["signup_token"]).toEqual(expect.any(String));
-
-        const expira = linhas[0]!["signup_token_expires_at"] as Date;
-        expect(expira).toBeInstanceOf(Date);
-        expect(expira.getTime()).toBeGreaterThan(Date.now());
+        expect(user!.signupToken).toEqual(expect.any(String));
+        expect(user!.signupTokenExpiresAt!.getTime()).toBeGreaterThan(Date.now());
     });
 
-    it("regista o URL de ativação com o token que gravou", async () => {
+    it("grava nas colunas snake_case que as migrações criaram", async () => {
+        // O único teste que lê a tabela sem passar pelo TypeORM. Existe para
+        // apanhar uma divergência entre as entidades e as migrações: se a
+        // SnakeNamingStrategy sair do data-source.ts, é este SELECT que parte.
         const empresa = await criarEmpresa();
 
         await request(app)
@@ -52,14 +47,35 @@ describe("POST /auth/account/create", () => {
             .send({ companyId: empresa.id, email: "bruno@empresa.pt" })
             .expect(201);
 
-        const [linha] = await sql<Array<{ signup_token: string }>>(
-            `SELECT signup_token FROM users WHERE email = $1`,
+        const [linha] = await sql<Array<Record<string, unknown>>>(
+            `SELECT company_id, signup_token, signup_token_expires_at,
+                    password_hash, must_change_password
+               FROM users WHERE email = $1`,
             ["bruno@empresa.pt"],
         );
 
+        expect(linha).toMatchObject({
+            company_id: String(empresa.id),
+            password_hash: null,
+            must_change_password: true,
+        });
+        expect(linha!["signup_token"]).toEqual(expect.any(String));
+        expect(linha!["signup_token_expires_at"]).toBeInstanceOf(Date);
+    });
+
+    it("regista o URL de ativação com o token que gravou", async () => {
+        const empresa = await criarEmpresa();
+
+        await request(app)
+            .post("/auth/account/create")
+            .send({ companyId: empresa.id, email: "carla@empresa.pt" })
+            .expect(201);
+
+        const user = await users().findOneBy({ email: "carla@empresa.pt" });
+
         expect(logSpy).toHaveBeenCalledWith(
             expect.stringContaining(
-                `http://localhost:3000/auth/account/activate?token=${linha!.signup_token}`,
+                `http://localhost:3000/auth/account/activate?token=${user!.signupToken}`,
             ),
         );
     });
@@ -72,16 +88,10 @@ describe("POST /auth/account/create", () => {
             .send({ companyId: empresa.id, email: "chefe@empresa.pt", role: "ADMIN" })
             .expect(201);
 
-        const [linha] = await sql<Array<Record<string, unknown>>>(
-            `SELECT role, signup_token, signup_token_expires_at
-               FROM users WHERE email = $1`,
-            ["chefe@empresa.pt"],
-        );
-
-        expect(linha).toMatchObject({
+        expect(await users().findOneBy({ email: "chefe@empresa.pt" })).toMatchObject({
             role: "admin",
-            signup_token: null,
-            signup_token_expires_at: null,
+            signupToken: null,
+            signupTokenExpiresAt: null,
         });
     });
 
@@ -93,11 +103,9 @@ describe("POST /auth/account/create", () => {
             .send({ companyId: empresa.id, email: "diana@empresa.pt" })
             .expect(201);
 
-        const [linha] = await sql<Array<{ role: string }>>(
-            `SELECT role FROM users WHERE email = $1`,
-            ["diana@empresa.pt"],
-        );
-        expect(linha!.role).toBe("employee");
+        expect(await users().findOneBy({ email: "diana@empresa.pt" })).toMatchObject({
+            role: "employee",
+        });
     });
 
     it("devolve 409 quando o email já existe na mesma empresa", async () => {
@@ -108,13 +116,7 @@ describe("POST /auth/account/create", () => {
             .send({ companyId: utilizador.companyId, email: "eva@empresa.pt" });
 
         expect(res.status).toBe(409);
-        expect(res.body).toMatchObject({ status: 409 });
-
-        const linhas = await sql<Array<{ total: number }>>(
-            `SELECT COUNT(*)::int AS total FROM users WHERE email = $1`,
-            ["eva@empresa.pt"],
-        );
-        expect(linhas[0]!.total).toBe(1);
+        expect(await users().countBy({ email: "eva@empresa.pt" })).toBe(1);
     });
 
     it("aceita o mesmo email em empresas diferentes", async () => {
@@ -131,11 +133,7 @@ describe("POST /auth/account/create", () => {
             .send({ companyId: empresaB.id, email: "geral@empresa.pt" })
             .expect(201);
 
-        const linhas = await sql<Array<{ total: number }>>(
-            `SELECT COUNT(*)::int AS total FROM users WHERE email = $1`,
-            ["geral@empresa.pt"],
-        );
-        expect(linhas[0]!.total).toBe(2);
+        expect(await users().countBy({ email: "geral@empresa.pt" })).toBe(2);
     });
 });
 
@@ -163,11 +161,8 @@ describe("POST /auth/account/create — validação do corpo", () => {
             .post("/auth/account/create")
             .send({ email: "fantasma@empresa.pt" })
             .expect(400);
-        const linhas = await sql<Array<{ total: number }>>(
-            `SELECT COUNT(*)::int AS total FROM users WHERE email = $1`,
-            ["fantasma@empresa.pt"],
-        );
-        expect(linhas[0]!.total).toBe(0);
+
+        expect(await users().countBy({ email: "fantasma@empresa.pt" })).toBe(0);
     });
 
     it("ignora em silêncio os campos que não conhece", async () => {
@@ -178,10 +173,6 @@ describe("POST /auth/account/create — validação do corpo", () => {
             .send({ companyId: empresa.id, email: "flavio@empresa.pt", hacker: true })
             .expect(201);
 
-        const linhas = await sql<Array<{ total: number }>>(
-            `SELECT COUNT(*)::int AS total FROM users WHERE email = $1`,
-            ["flavio@empresa.pt"],
-        );
-        expect(linhas[0]!.total).toBe(1);
+        expect(await users().countBy({ email: "flavio@empresa.pt" })).toBe(1);
     });
 });

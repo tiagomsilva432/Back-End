@@ -39,10 +39,19 @@ afterEach(async () => {
     await queryRunner.release();
 });
 
-export function sql<T = unknown>(query: string, params?: unknown[]): Promise<T> {
-    return queryRunner.query(query, params) as Promise<T>;
+/** Repositório ligado à transação do teste. O caminho normal. */
+export function repo<T extends ObjectLiteral>(entity: EntityTarget<T>): Repository<T> {
+    return queryRunner.manager.getRepository(entity);
 }
 
 export function manager() {
     return queryRunner.manager;
+}
+
+/**
+ * SQL em cru, dentro da transação. Só para verificar o que o TypeORM esconde:
+ * nomes de colunas, tabelas sem entidade. Para tudo o resto usa-se o repo().
+ */
+export function sql<T = unknown>(query: string, params?: unknown[]): Promise<T> {
+    return queryRunner.query(query, params) as Promise<T>;
 }

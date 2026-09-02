@@ -33,29 +33,18 @@ interface OpcoesUtilizador {
 export async function criarUtilizador(opcoes: OpcoesUtilizador = {}): Promise<User> {
     const repo = manager().getRepository(User);
     const companyId = opcoes.companyId ?? (await criarEmpresa()).id;
+    const temPassword = opcoes.password !== undefined;
 
     return repo.save(
         repo.create({
             companyId,
             email: opcoes.email ?? `utilizador${proximo()}@empresa.pt`,
             role: opcoes.role ?? UserRole.Employee,
-            status: opcoes.status ?? UserStatus.Invited,
-            passwordHash: opcoes.password ? await hash(opcoes.password, saltRounds) : null,
-            mustChangePassword: opcoes.mustChangePassword ?? true,
+            status: opcoes.status ?? (temPassword ? UserStatus.Active : UserStatus.Invited),
+            passwordHash: temPassword ? await hash(opcoes.password!, saltRounds) : null,
+            mustChangePassword: opcoes.mustChangePassword ?? !temPassword,
             signupToken: opcoes.signupToken ?? null,
             signupTokenExpiresAt: opcoes.signupTokenExpiresAt ?? null,
         }),
     );
-}
-
-export async function criarUtilizadorAtivo(
-    password: string,
-    opcoes: OpcoesUtilizador = {},
-): Promise<User> {
-    return criarUtilizador({
-        status: UserStatus.Active,
-        mustChangePassword: false,
-        ...opcoes,
-        password,
-    });
 }
