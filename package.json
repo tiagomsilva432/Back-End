@@ -45,6 +45,7 @@
     "@jest/globals": "^30.4.1",
     "@swc/core": "^1.15.47",
     "@swc/jest": "^0.2.39",
+    "@testcontainers/postgresql": "^12.1.0",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",

@@ -68,27 +68,52 @@ export default {
     ],
   },
 
-  // A ORDEM destes dois é o coração de toda a montagem.
+  // TRÊS GANCHOS, TRÊS MOMENTOS DIFERENTES. É esta ordem que sustenta toda a
+  // montagem, e vale a pena reter que os dois primeiros correm em PROCESSOS
+  // DIFERENTES dos outros dois.
   //
-  // setupFiles corre ANTES de o framework de testes existir: aqui ainda não há
-  // describe, it, expect nem beforeEach. É o gancho mais cedo possível, ideal
-  // para escrever variáveis de ambiente.
+  // 1. globalSetup: uma vez por execução, no processo principal do Jest, antes
+  //    de os workers existirem. Arranca o contentor do Postgres e aplica as
+  //    migrações. Como corre noutro processo, não consegue entregar objetos aos
+  //    testes -- passa-lhes a morada da base de dados pelo process.env, que os
+  //    workers herdam.
+  globalSetup: "<rootDir>/tests/setup/global-db.mjs",
+  // 2. globalTeardown: o espelho do anterior, depois do último teste. Pára o
+  //    contentor.
+  globalTeardown: "<rootDir>/tests/setup/global-db-teardown.mjs",
+  //
+  // Os dois seguintes correm uma vez POR FICHEIRO DE TESTE, dentro do worker:
+  //
+  // 3. setupFiles corre ANTES de o framework de testes existir: aqui ainda não
+  //    há describe, it, expect nem beforeEach. É o gancho mais cedo possível,
+  //    ideal para escrever variáveis de ambiente.
   setupFiles: ["<rootDir>/tests/setup/env.ts"],
-  // setupFilesAfterEnv corre DEPOIS, já com o framework montado -- por isso
-  // pode registar um beforeEach global. É aqui que se instala o mock da BD.
-  setupFilesAfterEnv: ["<rootDir>/tests/setup/mocks.ts"],
+  // 4. setupFilesAfterEnv corre DEPOIS, já com o framework montado -- por isso
+  //    pode registar um beforeEach global. É aqui que se liga a base de dados e
+  //    se instala a transação de cada teste.
+  setupFilesAfterEnv: ["<rootDir>/tests/setup/db.ts"],
   //
   // Ambos correm até ao fim antes de o ficheiro de teste ser importado. É essa
   // garantia que permite aos testes fazerem `import { app } from "../src/app.js"`
-  // normalmente, com a certeza de que o mock já está no sítio.
+  // normalmente, com a certeza de que a costura já está no sítio.
+
+  // UM worker só. Cada worker abriria a sua própria pool contra a MESMA base de
+  // dados, e o isolamento por transação deixaria de garantir seja o que for:
+  // dois testes em paralelo veriam o meio-caminho um do outro.
+  maxWorkers: 1,
+
+  // Ligar à base de dados e criar transações é mais lento do que chamar um
+  // jest.fn(). Os 5s por omissão não chegam para o primeiro teste de um ficheiro.
+  testTimeout: 30_000,
 
   // O @swc/jest não instrumenta o código para o provider de cobertura do Babel.
   coverageProvider: "v8",
 
   // NÃO acrescentar `resetMocks` nem `restoreMocks` aqui!
-  // Ambos destruiriam os spies criados em tests/setup/mocks.ts logo a seguir ao
-  // primeiro teste, e os testes seguintes iriam bater na base de dados real.
-  // O isolamento é feito pelo beforeEach explícito nesse ficheiro.
+  // Ambos destruiriam o spy do getRepository criado em tests/setup/db.ts logo a
+  // seguir ao primeiro teste, e os testes seguintes iam bater na pool em vez da
+  // transação -- deixando lixo gravado. O isolamento é feito pelo beforeEach
+  // explícito nesse ficheiro.
 
   verbose: true,
 };
