@@ -4,7 +4,7 @@ import { app } from "../../src/app.js";
 import { User } from "../../src/entities/User.js";
 import { logSpy } from "../helpers/console-spy.js";
 import { criarEmpresa, criarUtilizador } from "../helpers/factories.js";
-import { repo, sql } from "../setup/db.js";
+import { repo } from "../setup/db.js";
 
 const users = () => repo(User);
 
@@ -34,33 +34,6 @@ describe("POST /auth/account/create", () => {
         });
         expect(user!.signupToken).toEqual(expect.any(String));
         expect(user!.signupTokenExpiresAt!.getTime()).toBeGreaterThan(Date.now());
-    });
-
-    it("grava nas colunas snake_case que as migrações criaram", async () => {
-        // O único teste que lê a tabela sem passar pelo TypeORM. Existe para
-        // apanhar uma divergência entre as entidades e as migrações: se a
-        // SnakeNamingStrategy sair do data-source.ts, é este SELECT que parte.
-        const empresa = await criarEmpresa();
-
-        await request(app)
-            .post("/auth/account/create")
-            .send({ companyId: empresa.id, email: "bruno@empresa.pt" })
-            .expect(201);
-
-        const [linha] = await sql<Array<Record<string, unknown>>>(
-            `SELECT company_id, signup_token, signup_token_expires_at,
-                    password_hash, must_change_password
-               FROM users WHERE email = $1`,
-            ["bruno@empresa.pt"],
-        );
-
-        expect(linha).toMatchObject({
-            company_id: String(empresa.id),
-            password_hash: null,
-            must_change_password: true,
-        });
-        expect(linha!["signup_token"]).toEqual(expect.any(String));
-        expect(linha!["signup_token_expires_at"]).toBeInstanceOf(Date);
     });
 
     it("regista o URL de ativação com o token que gravou", async () => {

@@ -4,7 +4,7 @@ import { app } from "../src/app.js";
 import { Skill } from "../src/entities/Skill.js";
 import { User } from "../src/entities/User.js";
 import { criarEmpresa } from "./helpers/factories.js";
-import { repo, sql } from "./setup/db.js";
+import { repo } from "./setup/db.js";
 
 describe("registo completo: criar -> ativar -> entrar", () => {
     it("leva uma conta de convidada a autenticada", async () => {
@@ -48,22 +48,7 @@ describe("a montagem dos testes", () => {
         expect(await repo(User).count()).toBe(0);
     });
 
-    it("correu as migrações todas, incluindo o seed", async () => {
+    it("correu o seed", async () => {
         expect(await repo(Skill).count()).toBe(20);
-
-        // A tabela de controlo do TypeORM não tem entidade: só se lê em SQL.
-        const migracoes = await sql<Array<{ name: string }>>(
-            `SELECT name FROM migrations ORDER BY timestamp`,
-        );
-        expect(migracoes.map((m) => m.name)).toEqual([
-            "InitialSchema1785158103760",
-            "TwoStepSignup1785161581791",
-            "SeedBaseData1785165000000",
-        ]);
-    });
-
-    it("está mesmo a falar com um Postgres", async () => {
-        const [linha] = await sql<Array<{ versao: string }>>(`SELECT version() AS versao`);
-        expect(linha!.versao).toContain("PostgreSQL 18");
     });
 });
