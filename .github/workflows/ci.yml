@@ -13,9 +13,27 @@ concurrency:
 
 jobs:
   verify:
-    name: Typecheck, build, tests
+    name: Typecheck, build, tests, deploy check
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+
+    # Only for the deploy rehearsal in the last step. The test suite does NOT
+    # use this database - Testcontainers starts its own on a random free port,
+    # so the two never collide.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: erp_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +45,7 @@ jobs:
       # package-lock.json is deliberately gitignored, so `npm ci` is not an
       # option here - it refuses to run without a lockfile. setup-node's own
       # cache is keyed on one too, hence caching ~/.npm by hand instead: npm
-      # then resolves versions over the network but downloads almost nothing.
+      # still resolves versions over the network, but downloads almost nothing.
       - name: Cache npm downloads
         uses: actions/cache@v4
         with:
@@ -43,12 +61,44 @@ jobs:
       - name: Type-check
         run: npm run test:types
 
-      # Proves the shippable output actually compiles, not just that types pass.
       - name: Build
         run: npm run build
 
-      # Testcontainers starts a real postgres:18-alpine and runs the migrations
-      # against it. ubuntu-latest already has Docker running, so nothing to set
-      # up here — and a broken migration fails this step.
+      # Testcontainers starts a real postgres:18-alpine and applies the
+      # migrations to it, so a broken migration fails here.
       - name: Tests
         run: npm test
+
+      - name: Docker image builds
+        run: docker build -t back-end:ci .
+
+      # The step that makes "it would deploy" a claim rather than a hope:
+      # empty database, real migrations, the COMPILED output, answering over
+      # HTTP. Compiling is not running - this project has already shipped a
+      # build that passed every check above and then crashed on startup.
+      - name: Smoke test the compiled build
+        env:
+          NODE_ENV: production
+          PORT: 3000
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: erp_ci
+          JWT_SECRET: ci-only-not-a-real-secret
+        run: |
+          npm run db:migrate
+
+          node dist/server.js > /tmp/server.log 2>&1 &
+          echo $! > /tmp/server.pid
+
+          if ! curl -fsS --retry 20 --retry-delay 1 --retry-connrefused \
+               http://localhost:3000/health; then
+            echo "--- server log ---"
+            cat /tmp/server.log
+            exit 1
+          fi
+
+          echo
+          echo "Compiled build booted and answered on /health."
+          kill "$(cat /tmp/server.pid)"
