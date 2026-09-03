@@ -67,3 +67,76 @@ database is unreachable the process exits instead of starting.
 `db:generate` produces a **proposal**, not a finished migration. Read it before
 running it: it does not drop tables whose entity was deleted, and it does not
 always honour constraint names declared on the entity.
+
+---
+
+## Tests
+
+```bash
+npm test
+```
+
+That is the whole command. There is no database to create, no container to
+start, no port to configure - **Docker just has to be running.**
+
+| Script | What it does |
+| --- | --- |
+| `npm test` | the full suite against a real PostgreSQL |
+| `npm run test:watch` | the same, re-running on save |
+| `npm run test:types` | type-check `src/` and `tests/` (the SWC transform does not) |
+
+### How it works
+
+Every test runs against a genuine `postgres:18-alpine`, started by
+[Testcontainers](https://testcontainers.com) and thrown away at the end. It is
+published on a random free port, so it never collides with the `docker compose`
+database you develop against, and it can never touch your real data.
+
+| File | Role |
+| --- | --- |
+| `tests/setup/global-db.mjs` | runs **once per run**, before the workers exist: starts the container, applies the migrations with `npm run db:migrate`, and publishes the connection details through `process.env` |
+| `tests/setup/global-db-teardown.mjs` | stops the container after the last test |
+| `tests/setup/env.ts` | runs **once per test file**, before any application module: fixes `NODE_ENV`, `JWT_SECRET`, bcrypt rounds, and so on |
+| `tests/setup/db.ts` | runs once per test file, after the framework is up: connects, and wraps every test in a transaction |
+| `tests/helpers/factories.ts` | shortcuts for putting real rows in the database |
+
+`jest.config.mjs` explains the ordering of those hooks in detail; it is worth
+reading once, because two of them run in a different process from the tests.
+
+### Isolation
+
+Each test runs inside a transaction that is **rolled back, never committed**. No
+test can see another's writes, no cleanup code is needed, and the data seeded by
+the `SeedBaseData` migration survives for everyone. This is also why
+`maxWorkers` is 1: parallel workers would share one database and see each
+other's uncommitted rows.
+
+The seam that makes this work is a single line in `tests/setup/db.ts`, which
+swaps `AppDataSource.getRepository` for one bound to the current transaction.
+Every repository in `src/repositories/` calls `getRepository` at module load, so
+replacing it once redirects the whole application.
+
+Setup and assertions go through `repo(Entity)` from `tests/setup/db.ts`, which
+returns a normal TypeORM repository bound to the test's transaction. The same
+applies to the methods in `src/repositories/` - importing them into a test
+works, and their writes roll back like everything else.
+
+There is also a `sql` helper for raw queries inside that transaction, used in
+exactly three places: the snake_case column check in `create-account.test.ts`,
+and the migrations/version checks in `signup-flow.test.ts`. Those compare the
+entities against what the migrations actually built, which is the one thing a
+TypeORM-only assertion cannot do - it would share its mapping with the code that
+wrote the row. Everywhere else, `repo()` reads better.
+
+Do **not** use `AppDataSource.query()` in a test: it takes a separate connection
+from the pool and cannot see what the test just wrote.
+
+### Cost
+
+Starting the container and migrating takes a few seconds before the first test;
+the tests themselves then run in a couple of seconds. The very first run on a
+machine also pulls the Postgres image.
+
+If the run is killed halfway, the container is not orphaned: Testcontainers
+starts a companion "Ryuk" container whose only job is to remove everything the
+session created once that session disappears.
