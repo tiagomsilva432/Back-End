@@ -31,6 +31,7 @@
   "homepage": "https://github.com/tiagomsilva432/Back-End#readme",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
@@ -47,6 +48,7 @@
     "@swc/jest": "^0.2.39",
     "@testcontainers/postgresql": "^12.1.0",
     "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.1.1",
