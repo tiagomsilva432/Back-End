@@ -10,6 +10,12 @@ export async function getUserByEmailAndCompanyId(email: string, companyId: numbe
     });
 }
 
+export async function getUserById(id: number): Promise <User | null> {
+    return await userRepo.findOneBy({
+        id
+    });
+}
+
 export async function getUserByEmail(email: string): Promise <User | null> {
     return await userRepo.findOneBy({
         email
