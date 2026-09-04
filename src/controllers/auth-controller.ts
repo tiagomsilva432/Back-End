@@ -1,4 +1,4 @@
-import { Response, Request } from "express";
+import type { Response, Request } from "express";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import { HttpError } from "../dtos/common/errors-dto.js";
 import { BASE_URL, PORT, jwtExpiresIn, jwtSecret, saltRounds } from "../env-vars.js";
@@ -7,8 +7,8 @@ import { User } from "../entities/User.js";
 import { compare, hash } from "bcrypt";
 import jwt from "jsonwebtoken";
 import { UserStatus } from "../types/enums.js";
-import { JwtClaims } from "../dtos/auth/jwt-dto.js";
-import { LoginResponse } from "../dtos/auth/login-dto.js";
+import type { JwtClaims } from "../dtos/auth/jwt-dto.js";
+import type { LoginResponse } from "../dtos/auth/login-dto.js";
 
 
 
@@ -36,7 +36,7 @@ export const activateUserWithToken = async (req: Request, res: Response) => {
 
     const user = await getUserBySignupToken(signupToken);
 
-    if(!user || !user.signupTokenExpiresAt || user.signupTokenExpiresAt < new Date()){
+    if(!user?.signupTokenExpiresAt || user.signupTokenExpiresAt < new Date()){
         throw new HttpError(401, "Token Inválido");
     }
 
@@ -56,7 +56,7 @@ export const loginWithEmailAndPassword = async (req: Request, res: Response) => 
     
     const user: User | null = await getUserByEmail(email);
 
-    if(!user || !user.passwordHash){
+    if(!user?.passwordHash){
         throw new HttpError(401, "Credenciais Inválidas");
     }
 
