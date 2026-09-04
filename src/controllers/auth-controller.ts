@@ -2,13 +2,15 @@ import { Response, Request } from "express";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import { HttpError } from "../dtos/common/errors-dto.js";
 import { BASE_URL, PORT, jwtExpiresIn, jwtSecret, saltRounds } from "../env-vars.js";
-import { createUser, getUserByEmail, getUserByEmailAndCompanyId, getUserBySignupToken, updateUser } from "../repositories/user-repo.js";
+import { createUser, getUserByEmail, getUserByEmailAndCompanyId, getUserById, getUserBySignupToken, updateUser } from "../repositories/user-repo.js";
 import { User } from "../entities/User.js";
 import { compare, hash } from "bcrypt";
 import jwt from "jsonwebtoken";
 import { UserStatus } from "../types/enums.js";
 import { JwtClaims } from "../dtos/auth/jwt-dto.js";
 import { LoginResponse } from "../dtos/auth/login-dto.js";
+import { MeResponse } from "../dtos/auth/me-dto.js";
+import { getAuth } from "../middleware/requireAuth.js";
 
 
 
@@ -88,4 +90,27 @@ export const loginWithEmailAndPassword = async (req: Request, res: Response) => 
     };
 
     return new HttpResponse(200, "Login bem sucedido", undefined, data).send(res);
+}
+
+export const getCurrentUser = async (req: Request, res: Response) => {
+    const claims = getAuth(req);
+
+    const user: User | null = await getUserById(Number(claims.sub));
+
+    if(!user){
+        throw new HttpError(401, "Token inválido");
+    }
+
+    if(user.status !== UserStatus.Active || user.mustChangePassword){
+        throw new HttpError(403, "Conta não está ativa");
+    }
+
+    const data: MeResponse = {
+        id: user.id,
+        companyId: user.companyId,
+        email: user.email,
+        role: user.role,
+    };
+
+    return new HttpResponse(200, "Utilizador autenticado", undefined, data).send(res);
 }

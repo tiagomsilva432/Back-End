@@ -27,4 +27,8 @@ router.get("/docs", (_req: Request, res: Response) => {
 </html>`);
 });
 
+//A documentação OpenAPI destas rotas vive em ../docs/docs-paths.ts:
+//ao contrário das outras, este ficheiro já importa o openapi.ts e declará-la
+//aqui criava um ciclo de imports.
+
 export default router;
