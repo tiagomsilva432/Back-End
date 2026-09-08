@@ -20,7 +20,7 @@ export async function criarEmpresa(nome?: string): Promise<Company> {
 }
 
 interface OpcoesUtilizador {
-    companyId?: number;
+    companyId?: string;
     email?: string;
     role?: UserRole;
     status?: UserStatus;

@@ -6,14 +6,13 @@ import {
     OneToOne,
     JoinColumn,
 } from "typeorm";
-import { bigintTransformer } from "./transformers.js";
 import { User } from "./User.js";
 
 // Shares its primary key with users: one profile per user, no surrogate id.
 @Entity("employee_profiles")
 export class EmployeeProfile {
-    @PrimaryColumn({ type: "bigint", transformer: bigintTransformer })
-    userId!: number;
+    @PrimaryColumn({ type: "uuid" })
+    userId!: string;
 
     @OneToOne(() => User, (user) => user.profile, { onDelete: "CASCADE" })
     @JoinColumn({ name: "user_id" })

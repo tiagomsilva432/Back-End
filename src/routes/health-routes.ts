@@ -18,7 +18,7 @@ router.get("/health/db", async(_req: Request, res: Response, next: NextFunction)
         if(!AppDataSource.isInitialized){
             return next(new HttpError(503, "Data Source não inicializada"));
         }
-        await userRepository.findOneBy({id:1});
+        await userRepository.count();
         return new HttpResponse(200, "Ligação com a Base de Dados OK").send(res);
     } catch (error) {
         return next(new HttpError(503, "Falha na ligação à base de dados", undefined, error));

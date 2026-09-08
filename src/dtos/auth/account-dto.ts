@@ -3,7 +3,7 @@ import { UserRole, UserStatus } from "../../types/enums.js";
 
 //Schema REQUEST createAccount
 export const createAccountSchema = z.object({
-    companyId: z.number().min(1).meta({ example: 1 }),
+    companyId: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     role: z.string().trim().toLowerCase().pipe(z.enum(UserRole)).optional().meta({ example: UserRole.Employee }),
     email: z.string().trim().toLowerCase().pipe(z.email()).meta({ example: "user@exemplo.pt" }),
 }).meta({ id: "CreateAccountRequest", description: "Dados para criar uma conta" });
@@ -21,8 +21,8 @@ export const activateAccountSchema = z.object({
 
 //Schema RESPONSE createAccount
 export const createAccountResponseSchema = z.object({
-    id: z.number().meta({ example: 1 }),
-    companyId: z.number().meta({ example: 1 }),
+    id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
+    companyId: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     email: z.string().meta({ example: "user@exemplo.pt" }),
     role: z.enum(UserRole).meta({ example: UserRole.Employee }),
     status: z.enum(UserStatus).meta({ example: UserStatus.Invited }),
