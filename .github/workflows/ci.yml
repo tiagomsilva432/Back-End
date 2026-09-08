@@ -6,7 +6,6 @@ on:
   push:
     branches: [main, develop]
 
-# A new push to the same branch cancels the run still in progress.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -17,9 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    # Only for the deploy rehearsal in the last step. The test suite does NOT
-    # use this database - Testcontainers starts its own on a random free port,
-    # so the two never collide.
     services:
       postgres:
         image: postgres:18-alpine
@@ -42,10 +38,7 @@ jobs:
         with:
           node-version: 24
 
-      # package-lock.json is deliberately gitignored, so `npm ci` is not an
-      # option here - it refuses to run without a lockfile. setup-node's own
-      # cache is keyed on one too, hence caching ~/.npm by hand instead: npm
-      # still resolves versions over the network, but downloads almost nothing.
+
       - name: Cache npm downloads
         uses: actions/cache@v4
         with:
@@ -56,26 +49,24 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      # Broader than `build`: covers src/ and tests/, which the SWC transform
-      # used by Jest never type-checks.
+
+      - name: Lint
+        run: npm run lint
+
       - name: Type-check
         run: npm run test:types
 
       - name: Build
         run: npm run build
 
-      # Testcontainers starts a real postgres:18-alpine and applies the
-      # migrations to it, so a broken migration fails here.
+
       - name: Tests
         run: npm test
 
       - name: Docker image builds
         run: docker build -t back-end:ci .
 
-      # The step that makes "it would deploy" a claim rather than a hope:
-      # empty database, real migrations, the COMPILED output, answering over
-      # HTTP. Compiling is not running - this project has already shipped a
-      # build that passed every check above and then crashed on startup.
+
       - name: Smoke test the compiled build
         env:
           NODE_ENV: production

@@ -1,10 +1,10 @@
-import { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { HttpError } from "../dtos/common/errors-dto.js";
 import { jwtSecret } from "../env-vars.js";
 import { jwtPayloadSchema, type JwtPayload } from "../dtos/auth/jwt-dto.js";
 
-export function requireAuth(req: Request, _res: Response, next: NextFunction): void {
+export function requireAuth(req: Request, _res: Response, next: NextFunction) {
     const BEARER = /^bearer\s+(\S+)$/i;
 
     const token = BEARER.exec(req.headers.authorization?.trim() ?? "")?.[1];

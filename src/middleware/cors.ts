@@ -1,4 +1,4 @@
-import cors, { CorsOptions } from "cors";
+import cors, { type CorsOptions } from "cors";
 import { corsOrigins, envIsDev } from "../env-vars.js";
 
 const allowlist = corsOrigins();

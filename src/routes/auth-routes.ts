@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { ZodOpenApiPathsObject, ZodOpenApiRequestBodyObject } from "zod-openapi";
-import { z } from "zod";
+import type { ZodOpenApiPathsObject, ZodOpenApiRequestBodyObject } from "zod-openapi";
+import type { z } from "zod";
 import { validateBody } from "../middleware/validateBody.js";
 import { activateAccountSchema, createAccountResponseSchema, createAccountSchema } from "../dtos/auth/account-dto.js";
 import { jsonResponse, errorResponses } from "../docs/response.js";

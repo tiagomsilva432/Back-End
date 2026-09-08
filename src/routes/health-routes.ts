@@ -1,5 +1,5 @@
-import { Router, Request, Response, NextFunction } from "express";
-import { ZodOpenApiPathsObject } from "zod-openapi";
+import { Router, type Request, type Response, type NextFunction } from "express";
+import type { ZodOpenApiPathsObject } from "zod-openapi";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import { jsonResponse, errorResponses } from "../docs/response.js";
 import { AppDataSource } from "../data-source.js";

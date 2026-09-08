@@ -112,7 +112,7 @@ export class User {
         this.companyId = companyId;
         this.email = email;
         this.role = role;
-        this.signupToken = role == UserRole.Admin ? null : randomUUID();
-        this.signupTokenExpiresAt = role == UserRole.Admin ? null : new Date(Date.now()+signupTokenExpDate());
+        this.signupToken = role === UserRole.Admin ? null : randomUUID();
+        this.signupTokenExpiresAt = role === UserRole.Admin ? null : new Date(Date.now()+signupTokenExpDate());
     }
 }
