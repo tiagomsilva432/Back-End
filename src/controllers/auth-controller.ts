@@ -9,8 +9,6 @@ import jwt from "jsonwebtoken";
 import { UserStatus } from "../types/enums.js";
 import type { JwtClaims } from "../dtos/auth/jwt-dto.js";
 import type { LoginResponse } from "../dtos/auth/login-dto.js";
-import { JwtClaims } from "../dtos/auth/jwt-dto.js";
-import { LoginResponse } from "../dtos/auth/login-dto.js";
 import type { MeResponse } from "../dtos/auth/me-dto.js";
 import { getAuth } from "../middleware/requireAuth.js";
 

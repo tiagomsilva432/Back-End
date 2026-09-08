@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { UserRole, UserStatus } from "../../types/enums.js";
-import { signupTokenExpDate } from "../../env-vars.js";
 
 //Schema REQUEST createAccount
 export const createAccountSchema = z.object({

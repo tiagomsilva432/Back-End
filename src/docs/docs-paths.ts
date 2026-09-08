@@ -1,4 +1,4 @@
-import { ZodOpenApiPathsObject } from "zod-openapi";
+import type { ZodOpenApiPathsObject } from "zod-openapi";
 import { errorResponses } from "./response.js";
 
 export const docsPaths: ZodOpenApiPathsObject = {
