@@ -28,6 +28,13 @@ export async function getUserBySignupToken(signupToken:string): Promise <User | 
     });
 }
 
+export async function getUsersByCompanyId(companyId: string): Promise <User[]> {
+    return await userRepo.find({
+        where: { companyId },
+        order: { email: "ASC" }
+    });
+}
+
 export async function updateUser(user: User){
     return await userRepo.save(user);
 }
