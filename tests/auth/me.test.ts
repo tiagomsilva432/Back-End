@@ -123,7 +123,7 @@ describe("GET /auth/me", () => {
     });
 });
 
-function claimsDe(utilizador: { id: number; companyId: number; role: UserRole }) {
+function claimsDe(utilizador: { id: string; companyId: string; role: UserRole }) {
     return {
         sub: String(utilizador.id),
         companyId: utilizador.companyId,

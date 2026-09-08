@@ -1,7 +1,6 @@
 import {
     Entity,
     PrimaryColumn,
-    Generated,
     Column,
     CreateDateColumn,
     ManyToOne,
@@ -9,7 +8,6 @@ import {
     JoinColumn,
     Unique,
 } from "typeorm";
-import { bigintTransformer } from "./transformers.js";
 import { Company } from "./Company.js";
 import { User } from "./User.js";
 import { ReviewRequest } from "./ReviewRequest.js";
@@ -18,12 +16,11 @@ import { ReviewRequest } from "./ReviewRequest.js";
 @Entity("review_cycles")
 @Unique("uq_review_cycles_company_name", ["companyId", "name"])
 export class ReviewCycle {
-    @PrimaryColumn({ type: "bigint", transformer: bigintTransformer })
-    @Generated("increment")
-    id!: number;
+    @PrimaryColumn({ type: "uuid", default: () => "uuidv7()" })
+    id!: string;
 
-    @Column({ type: "bigint", transformer: bigintTransformer })
-    companyId!: number;
+    @Column({ type: "uuid" })
+    companyId!: string;
 
     @ManyToOne(() => Company, { onDelete: "CASCADE" })
     @JoinColumn({ name: "company_id" })
@@ -33,8 +30,8 @@ export class ReviewCycle {
     name!: string;
 
     /** Audit trail, so no inverse relation. */
-    @Column({ type: "bigint", transformer: bigintTransformer })
-    openedBy!: number;
+    @Column({ type: "uuid" })
+    openedBy!: string;
 
     @ManyToOne(() => User)
     @JoinColumn({ name: "opened_by" })

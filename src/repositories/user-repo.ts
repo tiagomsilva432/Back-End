@@ -3,14 +3,14 @@ import { User } from "../entities/User.js";
 
 export const userRepo = AppDataSource.getRepository(User);
 
-export async function getUserByEmailAndCompanyId(email: string, companyId: number): Promise< User | null > {
+export async function getUserByEmailAndCompanyId(email: string, companyId: string): Promise< User | null > {
     return await userRepo.findOneBy({
         email,
         companyId
     });
 }
 
-export async function getUserById(id: number): Promise <User | null> {
+export async function getUserById(id: string): Promise <User | null> {
     return await userRepo.findOneBy({
         id
     });

@@ -1,7 +1,6 @@
 import {
     Entity,
     PrimaryColumn,
-    Generated,
     Column,
     CreateDateColumn,
     ManyToOne,
@@ -9,7 +8,6 @@ import {
     Index,
     Check,
 } from "typeorm";
-import { bigintTransformer } from "./transformers.js";
 import { User } from "./User.js";
 
 /** Full salary history. The current salary is the row where effectiveTo is null. */
@@ -22,12 +20,11 @@ import { User } from "./User.js";
 // Partial unique index: at most one open salary row per user.
 @Index("uq_salary_current", ["userId"], { unique: true, where: `"effective_to" IS NULL` })
 export class Salary {
-    @PrimaryColumn({ type: "bigint", transformer: bigintTransformer })
-    @Generated("increment")
-    id!: number;
+    @PrimaryColumn({ type: "uuid", default: () => "uuidv7()" })
+    id!: string;
 
-    @Column({ type: "bigint", transformer: bigintTransformer })
-    userId!: number;
+    @Column({ type: "uuid" })
+    userId!: string;
 
     @ManyToOne(() => User, (user) => user.salaries, { onDelete: "CASCADE" })
     @JoinColumn({ name: "user_id" })
@@ -51,8 +48,8 @@ export class Salary {
     reason!: string | null;
 
     /** The admin who set this salary. Audit trail, so no inverse relation. */
-    @Column({ type: "bigint", transformer: bigintTransformer })
-    createdBy!: number;
+    @Column({ type: "uuid" })
+    createdBy!: string;
 
     @ManyToOne(() => User)
     @JoinColumn({ name: "created_by" })

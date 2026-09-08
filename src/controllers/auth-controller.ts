@@ -95,7 +95,7 @@ export const loginWithEmailAndPassword = async (req: Request, res: Response) => 
 export const getCurrentUser = async (req: Request, res: Response) => {
     const claims = getAuth(req);
 
-    const user: User | null = await getUserById(Number(claims.sub));
+    const user: User | null = await getUserById(claims.sub);
 
     if(!user){
         throw new HttpError(401, "Token inválido");

@@ -14,6 +14,7 @@
     "build": "tsc -p .",
     "dev": "tsx watch src/server.ts",
     "dev:docker": "nodemon -L --watch src --ext ts,json --exec \"tsx src/server.ts\"",
+    "docker:rebuild": "docker compose up --build --renew-anon-volumes api",
     "typeorm": "node --import tsx ./node_modules/typeorm/cli.js -d src/data-source.ts",
     "db:migrate": "npm run typeorm -- migration:run",
     "db:revert": "npm run typeorm -- migration:revert",

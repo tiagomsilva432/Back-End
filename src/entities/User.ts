@@ -1,7 +1,6 @@
 import {
     Entity,
     PrimaryColumn,
-    Generated,
     Column,
     CreateDateColumn,
     UpdateDateColumn,
@@ -12,7 +11,6 @@ import {
     JoinColumn,
     Unique,
 } from "typeorm";
-import { bigintTransformer } from "./transformers.js";
 import { ENUM_COLUMN_LENGTH, UserRole, UserStatus } from "../types/enums.js";
 import { Company } from "./Company.js";
 import { EmployeeProfile } from "./EmployeeProfile.js";
@@ -30,12 +28,11 @@ import { signupTokenExpDate } from "../env-vars.js";
 @Unique("uq_users_company_email", ["companyId", "email"])
 @Unique("uq_users_signup_token", ["signupToken"])
 export class User {
-    @PrimaryColumn({ type: "bigint", transformer: bigintTransformer })
-    @Generated("increment")
-    id!: number;
+    @PrimaryColumn({ type: "uuid", default: () => "uuidv7()" })
+    id!: string;
 
-    @Column({ type: "bigint", transformer: bigintTransformer })
-    companyId!: number;
+    @Column({ type: "uuid" })
+    companyId!: string;
 
     @ManyToOne(() => Company, (company) => company.users, { onDelete: "CASCADE" })
     @JoinColumn({ name: "company_id" })
@@ -108,7 +105,7 @@ export class User {
     @OneToMany(() => EmployeeSkill, (employeeSkill) => employeeSkill.user)
     skills!: EmployeeSkill[];
 
-    constructor (companyId: number, email: string, role: UserRole) {
+    constructor (companyId: string, email: string, role: UserRole) {
         this.companyId = companyId;
         this.email = email;
         this.role = role;
