@@ -33,3 +33,17 @@ export const jwtSecret = (): string => {
 export const jwtExpiresIn = (): NonNullable<SignOptions["expiresIn"]> => {
     return (process.env.JWT_EXPIRES_IN ?? "1d") as NonNullable<SignOptions["expiresIn"]>;
 };
+//Email
+export const smtpHost = (): string | undefined => process.env.SMTP_HOST || undefined;
+export const smtpPort = (): number => numberEnv("SMTP_PORT", 587);
+export const smtpUser = (): string | undefined => process.env.SMTP_USER || undefined;
+export const smtpPassword = (): string | undefined => process.env.SMTP_PASSWORD || undefined;
+
+export const mailFrom = (): string => process.env.MAIL_FROM ?? "nao-responder@localhost";
+
+/**
+ * Só liga isto se o endereço de cada empresa estiver verificado no fornecedor
+ * de SMTP. Caso contrário o From é reescrito ou a mensagem cai em spam, e a
+ * empresa aparece só como nome e Reply-To.
+ */
+export const mailAllowCompanyFrom = (): boolean => process.env.MAIL_ALLOW_COMPANY_FROM === "true";

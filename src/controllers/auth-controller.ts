@@ -11,6 +11,8 @@ import type { JwtClaims } from "../dtos/auth/jwt-dto.js";
 import type { LoginResponse } from "../dtos/auth/login-dto.js";
 import type { MeResponse } from "../dtos/auth/me-dto.js";
 import { getAuth } from "../middleware/requireAuth.js";
+import { getCompanyById } from "../repositories/company-repo.js";
+import { mailer } from "../services/mailer.js";
 
 
 
@@ -26,9 +28,22 @@ export const createAccount = async (req: Request, res: Response) => {
 
     const created: User = await createUser(newUser);
 
-    const activationUrl: string = `${BASE_URL}:${PORT}/auth/account/activate?token=${created.signupToken}`
+    if (created.signupToken) {
+        const activationUrl: string = `${BASE_URL}:${PORT}/auth/account/activate?token=${created.signupToken}`
 
-    console.log(`Conta Criada - URL Ativação: ${activationUrl}`);
+        console.log(`Conta Criada - URL Ativação: ${activationUrl}`);
+
+        const company = await getCompanyById(created.companyId);
+        // A conta fica criada mesmo que o email falhe; o token continua válido
+        // e pode ser reenviado.
+        try {
+            if (company) {
+                await mailer.sendActivationEmail(company, created.email, activationUrl);
+            }
+        } catch (error) {
+            console.error(`Falha ao enviar o email de ativação para ${created.email}`, error);
+        }
+    }
 
     return new HttpResponse(201, "Conta criada", undefined, created).send(res);
 }

@@ -33,6 +33,34 @@ cp .env.example .env
 | `DB_NAME` | `erp` | the example file uses `erp_ossilvas_dev` |
 | `DB_LOGGING` | `false` | set `true` to log every SQL statement |
 | `JWT_SECRET` | - | not used yet, needed once auth lands |
+| `SMTP_HOST` | - | **empty = emails go to the console instead of being sent** |
+| `SMTP_PORT` | `587` | `465` switches to implicit TLS |
+| `SMTP_USER` / `SMTP_PASSWORD` | - | omit both for a server that needs no auth |
+| `MAIL_FROM` | `nao-responder@localhost` | the sender address; must be one your SMTP provider authorises |
+| `MAIL_ALLOW_COMPANY_FROM` | `false` | `true` sends from `companies.email` — see below |
+
+### Sending real emails
+
+The activation link is emailed on account creation (employees only — both admin
+roles are created without a signup token, so there is nothing to activate).
+
+The `From:` header is only a label: the SMTP account is the real sender, and
+receiving servers check SPF/DKIM against the From **domain**. Gmail rewrites a
+From it did not authorise; other providers reject it. So an arbitrary
+`companies.email` cannot be the From address.
+
+By default the company is therefore the *display name* and the `Reply-To`, while
+`MAIL_FROM` is the actual address — this always delivers. Set
+`MAIL_ALLOW_COMPANY_FROM=true` only once each company address is verified with
+your provider; then `companies.email` becomes the real From.
+
+Two setups that work without owning a domain:
+
+- **Gmail** — enable 2-step verification, generate an App Password, and use
+  `smtp.gmail.com:587` with that password. ~500/day.
+- **Brevo** — free tier, 300/day. Verify a sender under *Senders & IPs* and use
+  `smtp-relay.brevo.com:587`. Several addresses can be verified, which is what
+  makes `MAIL_ALLOW_COMPANY_FROM=true` viable.
 
 Create the database, then apply the migrations:
 

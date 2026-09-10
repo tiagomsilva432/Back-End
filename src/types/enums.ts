@@ -1,23 +1,11 @@
-/**
- * The SQL schema's ENUM types, moved to the code side.
- *
- * These are plain VARCHAR columns in the database: adding a member here needs no
- * migration, but it also means the database will NOT reject an invalid value.
- * The string values below are the exact bytes stored in those columns - renaming
- * a member is free, changing its value is a data migration.
- */
-
-/**
- * Builds a runtime type predicate for a string enum. `Object.values` is exact
- * here because string enums (unlike numeric ones) get no reverse mapping.
- */
 function guard<T extends Record<string, string>>(enumObject: T) {
     const values = new Set<string>(Object.values(enumObject));
     return (v: unknown): v is T[keyof T] => typeof v === "string" && values.has(v);
 }
 
 export enum UserRole {
-    Admin = "admin",
+    SystemAdmin = "system_admin",
+    CompanyAdmin = "company_admin",
     Employee = "employee",
 }
 export const isUserRole = guard(UserRole);
@@ -57,5 +45,4 @@ export enum ReviewRequestStatus {
 }
 export const isReviewRequestStatus = guard(ReviewRequestStatus);
 
-/** Shared column definition so every enum-backed column is declared identically. */
 export const ENUM_COLUMN_LENGTH = 20;
