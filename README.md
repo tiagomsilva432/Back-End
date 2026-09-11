@@ -91,10 +91,14 @@ database is unreachable the process exits instead of starting.
 | `npm run db:migrate` | apply pending migrations |
 | `npm run db:revert` | roll back the most recent migration |
 | `npm run db:generate -- src/migrations/SomeName` | diff entities against the DB and write a migration |
+| `npm run db:check` | fail if the entities and the migrations disagree |
 
 `db:generate` produces a **proposal**, not a finished migration. Read it before
 running it: it does not drop tables whose entity was deleted, and it does not
 always honour constraint names declared on the entity.
+
+After changing an entity, run `db:check` against a migrated database before
+pushing.
 
 ---
 
