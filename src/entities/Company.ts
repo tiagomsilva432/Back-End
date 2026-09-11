@@ -21,6 +21,9 @@ export class Company {
     @Column({ type: "varchar", length: 50, nullable: true })
     taxId!: string | null;
 
+    @Column({ type: "varchar", length: 255, nullable: true })
+    email!: string | null;
+
     @Column({ type: "varchar", length: 2, default: "PT" })
     country!: string;
 
