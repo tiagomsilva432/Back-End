@@ -1,14 +1,18 @@
-import { Response, Request } from "express";
+import type { Response, Request } from "express";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import { HttpError } from "../dtos/common/errors-dto.js";
 import { BASE_URL, PORT, jwtExpiresIn, jwtSecret, saltRounds } from "../env-vars.js";
-import { createUser, getUserByEmail, getUserByEmailAndCompanyId, getUserBySignupToken, updateUser } from "../repositories/user-repo.js";
+import { createUser, getUserByEmail, getUserByEmailAndCompanyId, getUserById, getUserBySignupToken, updateUser } from "../repositories/user-repo.js";
 import { User } from "../entities/User.js";
 import { compare, hash } from "bcrypt";
 import jwt from "jsonwebtoken";
 import { UserStatus } from "../types/enums.js";
-import { JwtClaims } from "../dtos/auth/jwt-dto.js";
-import { LoginResponse } from "../dtos/auth/login-dto.js";
+import type { JwtClaims } from "../dtos/auth/jwt-dto.js";
+import type { LoginResponse } from "../dtos/auth/login-dto.js";
+import type { MeResponse } from "../dtos/auth/me-dto.js";
+import { getAuth } from "../middleware/requireAuth.js";
+import { getCompanyById } from "../repositories/company-repo.js";
+import { mailer } from "../services/mailer.js";
 
 
 
@@ -24,9 +28,22 @@ export const createAccount = async (req: Request, res: Response) => {
 
     const created: User = await createUser(newUser);
 
-    const activationUrl: string = `${BASE_URL}:${PORT}/auth/account/activate?token=${created.signupToken}`
+    if (created.signupToken) {
+        const activationUrl: string = `${process.env.FE_URL}/auth/account/activate?token=${created.signupToken}`
 
-    console.log(`Conta Criada - URL Ativação: ${activationUrl}`);
+        console.log(`Conta Criada - URL Ativação: ${activationUrl}`);
+
+        const company = await getCompanyById(created.companyId);
+        // A conta fica criada mesmo que o email falhe; o token continua válido
+        // e pode ser reenviado.
+        try {
+            if (company) {
+                await mailer.sendActivationEmail(company, created.email, activationUrl);
+            }
+        } catch (error) {
+            console.error(`Falha ao enviar o email de ativação para ${created.email}`, error);
+        }
+    }
 
     return new HttpResponse(201, "Conta criada", undefined, created).send(res);
 }
@@ -36,7 +53,7 @@ export const activateUserWithToken = async (req: Request, res: Response) => {
 
     const user = await getUserBySignupToken(signupToken);
 
-    if(!user || !user.signupTokenExpiresAt || user.signupTokenExpiresAt < new Date()){
+    if(!user?.signupTokenExpiresAt || user.signupTokenExpiresAt < new Date()){
         throw new HttpError(401, "Token Inválido");
     }
 
@@ -56,7 +73,7 @@ export const loginWithEmailAndPassword = async (req: Request, res: Response) => 
     
     const user: User | null = await getUserByEmail(email);
 
-    if(!user || !user.passwordHash){
+    if(!user?.passwordHash){
         throw new HttpError(401, "Credenciais Inválidas");
     }
 
@@ -88,4 +105,27 @@ export const loginWithEmailAndPassword = async (req: Request, res: Response) => 
     };
 
     return new HttpResponse(200, "Login bem sucedido", undefined, data).send(res);
+}
+
+export const getCurrentUser = async (req: Request, res: Response) => {
+    const claims = getAuth(req);
+
+    const user: User | null = await getUserById(claims.sub);
+
+    if(!user){
+        throw new HttpError(401, "Token inválido");
+    }
+
+    if(user.status !== UserStatus.Active || user.mustChangePassword){
+        throw new HttpError(403, "Conta não está ativa");
+    }
+
+    const data: MeResponse = {
+        id: user.id,
+        companyId: user.companyId,
+        email: user.email,
+        role: user.role,
+    };
+
+    return new HttpResponse(200, "Utilizador autenticado", undefined, data).send(res);
 }

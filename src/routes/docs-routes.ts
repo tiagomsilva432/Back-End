@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+import { Router, type Request, type Response } from "express";
 import { openApiDocument } from "../docs/openapi.js";
 
 const router = Router();
@@ -26,5 +26,9 @@ router.get("/docs", (_req: Request, res: Response) => {
   </body>
 </html>`);
 });
+
+//A documentação OpenAPI destas rotas vive em ../docs/docs-paths.ts:
+//ao contrário das outras, este ficheiro já importa o openapi.ts e declará-la
+//aqui criava um ciclo de imports.
 
 export default router;

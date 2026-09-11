@@ -1,7 +1,10 @@
 import { createDocument } from "zod-openapi";
 import { createAccountSchema } from "../dtos/auth/account-dto.js";
 import { loginResponseSchema, loginSchema } from "../dtos/auth/login-dto.js";
+import { meResponseSchema } from "../dtos/auth/me-dto.js";
 import { healthPaths } from "../routes/health-routes.js";
+import { authPaths } from "../routes/auth-routes.js";
+import { docsPaths } from "./docs-paths.js";
 
 export const openApiDocument: ReturnType<typeof createDocument> = createDocument({
     openapi: "3.1.0",
@@ -22,12 +25,15 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
     ],
     paths: {
         ...healthPaths,
+        ...docsPaths,
+        ...authPaths,
     },
     components: {
         schemas: {
             LoginRequest: loginSchema,
             LoginResponse: loginResponseSchema,
             CreateAccountRequest: createAccountSchema,
+            MeResponse: meResponseSchema,
         },
         securitySchemes: {
             bearerAuth: {

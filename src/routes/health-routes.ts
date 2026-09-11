@@ -1,5 +1,5 @@
-import { Router, Request, Response, NextFunction } from "express";
-import { ZodOpenApiPathsObject } from "zod-openapi";
+import { Router, type Request, type Response, type NextFunction } from "express";
+import type { ZodOpenApiPathsObject } from "zod-openapi";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import { jsonResponse, errorResponses } from "../docs/response.js";
 import { AppDataSource } from "../data-source.js";
@@ -18,7 +18,7 @@ router.get("/health/db", async(_req: Request, res: Response, next: NextFunction)
         if(!AppDataSource.isInitialized){
             return next(new HttpError(503, "Data Source não inicializada"));
         }
-        await userRepository.findOneBy({id:1});
+        await userRepository.count();
         return new HttpResponse(200, "Ligação com a Base de Dados OK").send(res);
     } catch (error) {
         return next(new HttpError(503, "Falha na ligação à base de dados", undefined, error));

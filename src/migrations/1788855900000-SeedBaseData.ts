@@ -1,7 +1,16 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import type { MigrationInterface, QueryRunner } from "typeorm";
 
-export class SeedBaseData1785165000000 implements MigrationInterface {
-    name = 'SeedBaseData1785165000000'
+/**
+ * A primeira empresa e o catálogo de competências partilhado. Fica como
+ * migração para que uma base de dados vazia - um volume Docker novo, por
+ * exemplo - arranque utilizável sem nenhum passo manual.
+ *
+ * Os ids não são indicados: o default uuidv7() da coluna trata disso.
+ * Utilizadores não são semeados de propósito; o primeiro administrador é
+ * criado à mão.
+ */
+export class SeedBaseData1788855900000 implements MigrationInterface {
+    name = 'SeedBaseData1788855900000'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`

@@ -1,7 +1,6 @@
 import {
     Entity,
     PrimaryColumn,
-    Generated,
     Column,
     CreateDateColumn,
     ManyToOne,
@@ -10,7 +9,6 @@ import {
     Unique,
     Check,
 } from "typeorm";
-import { bigintTransformer } from "./transformers.js";
 import { ENUM_COLUMN_LENGTH, ProjectStatus } from "../types/enums.js";
 import { Company } from "./Company.js";
 import { User } from "./User.js";
@@ -24,20 +22,19 @@ import { Allocation } from "./Allocation.js";
     `"end_date" IS NULL OR "start_date" IS NULL OR "end_date" >= "start_date"`,
 )
 export class Project {
-    @PrimaryColumn({ type: "bigint", transformer: bigintTransformer })
-    @Generated("increment")
-    id!: number;
+    @PrimaryColumn({ type: "uuid", default: () => "uuidv7()" })
+    id!: string;
 
-    @Column({ type: "bigint", transformer: bigintTransformer })
-    companyId!: number;
+    @Column({ type: "uuid" })
+    companyId!: string;
 
     @ManyToOne(() => Company, (company) => company.projects, { onDelete: "CASCADE" })
     @JoinColumn({ name: "company_id" })
     company!: Company;
 
     /** Project manager / lead. Nulled rather than cascading if the user is removed. */
-    @Column({ type: "bigint", transformer: bigintTransformer, nullable: true })
-    managerId!: number | null;
+    @Column({ type: "uuid", nullable: true })
+    managerId!: string | null;
 
     @ManyToOne(() => User, { onDelete: "SET NULL", nullable: true })
     @JoinColumn({ name: "manager_id" })
