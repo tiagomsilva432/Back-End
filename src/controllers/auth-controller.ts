@@ -29,7 +29,7 @@ export const createAccount = async (req: Request, res: Response) => {
     const created: User = await createUser(newUser);
 
     if (created.signupToken) {
-        const activationUrl: string = `${BASE_URL}:${PORT}/auth/account/activate?token=${created.signupToken}`
+        const activationUrl: string = `${process.env.FE_URL}/auth/account/activate?token=${created.signupToken}`
 
         console.log(`Conta Criada - URL Ativação: ${activationUrl}`);
 
