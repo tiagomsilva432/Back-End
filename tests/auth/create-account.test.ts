@@ -49,7 +49,7 @@ describe("POST /auth/account/create", () => {
 
         expect(logSpy).toHaveBeenCalledWith(
             expect.stringContaining(
-                `http://localhost:3000/auth/account/activate?token=${user!.signupToken}`,
+                `${process.env.FE_URL}/auth/account/activate?token=${user!.signupToken}`,
             ),
         );
     });
