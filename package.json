@@ -14,11 +14,12 @@
     "build": "tsc -p .",
     "dev": "tsx watch src/server.ts",
     "dev:docker": "nodemon -L --watch src --ext ts,json --exec \"tsx src/server.ts\"",
-    "docker:rebuild": "docker compose up --build --renew-anon-volumes api",
+    "docker:rebuild": "docker compose up -d --build --renew-anon-volumes api",
     "typeorm": "node --import tsx ./node_modules/typeorm/cli.js -d src/data-source.ts",
     "db:migrate": "npm run typeorm -- migration:run",
     "db:revert": "npm run typeorm -- migration:revert",
-    "db:generate": "node --import tsx ./node_modules/typeorm/cli.js migration:generate -d src/data-source.ts"
+    "db:generate": "node --import tsx ./node_modules/typeorm/cli.js migration:generate -d src/data-source.ts",
+    "db:check": "node --import tsx ./node_modules/typeorm/cli.js migration:generate src/migrations/DriftCheck -d src/data-source.ts --check"
   },
   "repository": {
     "type": "git",

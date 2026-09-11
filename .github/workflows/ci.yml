@@ -60,6 +60,23 @@ jobs:
         run: npm run build
 
 
+      # The test suite builds its database from the migrations, so the entities
+      # are never confronted with it: an entity changed without a matching
+      # migration passes lint, types, build and tests. This is the only step
+      # that compares the two. It writes nothing - on failure it prints the
+      # migration that is missing.
+      - name: Migrations match the entities
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: erp_ci
+        run: |
+          npm run db:migrate
+          npm run db:check
+
+
       - name: Tests
         run: npm test
 
