@@ -1,7 +1,6 @@
 import {
     Entity,
     PrimaryColumn,
-    Generated,
     Column,
     CreateDateColumn,
     ManyToOne,
@@ -10,7 +9,6 @@ import {
     Index,
     Check,
 } from "typeorm";
-import { bigintTransformer } from "./transformers.js";
 import { ENUM_COLUMN_LENGTH, ReviewRequestStatus } from "../types/enums.js";
 import { Company } from "./Company.js";
 import { User } from "./User.js";
@@ -32,20 +30,19 @@ import { Review } from "./Review.js";
 @Index("idx_review_requests_reviewer", ["reviewerId", "status"])
 @Index("idx_review_requests_reviewee", ["revieweeId"])
 export class ReviewRequest {
-    @PrimaryColumn({ type: "bigint", transformer: bigintTransformer })
-    @Generated("increment")
-    id!: number;
+    @PrimaryColumn({ type: "uuid", default: () => "uuidv7()" })
+    id!: string;
 
-    @Column({ type: "bigint", transformer: bigintTransformer })
-    companyId!: number;
+    @Column({ type: "uuid" })
+    companyId!: string;
 
     @ManyToOne(() => Company, { onDelete: "CASCADE" })
     @JoinColumn({ name: "company_id" })
     company!: Company;
 
     /** Null means an ad-hoc request rather than part of a cycle. */
-    @Column({ type: "bigint", transformer: bigintTransformer, nullable: true })
-    cycleId!: number | null;
+    @Column({ type: "uuid", nullable: true })
+    cycleId!: string | null;
 
     @ManyToOne(() => ReviewCycle, (cycle) => cycle.requests, {
         onDelete: "CASCADE",
@@ -55,22 +52,22 @@ export class ReviewRequest {
     cycle!: ReviewCycle | null;
 
     /** The admin who launched it. Audit trail, so no inverse relation. */
-    @Column({ type: "bigint", transformer: bigintTransformer })
-    requestedBy!: number;
+    @Column({ type: "uuid" })
+    requestedBy!: string;
 
     @ManyToOne(() => User)
     @JoinColumn({ name: "requested_by" })
     requestedByUser!: User;
 
-    @Column({ type: "bigint", transformer: bigintTransformer })
-    reviewerId!: number;
+    @Column({ type: "uuid" })
+    reviewerId!: string;
 
     @ManyToOne(() => User, { onDelete: "CASCADE" })
     @JoinColumn({ name: "reviewer_id" })
     reviewer!: User;
 
-    @Column({ type: "bigint", transformer: bigintTransformer })
-    revieweeId!: number;
+    @Column({ type: "uuid" })
+    revieweeId!: string;
 
     @ManyToOne(() => User, { onDelete: "CASCADE" })
     @JoinColumn({ name: "reviewee_id" })

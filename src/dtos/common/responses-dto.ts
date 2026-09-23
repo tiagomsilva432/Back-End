@@ -1,5 +1,5 @@
 //Formato de Resposta Standardizado
-import { Response } from "express";
+import type { Response } from "express";
 import { z } from "zod";
 //Importar Mensagens Default
 import { getDefaults } from "../../utils/httpStatusDefaults.js";

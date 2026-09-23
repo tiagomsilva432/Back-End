@@ -1,10 +1,9 @@
 import { z } from "zod";
-import { UserRole } from "../../types/enums.js";
-import { signupTokenExpDate } from "../../env-vars.js";
+import { UserRole, UserStatus } from "../../types/enums.js";
 
 //Schema REQUEST createAccount
 export const createAccountSchema = z.object({
-    companyId: z.number().min(1).meta({ example: 1 }),
+    companyId: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     role: z.string().trim().toLowerCase().pipe(z.enum(UserRole)).optional().meta({ example: UserRole.Employee }),
     email: z.string().trim().toLowerCase().pipe(z.email()).meta({ example: "user@exemplo.pt" }),
 }).meta({ id: "CreateAccountRequest", description: "Dados para criar uma conta" });
@@ -19,6 +18,20 @@ export const activateAccountSchema = z.object({
     .regex(/[@$!%*?&#]/, { message: "Password tem de ter pelo menos um caracter especial!" })
 }).meta({ id: "ActivateAccountRequest", description: "Dados para ativar uma conta"});
 
+
+//Schema RESPONSE createAccount
+export const createAccountResponseSchema = z.object({
+    id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
+    companyId: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
+    email: z.string().meta({ example: "user@exemplo.pt" }),
+    role: z.enum(UserRole).meta({ example: UserRole.Employee }),
+    status: z.enum(UserStatus).meta({ example: UserStatus.Invited }),
+    signupToken: z.string().nullable().meta({ example: "0e5f2a1c-..." }),
+    signupTokenExpiresAt: z.iso.datetime().nullable(),
+}).meta({
+    id: "CreateAccountResponse",
+    description: "Conta criada. O signupToken é o que segue no link de ativação.",
+});
 
 export type CreateAccountRequest = z.infer<typeof createAccountSchema>;
 export type ActivateAccountRequest = z.infer<typeof activateAccountSchema>;

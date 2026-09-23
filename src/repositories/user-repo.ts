@@ -3,10 +3,16 @@ import { User } from "../entities/User.js";
 
 export const userRepo = AppDataSource.getRepository(User);
 
-export async function getUserByEmailAndCompanyId(email: string, companyId: number): Promise< User | null > {
+export async function getUserByEmailAndCompanyId(email: string, companyId: string): Promise< User | null > {
     return await userRepo.findOneBy({
         email,
         companyId
+    });
+}
+
+export async function getUserById(id: string): Promise <User | null> {
+    return await userRepo.findOneBy({
+        id
     });
 }
 
@@ -19,6 +25,13 @@ export async function getUserByEmail(email: string): Promise <User | null> {
 export async function getUserBySignupToken(signupToken:string): Promise <User | null> {
     return await userRepo.findOneBy({
         signupToken
+    });
+}
+
+export async function getUsersByCompanyId(companyId: string): Promise <User[]> {
+    return await userRepo.find({
+        where: { companyId },
+        order: { email: "ASC" }
     });
 }
 

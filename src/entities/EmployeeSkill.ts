@@ -1,5 +1,4 @@
 import { Entity, PrimaryColumn, Column, ManyToOne, JoinColumn, Check } from "typeorm";
-import { bigintTransformer } from "./transformers.js";
 import { User } from "./User.js";
 import { Skill } from "./Skill.js";
 
@@ -8,15 +7,15 @@ import { Skill } from "./Skill.js";
 @Check("ck_employee_skills_proficiency_range", `"proficiency" BETWEEN 1 AND 5`)
 @Check("ck_employee_skills_years_non_negative", `"years_experience" >= 0`)
 export class EmployeeSkill {
-    @PrimaryColumn({ type: "bigint", transformer: bigintTransformer })
-    userId!: number;
+    @PrimaryColumn({ type: "uuid" })
+    userId!: string;
 
     @ManyToOne(() => User, (user) => user.skills, { onDelete: "CASCADE" })
     @JoinColumn({ name: "user_id" })
     user!: User;
 
-    @PrimaryColumn({ type: "bigint", transformer: bigintTransformer })
-    skillId!: number;
+    @PrimaryColumn({ type: "uuid" })
+    skillId!: string;
 
     @ManyToOne(() => Skill, (skill) => skill.employeeSkills, { onDelete: "CASCADE" })
     @JoinColumn({ name: "skill_id" })

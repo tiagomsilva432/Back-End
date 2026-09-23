@@ -11,6 +11,7 @@ Express 5 + TypeORM + PostgreSQL, written in TypeScript (ESM).
 
 - **Node.js 20+** (developed on 24)
 - **PostgreSQL 13+** (developed on 18)
+- **Docker**, running, for the test suite
 
 ## Setup
 
@@ -32,7 +33,35 @@ cp .env.example .env
 | `DB_USER` / `DB_PASSWORD` | `postgres` / `postgres` | |
 | `DB_NAME` | `erp` | the example file uses `erp_ossilvas_dev` |
 | `DB_LOGGING` | `false` | set `true` to log every SQL statement |
-| `JWT_SECRET` | - | not used yet, needed once auth lands |
+| `JWT_SECRET` | - | required |
+| `SMTP_HOST` | - | **empty = emails go to the console instead of being sent** |
+| `SMTP_PORT` | `587` | `465` switches to implicit TLS |
+| `SMTP_USER` / `SMTP_PASSWORD` | - | omit both for a server that needs no auth |
+| `MAIL_FROM` | `nao-responder@localhost` | the sender address; must be one your SMTP provider authorises |
+| `MAIL_ALLOW_COMPANY_FROM` | `false` | `true` sends from `companies.email` — see below |
+
+### Sending real emails
+
+The activation link is emailed on account creation (employees only — both admin
+roles are created without a signup token, so there is nothing to activate).
+
+The `From:` header is only a label: the SMTP account is the real sender, and
+receiving servers check SPF/DKIM against the From **domain**. Gmail rewrites a
+From it did not authorise; other providers reject it. So an arbitrary
+`companies.email` cannot be the From address.
+
+By default the company is therefore the *display name* and the `Reply-To`, while
+`MAIL_FROM` is the actual address — this always delivers. Set
+`MAIL_ALLOW_COMPANY_FROM=true` only once each company address is verified with
+your provider; then `companies.email` becomes the real From.
+
+Two setups that work without owning a domain:
+
+- **Gmail** — enable 2-step verification, generate an App Password, and use
+  `smtp.gmail.com:587` with that password. ~500/day.
+- **Brevo** — free tier, 300/day. Verify a sender under *Senders & IPs* and use
+  `smtp-relay.brevo.com:587`. Several addresses can be verified, which is what
+  makes `MAIL_ALLOW_COMPANY_FROM=true` viable.
 
 Create the database, then apply the migrations:
 
@@ -50,23 +79,26 @@ Start it in watch mode:
 npm run dev
 ```
 
-You should see `Base de dados ligada` followed by the server URL. If the
-database is unreachable the process exits instead of starting.
-
 ## Scripts
 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` | watch mode via tsx, no build step |
 | `npm run build` | compile TypeScript to `dist/` |
-| `npm start` | run the compiled build (**run `build` first** - there is no prestart hook) |
+| `npm start` | build, then run the compiled output |
+| `npm run lint` | Biome |
+| `npm run lint:fix` | Biome, writing the fixes |
 | `npm run db:migrate` | apply pending migrations |
 | `npm run db:revert` | roll back the most recent migration |
 | `npm run db:generate -- src/migrations/SomeName` | diff entities against the DB and write a migration |
+| `npm run db:check` | fail if the entities and the migrations disagree |
 
-`db:generate` produces a **proposal**, not a finished migration. Read it before
-running it: it does not drop tables whose entity was deleted, and it does not
-always honour constraint names declared on the entity.
+Read what `db:generate` writes before running it: it does not drop tables whose
+entity was deleted, and it does not always honour constraint names declared on
+the entity.
+
+After changing an entity, run `db:check` against a migrated database before
+pushing.
 
 ---
 
@@ -76,8 +108,8 @@ always honour constraint names declared on the entity.
 npm test
 ```
 
-That is the whole command. There is no database to create, no container to
-start, no port to configure - **Docker just has to be running.**
+Docker has to be running. There is nothing else to set up: the suite starts its
+own `postgres:18-alpine` on a random port and throws it away at the end.
 
 | Script | What it does |
 | --- | --- |
@@ -85,58 +117,17 @@ start, no port to configure - **Docker just has to be running.**
 | `npm run test:watch` | the same, re-running on save |
 | `npm run test:types` | type-check `src/` and `tests/` (the SWC transform does not) |
 
-### How it works
+### Writing tests
 
-Every test runs against a genuine `postgres:18-alpine`, started by
-[Testcontainers](https://testcontainers.com) and thrown away at the end. It is
-published on a random free port, so it never collides with the `docker compose`
-database you develop against, and it can never touch your real data.
+- Reach for the database through `repo(Entity)` from `tests/setup/db.ts`, or
+  through the methods in `src/repositories/`. Both are bound to the test's
+  transaction.
+- Use the `sql` helper from that same file for raw queries.
+- Do **not** use `AppDataSource.query()`: it takes a separate connection from
+  the pool and cannot see what the test just wrote.
+- Do **not** add `resetMocks` or `restoreMocks` to `jest.config.mjs`. Both
+  destroy the seam that binds repositories to the transaction.
 
-| File | Role |
-| --- | --- |
-| `tests/setup/global-db.mjs` | runs **once per run**, before the workers exist: starts the container, applies the migrations with `npm run db:migrate`, and publishes the connection details through `process.env` |
-| `tests/setup/global-db-teardown.mjs` | stops the container after the last test |
-| `tests/setup/env.ts` | runs **once per test file**, before any application module: fixes `NODE_ENV`, `JWT_SECRET`, bcrypt rounds, and so on |
-| `tests/setup/db.ts` | runs once per test file, after the framework is up: connects, and wraps every test in a transaction |
-| `tests/helpers/factories.ts` | shortcuts for putting real rows in the database |
-
-`jest.config.mjs` explains the ordering of those hooks in detail; it is worth
-reading once, because two of them run in a different process from the tests.
-
-### Isolation
-
-Each test runs inside a transaction that is **rolled back, never committed**. No
-test can see another's writes, no cleanup code is needed, and the data seeded by
-the `SeedBaseData` migration survives for everyone. This is also why
-`maxWorkers` is 1: parallel workers would share one database and see each
-other's uncommitted rows.
-
-The seam that makes this work is a single line in `tests/setup/db.ts`, which
-swaps `AppDataSource.getRepository` for one bound to the current transaction.
-Every repository in `src/repositories/` calls `getRepository` at module load, so
-replacing it once redirects the whole application.
-
-Setup and assertions go through `repo(Entity)` from `tests/setup/db.ts`, which
-returns a normal TypeORM repository bound to the test's transaction. The same
-applies to the methods in `src/repositories/` - importing them into a test
-works, and their writes roll back like everything else.
-
-There is also a `sql` helper for raw queries inside that transaction, used in
-exactly three places: the snake_case column check in `create-account.test.ts`,
-and the migrations/version checks in `signup-flow.test.ts`. Those compare the
-entities against what the migrations actually built, which is the one thing a
-TypeORM-only assertion cannot do - it would share its mapping with the code that
-wrote the row. Everywhere else, `repo()` reads better.
-
-Do **not** use `AppDataSource.query()` in a test: it takes a separate connection
-from the pool and cannot see what the test just wrote.
-
-### Cost
-
-Starting the container and migrating takes a few seconds before the first test;
-the tests themselves then run in a couple of seconds. The very first run on a
-machine also pulls the Postgres image.
-
-If the run is killed halfway, the container is not orphaned: Testcontainers
-starts a companion "Ryuk" container whose only job is to remove everything the
-session created once that session disappears.
+Every test runs inside a transaction that is rolled back, so no test can see
+another's writes and no cleanup code is needed. `jest.config.mjs` documents the
+setup in full.

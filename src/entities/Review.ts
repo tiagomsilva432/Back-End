@@ -1,14 +1,12 @@
 import {
     Entity,
     PrimaryColumn,
-    Generated,
     Column,
     CreateDateColumn,
     OneToOne,
     JoinColumn,
     Check,
 } from "typeorm";
-import { bigintTransformer } from "./transformers.js";
 import { ReviewRequest } from "./ReviewRequest.js";
 
 // The OneToOne + JoinColumn on requestId already emits a unique constraint,
@@ -17,12 +15,11 @@ import { ReviewRequest } from "./ReviewRequest.js";
 @Entity("reviews")
 @Check("ck_reviews_score_range", `"performance_score" BETWEEN 1 AND 5`)
 export class Review {
-    @PrimaryColumn({ type: "bigint", transformer: bigintTransformer })
-    @Generated("increment")
-    id!: number;
+    @PrimaryColumn({ type: "uuid", default: () => "uuidv7()" })
+    id!: string;
 
-    @Column({ type: "bigint", transformer: bigintTransformer })
-    requestId!: number;
+    @Column({ type: "uuid" })
+    requestId!: string;
 
     @OneToOne(() => ReviewRequest, (request) => request.review, { onDelete: "CASCADE" })
     @JoinColumn({ name: "request_id" })

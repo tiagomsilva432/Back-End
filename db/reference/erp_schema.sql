@@ -7,7 +7,7 @@
 -- ------------------------------------------------------------
 -- ENUM types
 -- ------------------------------------------------------------
-CREATE TYPE user_role        AS ENUM ('admin', 'employee');
+CREATE TYPE user_role        AS ENUM ('system_admin', 'company_admin', 'employee');
 CREATE TYPE user_status      AS ENUM ('invited', 'active', 'suspended', 'terminated');
 CREATE TYPE invitation_status AS ENUM ('pending', 'accepted', 'expired', 'revoked');
 CREATE TYPE project_status   AS ENUM ('planned', 'active', 'on_hold', 'completed', 'cancelled');
@@ -21,6 +21,7 @@ CREATE TABLE companies (
     id          BIGSERIAL PRIMARY KEY,
     name        VARCHAR(150) NOT NULL,
     tax_id      VARCHAR(50) UNIQUE,
+    email       VARCHAR(255),                           -- sender address for this company's emails
     country     VARCHAR(2)  DEFAULT 'PT',
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );

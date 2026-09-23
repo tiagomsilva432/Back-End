@@ -1,7 +1,6 @@
 import {
     Entity,
     PrimaryColumn,
-    Generated,
     Column,
     CreateDateColumn,
     UpdateDateColumn,
@@ -12,7 +11,6 @@ import {
     JoinColumn,
     Unique,
 } from "typeorm";
-import { bigintTransformer } from "./transformers.js";
 import { ENUM_COLUMN_LENGTH, UserRole, UserStatus } from "../types/enums.js";
 import { Company } from "./Company.js";
 import { EmployeeProfile } from "./EmployeeProfile.js";
@@ -30,40 +28,22 @@ import { signupTokenExpDate } from "../env-vars.js";
 @Unique("uq_users_company_email", ["companyId", "email"])
 @Unique("uq_users_signup_token", ["signupToken"])
 export class User {
-    @PrimaryColumn({ type: "bigint", transformer: bigintTransformer })
-    @Generated("increment")
-    id!: number;
+    @PrimaryColumn({ type: "uuid", default: () => "uuidv7()" })
+    id!: string;
 
-    @Column({ type: "bigint", transformer: bigintTransformer })
-    companyId!: number;
+    @Column({ type: "uuid" })
+    companyId!: string;
 
     @ManyToOne(() => Company, (company) => company.users, { onDelete: "CASCADE" })
     @JoinColumn({ name: "company_id" })
     company!: Company;
 
-    /**
-     * The work address provisioned for the employee, e.g.
-     * tiago.m.silva@company1.com. This is the login identity. Its domain
-     * belongs to exactly one company, which is why (company_id, email) can be
-     * unique per tenant without two companies ever colliding.
-     */
     @Column({ type: "varchar", length: 255 })
     email!: string;
 
-    /**
-     * NULL until step 2 of signup. This is the only "has no password yet"
-     * marker: never write a placeholder hash here.
-     */
     @Column({ type: "varchar", length: 255, nullable: true })
     passwordHash!: string | null;
 
-    /**
-     * Single-use token for the signup link. The link is sent to the employee's
-     * personal address, which is not stored: the admin supplies it when
-     * creating the account and it is only used to deliver the email.
-     * Cleared once the password is set, which is what makes it single-use.
-     * Multiple NULLs coexist under the unique constraint.
-     */
     @Column({ type: "uuid", nullable: true })
     signupToken!: string | null;
 
@@ -108,11 +88,12 @@ export class User {
     @OneToMany(() => EmployeeSkill, (employeeSkill) => employeeSkill.user)
     skills!: EmployeeSkill[];
 
-    constructor (companyId: number, email: string, role: UserRole) {
+    constructor (companyId: string, email: string, role: UserRole = UserRole.Employee) {
         this.companyId = companyId;
         this.email = email;
         this.role = role;
-        this.signupToken = role == UserRole.Admin ? null : randomUUID();
-        this.signupTokenExpiresAt = role == UserRole.Admin ? null : new Date(Date.now()+signupTokenExpDate());
+        const invited = role === UserRole.Employee;
+        this.signupToken = invited ? randomUUID() : null;
+        this.signupTokenExpiresAt = invited ? new Date(Date.now()+signupTokenExpDate()) : null;
     }
 }

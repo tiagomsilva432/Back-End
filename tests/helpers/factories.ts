@@ -9,18 +9,20 @@ import { manager } from "../setup/db.js";
 let seq = 0;
 const proximo = () => ++seq;
 
-export async function criarEmpresa(nome?: string): Promise<Company> {
+export async function criarEmpresa(nome?: string, email?: string | null): Promise<Company> {
     const repo = manager().getRepository(Company);
+    const n = proximo();
     return repo.save(
         repo.create({
-            name: nome ?? `Empresa ${proximo()}`,
+            name: nome ?? `Empresa ${n}`,
+            email: email === undefined ? `geral${n}@empresa.pt` : email,
             country: "PT",
         }),
     );
 }
 
 interface OpcoesUtilizador {
-    companyId?: number;
+    companyId?: string;
     email?: string;
     role?: UserRole;
     status?: UserStatus;

@@ -1,7 +1,6 @@
 import {
     Entity,
     PrimaryColumn,
-    Generated,
     Column,
     CreateDateColumn,
     ManyToOne,
@@ -9,7 +8,6 @@ import {
     Index,
     Check,
 } from "typeorm";
-import { bigintTransformer } from "./transformers.js";
 import { User } from "./User.js";
 import { Project } from "./Project.js";
 
@@ -26,19 +24,18 @@ import { Project } from "./Project.js";
     where: `"end_date" IS NULL`,
 })
 export class Allocation {
-    @PrimaryColumn({ type: "bigint", transformer: bigintTransformer })
-    @Generated("increment")
-    id!: number;
+    @PrimaryColumn({ type: "uuid", default: () => "uuidv7()" })
+    id!: string;
 
-    @Column({ type: "bigint", transformer: bigintTransformer })
-    userId!: number;
+    @Column({ type: "uuid" })
+    userId!: string;
 
     @ManyToOne(() => User, (user) => user.allocations, { onDelete: "CASCADE" })
     @JoinColumn({ name: "user_id" })
     user!: User;
 
-    @Column({ type: "bigint", transformer: bigintTransformer })
-    projectId!: number;
+    @Column({ type: "uuid" })
+    projectId!: string;
 
     @ManyToOne(() => Project, (project) => project.allocations, { onDelete: "CASCADE" })
     @JoinColumn({ name: "project_id" })

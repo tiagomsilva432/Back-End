@@ -3,6 +3,7 @@ import request from "supertest";
 import { app } from "../../src/app.js";
 import { User } from "../../src/entities/User.js";
 import { logSpy } from "../helpers/console-spy.js";
+import { mailSpy } from "../helpers/mailer-spy.js";
 import { criarEmpresa, criarUtilizador } from "../helpers/factories.js";
 import { repo } from "../setup/db.js";
 
@@ -48,24 +49,60 @@ describe("POST /auth/account/create", () => {
 
         expect(logSpy).toHaveBeenCalledWith(
             expect.stringContaining(
-                `http://localhost:3000/auth/account/activate?token=${user!.signupToken}`,
+                `${process.env.FE_URL}/auth/account/activate?token=${user!.signupToken}`,
             ),
         );
     });
 
-    it("um admin nasce sem token de ativação", async () => {
+    it.each([
+        ["SYSTEM_ADMIN", "system_admin", "chefe@empresa.pt"],
+        ["company_admin", "company_admin", "gestora@empresa.pt"],
+    ])("um %s nasce sem token de ativação e não recebe email", async (enviado, gravado, email) => {
         const empresa = await criarEmpresa();
 
         await request(app)
             .post("/auth/account/create")
-            .send({ companyId: empresa.id, email: "chefe@empresa.pt", role: "ADMIN" })
+            .send({ companyId: empresa.id, email, role: enviado })
             .expect(201);
 
-        expect(await users().findOneBy({ email: "chefe@empresa.pt" })).toMatchObject({
-            role: "admin",
+        expect(await users().findOneBy({ email })).toMatchObject({
+            role: gravado,
             signupToken: null,
             signupTokenExpiresAt: null,
         });
+        expect(mailSpy).not.toHaveBeenCalled();
+    });
+
+    it("envia o email de ativação ao employee, com o link do token", async () => {
+        const empresa = await criarEmpresa("ACME", "geral@acme.pt");
+
+        await request(app)
+            .post("/auth/account/create")
+            .send({ companyId: empresa.id, email: "hugo@empresa.pt", role: "employee" })
+            .expect(201);
+
+        const user = await users().findOneBy({ email: "hugo@empresa.pt" });
+
+        expect(mailSpy).toHaveBeenCalledTimes(1);
+        expect(mailSpy).toHaveBeenCalledWith(
+            expect.objectContaining({ name: "ACME", email: "geral@acme.pt" }),
+            "hugo@empresa.pt",
+            expect.stringContaining(user!.signupToken!),
+        );
+    });
+
+    it("cria a conta na mesma quando o envio do email falha", async () => {
+        const empresa = await criarEmpresa();
+        mailSpy.mockRejectedValueOnce(new Error("SMTP em baixo"));
+
+        await request(app)
+            .post("/auth/account/create")
+            .send({ companyId: empresa.id, email: "ines@empresa.pt", role: "employee" })
+            .expect(201);
+
+        const user = await users().findOneBy({ email: "ines@empresa.pt" });
+
+        expect(user!.signupToken).toEqual(expect.any(String));
     });
 
     it("assume o papel de employee quando nenhum é indicado", async () => {
