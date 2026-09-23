@@ -1,24 +1,23 @@
 import { Router } from "express";
-import type { ZodOpenApiPathsObject, ZodOpenApiRequestBodyObject } from "zod-openapi";
-import type { z } from "zod";
+import type { ZodOpenApiPathsObject } from "zod-openapi";
 import { validateBody } from "../middleware/validateBody.js";
 import { activateAccountSchema, createAccountResponseSchema, createAccountSchema } from "../dtos/auth/account-dto.js";
-import { jsonResponse, errorResponses } from "../docs/response.js";
+import { jsonBody, jsonResponse, errorResponses } from "../docs/response.js";
 import { meResponseSchema } from "../dtos/auth/me-dto.js";
 import { loginResponseSchema } from "../dtos/auth/login-dto.js";
 import { activateUserWithToken, createAccount, getCurrentUser, loginWithEmailAndPassword } from "../controllers/auth-controller.js";
 import { loginSchema } from "../dtos/auth/login-dto.js";
 import { requireAuth } from "../middleware/requireAuth.js";
-
-const jsonBody = (schema: z.ZodType): ZodOpenApiRequestBodyObject => ({
-    required: true,
-    content: { "application/json": { schema } },
-});
+import { requireRole } from "../middleware/requireRole.js";
+import { UserRole } from "../types/enums.js";
 
 const router = Router();
 
+
 router.post(
     "/auth/account/create",
+    requireAuth,
+    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
     validateBody(createAccountSchema),
     createAccount
 );
@@ -47,11 +46,18 @@ export const authPaths: ZodOpenApiPathsObject = {
         post: {
             tags: ["Auth"],
             summary: "Criar uma conta",
-            description: "Cria a conta no estado `invited`. A ativação é o passo 2.",
+            description:
+                "Cria a conta no estado `invited` e envia o email de ativação. A ativação é o passo 2. " +
+                "Hierarquia: um `system_admin` cria `company_admin` (indicando o `companyId`); " +
+                "um `company_admin` cria `employee` na sua própria empresa; um `employee` não cria ninguém.",
+            security: [{ bearerAuth: [] }],
             requestBody: jsonBody(createAccountSchema),
             responses: {
                 "201": jsonResponse(201, "Conta criada", createAccountResponseSchema),
                 ...errorResponses(400),
+                "401": jsonResponse(401, "Token em falta ou inválido"),
+                "403": jsonResponse(403, "Sem permissões para criar esta conta"),
+                "404": jsonResponse(404, "Empresa não encontrada"),
                 "409": jsonResponse(409, "Já existe uma conta com este email nesta empresa"),
                 ...errorResponses(500),
             },

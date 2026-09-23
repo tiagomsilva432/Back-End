@@ -6,6 +6,7 @@ import { requestLogger } from "./middleware/requestLogger.js";
 import docsRouter from "./routes/docs-routes.js";
 import healthRouter from "./routes/health-routes.js";
 import authRouter from "./routes/auth-routes.js"
+import companyRouter from "./routes/company-routes.js"
 
 export const app = express();
 //Middlewares globais
@@ -19,6 +20,7 @@ app.use(requestLogger);
 app.use(docsRouter);
 app.use(healthRouter);
 app.use(authRouter);
+app.use(companyRouter);
 
 //Rota não encontrada
 app.use((_req: Request, res: Response) => {

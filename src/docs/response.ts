@@ -1,4 +1,4 @@
-import type { ZodOpenApiResponseObject } from "zod-openapi";
+import type { ZodOpenApiRequestBodyObject, ZodOpenApiResponseObject } from "zod-openapi";
 import type { z } from "zod";
 import { httpResponseSchema } from "../dtos/common/responses-dto.js";
 import { getDefaults } from "../utils/httpStatusDefaults.js";
@@ -16,6 +16,12 @@ export const jsonResponse = (
     content: {
         "application/json": { schema: httpResponseSchema(status, data) },
     },
+});
+
+/** Corpo de pedido JSON obrigatório, a partir do schema Zod. */
+export const jsonBody = (schema: z.ZodType): ZodOpenApiRequestBodyObject => ({
+    required: true,
+    content: { "application/json": { schema } },
 });
 
 /** Atalho para as respostas de erro mais comuns. */
