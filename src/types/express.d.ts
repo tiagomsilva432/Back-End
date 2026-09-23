@@ -7,6 +7,8 @@ declare global {
             auth?: JwtPayload;
             /** Set by requireRole: the row read from the database, not the claims. */
             currentUser?: User;
+            /** Set by validateQuery: req.query itself is read-only in Express 5. */
+            validQuery?: unknown;
         }
     }
 }

@@ -113,6 +113,26 @@ Onboarding a new company is therefore always three steps:
 A `system_admin` cannot mint another `system_admin` over HTTP - only
 `admin:create` does that.
 
+### Projects and companies
+
+`POST /projects` follows the same scoping rule: a `company_admin` creates in its
+own company, a `system_admin` names the `companyId`, and an `employee` cannot
+create one at all. A `managerId`, if given, has to belong to the same company -
+both an unknown user and one from another company answer the same, so the
+endpoint never confirms a foreign user exists.
+
+Reading is wider than writing:
+
+| Endpoint | Who | Scope |
+| --- | --- | --- |
+| `GET /projects` | any active account | own company; a `system_admin` passes `?companyId=`. Also takes `?status=` |
+| `GET /projects/{id}` | any active account | own company |
+| `GET /companies` | `system_admin` only | every company - it is the tenant directory |
+| `GET /companies/{id}` | any active account | own company; a `system_admin` reads any |
+
+Anything outside the caller's reach answers **404, not 403** - a 403 would
+confirm the id exists. The same applies to an id that is not a uuid.
+
 ---
 
 ## Scripts

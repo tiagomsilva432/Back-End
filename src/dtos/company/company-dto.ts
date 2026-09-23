@@ -10,14 +10,17 @@ export const createCompanySchema = z.object({
         .meta({ example: "PT" }),
 }).meta({ id: "CreateCompanyRequest", description: "Dados para criar uma empresa" });
 
-//Schema RESPONSE createCompany
-export const createCompanyResponseSchema = z.object({
+//Como uma empresa é devolvida, na criação e na leitura
+export const companyResponseSchema = z.object({
     id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     name: z.string().meta({ example: "Os Silvas, Lda." }),
     taxId: z.string().nullable().meta({ example: "500123456" }),
     email: z.string().nullable().meta({ example: "geral@ossilvas.pt" }),
     country: z.string().meta({ example: "PT" }),
-}).meta({ id: "CreateCompanyResponse", description: "Empresa criada" });
+}).meta({ id: "Company", description: "Uma empresa" });
+
+export const companyListResponseSchema = z.array(companyResponseSchema)
+    .meta({ id: "CompanyList", description: "Empresas, por nome" });
 
 export type CreateCompanyRequest = z.infer<typeof createCompanySchema>;
-export type CreateCompanyResponse = z.infer<typeof createCompanyResponseSchema>;
+export type CompanyResponse = z.infer<typeof companyResponseSchema>;

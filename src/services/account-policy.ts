@@ -2,8 +2,12 @@ import type { CreateAccountRequest } from "../dtos/auth/account-dto.js";
 import { HttpError } from "../dtos/common/errors-dto.js";
 import type { User } from "../entities/User.js";
 import { UserRole } from "../types/enums.js";
+import { resolveCompanyScope } from "./company-scope.js";
 
-
+/**
+ * Who may create whom. Anything not listed here is denied, and the first role
+ * of each list is what a request that omits `role` gets.
+ */
 const CREATABLE_ROLES: Record<UserRole, readonly UserRole[]> = {
     [UserRole.SystemAdmin]: [UserRole.CompanyAdmin],
     [UserRole.CompanyAdmin]: [UserRole.Employee],
@@ -20,6 +24,10 @@ export interface AccountTarget {
     role: UserRole;
 }
 
+/**
+ * Decides the company and role of the account being created. A company_admin's
+ * companyId always comes from the actor, never from the request body.
+ */
 export function resolveAccountTarget(
     actor: Pick<User, "role" | "companyId">,
     body: CreateAccountRequest,
@@ -27,21 +35,14 @@ export function resolveAccountTarget(
     const role = body.role ?? CREATABLE_ROLES[actor.role][0];
 
     if (!role || !canCreateRole(actor.role, role)) {
-        throw new HttpError(403, "Sem permissões para criar contas com este role");
+        throw new HttpError(403, "Sem permissões para criar contas com este papel");
     }
 
-    if (actor.role !== UserRole.SystemAdmin) {
-        if (body.companyId && body.companyId !== actor.companyId) {
-            throw new HttpError(403, "Só pode criar contas na sua empresa");
-        }
-        return { companyId: actor.companyId, role };
-    }
+    const companyId = resolveCompanyScope(
+        actor,
+        body.companyId,
+        "Só pode criar contas na sua empresa",
+    );
 
-    if (!body.companyId) {
-        throw new HttpError(400, "Dados inválidos", "BAD_REQUEST", [
-            { field: "companyId", message: "Obrigatório quando quem cria é um system_admin" },
-        ]);
-    }
-
-    return { companyId: body.companyId, role };
+    return { companyId, role };
 }

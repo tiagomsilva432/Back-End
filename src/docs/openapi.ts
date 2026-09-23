@@ -2,10 +2,12 @@ import { createDocument } from "zod-openapi";
 import { createAccountSchema } from "../dtos/auth/account-dto.js";
 import { loginResponseSchema, loginSchema } from "../dtos/auth/login-dto.js";
 import { meResponseSchema } from "../dtos/auth/me-dto.js";
-import { createCompanyResponseSchema, createCompanySchema } from "../dtos/company/company-dto.js";
+import { createCompanySchema } from "../dtos/company/company-dto.js";
+import { createProjectSchema } from "../dtos/project/project-dto.js";
 import { healthPaths } from "../routes/health-routes.js";
 import { authPaths } from "../routes/auth-routes.js";
 import { companyPaths } from "../routes/company-routes.js";
+import { projectPaths } from "../routes/project-routes.js";
 import { docsPaths } from "./docs-paths.js";
 
 export const openApiDocument: ReturnType<typeof createDocument> = createDocument({
@@ -25,12 +27,14 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
         { name: "Sistema", description: "Estado e diagnóstico da API" },
         { name: "Auth", description: "Autenticação e gestão de contas" },
         { name: "Empresas", description: "Gestão de empresas" },
+        { name: "Projetos", description: "Gestão de projetos" },
     ],
     paths: {
         ...healthPaths,
         ...docsPaths,
         ...authPaths,
         ...companyPaths,
+        ...projectPaths,
     },
     components: {
         schemas: {
@@ -39,7 +43,7 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
             CreateAccountRequest: createAccountSchema,
             MeResponse: meResponseSchema,
             CreateCompanyRequest: createCompanySchema,
-            CreateCompanyResponse: createCompanyResponseSchema,
+            CreateProjectRequest: createProjectSchema,
         },
         securitySchemes: {
             bearerAuth: {
