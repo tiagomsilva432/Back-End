@@ -1,7 +1,7 @@
 import type { Response, Request } from "express";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import { HttpError } from "../dtos/common/errors-dto.js";
-import { BASE_URL, PORT, jwtExpiresIn, jwtSecret, saltRounds } from "../env-vars.js";
+import { jwtExpiresIn, jwtSecret, saltRounds } from "../env-vars.js";
 import { createUser, getUserByEmail, getUserByEmailAndCompanyId, getUserById, getUserBySignupToken, updateUser } from "../repositories/user-repo.js";
 import { User } from "../entities/User.js";
 import { compare, hash } from "bcrypt";
@@ -11,41 +11,55 @@ import type { JwtClaims } from "../dtos/auth/jwt-dto.js";
 import type { LoginResponse } from "../dtos/auth/login-dto.js";
 import type { MeResponse } from "../dtos/auth/me-dto.js";
 import { getAuth } from "../middleware/requireAuth.js";
+import { getCurrentActor } from "../middleware/requireRole.js";
+import { resolveAccountTarget } from "../services/account-policy.js";
+import type { CreateAccountRequest, CreateAccountResponse } from "../dtos/auth/account-dto.js";
 import { getCompanyById } from "../repositories/company-repo.js";
 import { mailer } from "../services/mailer.js";
 
 
 
 export const createAccount = async (req: Request, res: Response) => {
-    const { companyId, email, role } = req.body;
-    const user: User | null = await getUserByEmailAndCompanyId(email, companyId);
+    const body = req.body as CreateAccountRequest;
+    const actor: User = getCurrentActor(req);
+
+    const { companyId, role } = resolveAccountTarget(actor, body);
+
+    const company = await getCompanyById(companyId);
+
+    if (!company) {
+        throw new HttpError(404, "Empresa não encontrada");
+    }
+
+    const user: User | null = await getUserByEmailAndCompanyId(body.email, companyId);
 
     if(user){
         throw new HttpError(409, "Não foi possível criar a conta.");
     }
 
-    const newUser = new User(companyId, email, role);
+    const created: User = await createUser(new User(companyId, body.email, role));
 
-    const created: User = await createUser(newUser);
+    const activationUrl: string = `${process.env.FE_URL}/auth/account/activate?token=${created.signupToken}`
 
-    if (created.signupToken) {
-        const activationUrl: string = `${process.env.FE_URL}/auth/account/activate?token=${created.signupToken}`
+    console.log(`Conta Criada - URL Ativação: ${activationUrl}`);
 
-        console.log(`Conta Criada - URL Ativação: ${activationUrl}`);
-
-        const company = await getCompanyById(created.companyId);
-        // A conta fica criada mesmo que o email falhe; o token continua válido
-        // e pode ser reenviado.
-        try {
-            if (company) {
-                await mailer.sendActivationEmail(company, created.email, activationUrl);
-            }
-        } catch (error) {
-            console.error(`Falha ao enviar o email de ativação para ${created.email}`, error);
-        }
+    // A conta fica criada mesmo que o email falhe; o token continua válido
+    // e pode ser reenviado.
+    try {
+        await mailer.sendActivationEmail(company, created.email, activationUrl);
+    } catch (error) {
+        console.error(`Falha ao enviar o email de ativação para ${created.email}`, error);
     }
 
-    return new HttpResponse(201, "Conta criada", undefined, created).send(res);
+    const data: CreateAccountResponse = {
+        id: created.id,
+        companyId: created.companyId,
+        email: created.email,
+        role: created.role,
+        status: created.status,
+    };
+
+    return new HttpResponse(201, "Conta criada", undefined, data).send(res);
 }
 
 export const activateUserWithToken = async (req: Request, res: Response) => {

@@ -92,8 +92,7 @@ export class User {
         this.companyId = companyId;
         this.email = email;
         this.role = role;
-        const invited = role === UserRole.Employee;
-        this.signupToken = invited ? randomUUID() : null;
-        this.signupTokenExpiresAt = invited ? new Date(Date.now()+signupTokenExpDate()) : null;
+        this.signupToken = randomUUID();
+        this.signupTokenExpiresAt = new Date(Date.now() + signupTokenExpDate());
     }
 }
