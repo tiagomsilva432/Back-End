@@ -6,10 +6,13 @@ const numberEnv = (name: string, fallback: number): number => {
 };
 
 //Ambiente
-export const envIsDev: boolean = process.env.NODE_ENV !== "production";
+export const envIsDev = (): boolean => process.env.NODE_ENV !== "production";
 //URLS
 export const BASE_URL: string = process.env.BASE_URL ?? "http://localhost";
 export const PORT: number = numberEnv("PORT", 3000);
+/** Base do frontend, para o link de ativação. Sem barra final. */
+export const feUrl = (): string =>
+    (process.env.FE_URL ?? "http://localhost:5173").replace(/\/$/, "");
 //CORS
 export const corsOrigins = (): string[] =>
     (process.env.CORS_ORIGINS ?? "")
@@ -19,6 +22,10 @@ export const corsOrigins = (): string[] =>
 //Auth
 export const signupTokenExpDate = (): number => {
     return (numberEnv("SIGNUP_TOKEN_EXPIRATION_DAYS", 7) * 24) * 60 * 60 * 1000;
+};
+/** Uma hora, e não os 7 dias do convite: um reset pede-se e usa-se logo. */
+export const passwordResetExpDate = (): number => {
+    return numberEnv("PASSWORD_RESET_EXPIRATION_HOURS", 1) * 60 * 60 * 1000;
 };
 export const saltRounds = numberEnv("BCRYPT_ROUNDS", 12);
 //JWT

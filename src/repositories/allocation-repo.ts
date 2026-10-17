@@ -1,4 +1,4 @@
-import { In, IsNull, Not } from "typeorm";
+import { In, IsNull, MoreThanOrEqual, Not } from "typeorm";
 import { AppDataSource } from "../data-source.js";
 import { Allocation } from "../entities/Allocation.js";
 
@@ -62,6 +62,19 @@ export async function getCoworkerIdsByUserId(userId: string): Promise<string[]> 
     });
 
     return [...new Set(shared.map((allocation) => allocation.userId))];
+}
+
+/** Alocações que contam para a carga: abertas ou que ainda não terminaram. */
+export async function getActiveAllocationsByUserId(userId: string): Promise<Allocation[]> {
+    const hoje = new Date().toISOString().slice(0, 10);
+
+    return await allocationRepo.find({
+        where: [
+            { userId, endDate: IsNull() },
+            { userId, endDate: MoreThanOrEqual(hoje) }
+        ],
+        order: { startDate: "DESC" }
+    });
 }
 
 export async function createAllocation(allocation: Allocation) {

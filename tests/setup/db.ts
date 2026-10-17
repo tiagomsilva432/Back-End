@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, jest } from "@jest/globals"
 import type { EntityTarget, ObjectLiteral, QueryRunner, Repository } from "typeorm";
 import { AppDataSource } from "../../src/data-source.js";
 import { errorSpy, logSpy } from "../helpers/console-spy.js";
-import { mailSpy } from "../helpers/mailer-spy.js";
+import { resetMailSpies } from "../helpers/mailer-spy.js";
 
 let queryRunner: QueryRunner;
 
@@ -34,8 +34,7 @@ beforeEach(async () => {
     await queryRunner.startTransaction();
     logSpy.mockClear();
     errorSpy.mockClear();
-    mailSpy.mockClear();
-    mailSpy.mockImplementation(async () => {});
+    resetMailSpies();
 });
 
 afterEach(async () => {

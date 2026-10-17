@@ -4,10 +4,15 @@ import { loginResponseSchema, loginSchema } from "../dtos/auth/login-dto.js";
 import { meResponseSchema } from "../dtos/auth/me-dto.js";
 import { createCompanySchema } from "../dtos/company/company-dto.js";
 import { createProjectSchema } from "../dtos/project/project-dto.js";
+import { upsertEmployeeProfileSchema } from "../dtos/user/employee-profile-dto.js";
+import { createAllocationSchema } from "../dtos/allocation/allocation-dto.js";
+import { changePasswordSchema, confirmPasswordResetSchema, requestPasswordResetSchema } from "../dtos/auth/password-dto.js";
 import { healthPaths } from "../routes/health-routes.js";
 import { authPaths } from "../routes/auth-routes.js";
 import { companyPaths } from "../routes/company-routes.js";
 import { projectPaths } from "../routes/project-routes.js";
+import { userPaths } from "../routes/user-routes.js";
+import { allocationPaths } from "../routes/allocation-routes.js";
 import { docsPaths } from "./docs-paths.js";
 
 export const openApiDocument: ReturnType<typeof createDocument> = createDocument({
@@ -28,6 +33,8 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
         { name: "Auth", description: "Autenticação e gestão de contas" },
         { name: "Empresas", description: "Gestão de empresas" },
         { name: "Projetos", description: "Gestão de projetos" },
+        { name: "Utilizadores", description: "Diretório de pessoas e perfis" },
+        { name: "Alocações", description: "Quem trabalha em quê" },
     ],
     paths: {
         ...healthPaths,
@@ -35,6 +42,8 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
         ...authPaths,
         ...companyPaths,
         ...projectPaths,
+        ...userPaths,
+        ...allocationPaths,
     },
     components: {
         schemas: {
@@ -44,6 +53,11 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
             MeResponse: meResponseSchema,
             CreateCompanyRequest: createCompanySchema,
             CreateProjectRequest: createProjectSchema,
+            UpsertEmployeeProfileRequest: upsertEmployeeProfileSchema,
+            CreateAllocationRequest: createAllocationSchema,
+            ChangePasswordRequest: changePasswordSchema,
+            RequestPasswordResetRequest: requestPasswordResetSchema,
+            ConfirmPasswordResetRequest: confirmPasswordResetSchema,
         },
         securitySchemes: {
             bearerAuth: {

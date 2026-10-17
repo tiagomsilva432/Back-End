@@ -8,6 +8,8 @@ import healthRouter from "./routes/health-routes.js";
 import authRouter from "./routes/auth-routes.js"
 import companyRouter from "./routes/company-routes.js"
 import projectRouter from "./routes/project-routes.js"
+import userRouter from "./routes/user-routes.js"
+import allocationRouter from "./routes/allocation-routes.js"
 
 export const app = express();
 //Middlewares globais
@@ -23,6 +25,8 @@ app.use(healthRouter);
 app.use(authRouter);
 app.use(companyRouter);
 app.use(projectRouter);
+app.use(userRouter);
+app.use(allocationRouter);
 
 //Rota não encontrada
 app.use((_req: Request, res: Response) => {
