@@ -27,6 +27,7 @@ import { signupTokenExpDate } from "../env-vars.js";
 @Entity("users")
 @Unique("uq_users_company_email", ["companyId", "email"])
 @Unique("uq_users_signup_token", ["signupToken"])
+@Unique("uq_users_password_reset_token", ["passwordResetToken"])
 export class User {
     @PrimaryColumn({ type: "uuid", default: () => "uuidv7()" })
     id!: string;
@@ -49,6 +50,13 @@ export class User {
 
     @Column({ type: "timestamptz", nullable: true })
     signupTokenExpiresAt!: Date | null;
+
+    /** Separado do signupToken: um reset nunca pode ativar nem reativar a conta. */
+    @Column({ type: "uuid", nullable: true })
+    passwordResetToken!: string | null;
+
+    @Column({ type: "timestamptz", nullable: true })
+    passwordResetExpiresAt!: Date | null;
 
     /** Not constrained by the database; guard with isUserRole before writing. */
     @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: UserRole.Employee })

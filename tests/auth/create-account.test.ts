@@ -1,15 +1,18 @@
 import { describe, expect, it } from "@jest/globals";
 import request from "supertest";
 import { app } from "../../src/app.js";
+import { EmployeeProfile } from "../../src/entities/EmployeeProfile.js";
 import { User } from "../../src/entities/User.js";
 import { UserRole } from "../../src/types/enums.js";
 import { logSpy } from "../helpers/console-spy.js";
 import { mailSpy } from "../helpers/mailer-spy.js";
 import { createActor } from "../helpers/auth.js";
 import { criarEmpresa, criarUtilizador } from "../helpers/factories.js";
+import { isoDate } from "../../src/utils/dates.js";
 import { repo } from "../setup/db.js";
 
 const users = () => repo(User);
+const perfis = () => repo(EmployeeProfile);
 
 describe("POST /auth/account/create", () => {
     it("cria a conta e grava-a na base de dados", async () => {
@@ -249,5 +252,102 @@ describe("POST /auth/account/create — validação do corpo", () => {
             .expect(201);
 
         expect(await users().countBy({ email: "flavio@empresa.pt" })).toBe(1);
+    });
+});
+
+// Sem nome no convite, a conta nasce igual ao que nascia antes.
+describe("POST /auth/account/create - o perfil opcional", () => {
+    it("grava o perfil quando o convite traz nome", async () => {
+        const empresa = await criarEmpresa();
+        const { header } = await createActor(UserRole.CompanyAdmin, empresa.id);
+
+        const res = await request(app)
+            .post("/auth/account/create")
+            .set("Authorization", header)
+            .send({
+                companyId: empresa.id,
+                email: "carla@empresa.pt",
+                profile: {
+                    firstName: "  Carla  ",
+                    lastName: "Mendes",
+                    hireDate: "2026-01-15",
+                    jobTitle: "Backend Developer",
+                },
+            })
+            .expect(201);
+
+        expect(res.body.data.profile).toMatchObject({
+            firstName: "Carla",
+            lastName: "Mendes",
+            hireDate: "2026-01-15",
+            jobTitle: "Backend Developer",
+            phone: null,
+            address: null,
+            birthDate: null,
+        });
+
+        const user = await users().findOneBy({ email: "carla@empresa.pt" });
+        expect(await perfis().findOneBy({ userId: user!.id })).toMatchObject({
+            firstName: "Carla",
+            lastName: "Mendes",
+            hireDate: "2026-01-15",
+        });
+    });
+
+    it("assume a data de hoje quando o convite não traz hireDate", async () => {
+        const empresa = await criarEmpresa();
+        const { header } = await createActor(UserRole.CompanyAdmin, empresa.id);
+
+        const res = await request(app)
+            .post("/auth/account/create")
+            .set("Authorization", header)
+            .send({
+                companyId: empresa.id,
+                email: "duarte@empresa.pt",
+                profile: { firstName: "Duarte", lastName: "Lopes" },
+            })
+            .expect(201);
+
+        expect(res.body.data.profile.hireDate).toBe(isoDate());
+    });
+
+    it("não grava perfil nenhum quando o convite não traz nome", async () => {
+        const empresa = await criarEmpresa();
+        const { header } = await createActor(UserRole.CompanyAdmin, empresa.id);
+
+        const res = await request(app)
+            .post("/auth/account/create")
+            .set("Authorization", header)
+            .send({ companyId: empresa.id, email: "elsa@empresa.pt" })
+            .expect(201);
+
+        expect(res.body.data).not.toHaveProperty("profile");
+
+        const user = await users().findOneBy({ email: "elsa@empresa.pt" });
+        expect(await perfis().countBy({ userId: user!.id })).toBe(0);
+    });
+
+    it.each([
+        ["firstName em falta", { lastName: "Mendes" }, "profile.firstName"],
+        ["lastName vazio", { firstName: "Carla", lastName: "" }, "profile.lastName"],
+        [
+            "hireDate com formato português",
+            { firstName: "Carla", lastName: "Mendes", hireDate: "15/01/2026" },
+            "profile.hireDate",
+        ],
+    ])("devolve 400 com %s, e não cria a conta", async (_titulo, profile, field) => {
+        const empresa = await criarEmpresa();
+        const { header } = await createActor(UserRole.CompanyAdmin, empresa.id);
+
+        const res = await request(app)
+            .post("/auth/account/create")
+            .set("Authorization", header)
+            .send({ companyId: empresa.id, email: "fabio@empresa.pt", profile });
+
+        expect(res.status).toBe(400);
+        expect(res.body.data).toEqual(
+            expect.arrayContaining([{ field, message: expect.any(String) }]),
+        );
+        expect(await users().findOneBy({ email: "fabio@empresa.pt" })).toBeNull();
     });
 });

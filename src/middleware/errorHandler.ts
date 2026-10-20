@@ -10,11 +10,14 @@ export function errorHandler(
   _next: NextFunction
 ): void {
   if (err instanceof HttpError) {
+    // Os details de um 4xx são erros de campo; os de um 5xx são internos.
+    const exposeDetails = err.status < 500 || envIsDev();
+
     new HttpResponse(
       err.status,
       err.message,
       err.code,
-      envIsDev ? err.details : undefined
+      exposeDetails ? err.details : undefined
     ).send(res);
     return;
   }
@@ -25,6 +28,6 @@ export function errorHandler(
     500,
     undefined,
     undefined,
-    envIsDev ? (err instanceof Error ? err.message : String(err)) : undefined
+    envIsDev() ? (err instanceof Error ? err.message : String(err)) : undefined
   ).send(res);
 }

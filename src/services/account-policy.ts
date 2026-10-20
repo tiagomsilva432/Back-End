@@ -19,6 +19,10 @@ export const rolesCreatableBy = (actor: UserRole): readonly UserRole[] => CREATA
 export const canCreateRole = (actor: UserRole, target: UserRole): boolean =>
     CREATABLE_ROLES[actor].includes(target);
 
+/** Quem pode mexer numa conta que já existe: quem a criaria, e o system_admin sempre. */
+export const canAdministerAccount = (actor: UserRole, target: UserRole): boolean =>
+    actor === UserRole.SystemAdmin || canCreateRole(actor, target);
+
 export interface AccountTarget {
     companyId: string;
     role: UserRole;
