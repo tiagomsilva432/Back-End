@@ -6,6 +6,7 @@ import { Allocation } from "../../src/entities/Allocation.js";
 import { UserRole } from "../../src/types/enums.js";
 import { createActor } from "../helpers/auth.js";
 import { criarAlocacao, criarEmpresa, criarProjeto, criarUtilizador } from "../helpers/factories.js";
+import { isoDate } from "../../src/utils/dates.js";
 import { repo } from "../setup/db.js";
 
 const alocacoes = () => repo(Allocation);
@@ -15,7 +16,7 @@ const alocar = (header: string | undefined, corpo: object) => {
     return (header === undefined ? pedido : pedido.set("Authorization", header)).send(corpo);
 };
 
-const HOJE = new Date().toISOString().slice(0, 10);
+const HOJE = isoDate();
 
 describe("POST /allocations", () => {
     it("aloca uma pessoa a um projeto da sua empresa", async () => {

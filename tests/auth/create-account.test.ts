@@ -8,6 +8,7 @@ import { logSpy } from "../helpers/console-spy.js";
 import { mailSpy } from "../helpers/mailer-spy.js";
 import { createActor } from "../helpers/auth.js";
 import { criarEmpresa, criarUtilizador } from "../helpers/factories.js";
+import { isoDate } from "../../src/utils/dates.js";
 import { repo } from "../setup/db.js";
 
 const users = () => repo(User);
@@ -307,7 +308,7 @@ describe("POST /auth/account/create - o perfil opcional", () => {
             })
             .expect(201);
 
-        expect(res.body.data.profile.hireDate).toBe(new Date().toISOString().slice(0, 10));
+        expect(res.body.data.profile.hireDate).toBe(isoDate());
     });
 
     it("não grava perfil nenhum quando o convite não traz nome", async () => {

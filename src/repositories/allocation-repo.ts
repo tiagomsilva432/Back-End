@@ -1,6 +1,7 @@
-import { In, IsNull, MoreThanOrEqual, Not } from "typeorm";
+import { In, IsNull, LessThanOrEqual, MoreThanOrEqual, Not } from "typeorm";
 import { AppDataSource } from "../data-source.js";
 import { Allocation } from "../entities/Allocation.js";
+import { isoDate } from "../utils/dates.js";
 
 export const allocationRepo = AppDataSource.getRepository(Allocation);
 
@@ -64,14 +65,14 @@ export async function getCoworkerIdsByUserId(userId: string): Promise<string[]> 
     return [...new Set(shared.map((allocation) => allocation.userId))];
 }
 
-/** Alocações que contam para a carga: abertas ou que ainda não terminaram. */
+/** Alocações que contam para a carga: já começaram e ainda não terminaram. */
 export async function getActiveAllocationsByUserId(userId: string): Promise<Allocation[]> {
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = isoDate();
 
     return await allocationRepo.find({
         where: [
-            { userId, endDate: IsNull() },
-            { userId, endDate: MoreThanOrEqual(hoje) }
+            { userId, startDate: LessThanOrEqual(hoje), endDate: IsNull() },
+            { userId, startDate: LessThanOrEqual(hoje), endDate: MoreThanOrEqual(hoje) }
         ],
         order: { startDate: "DESC" }
     });

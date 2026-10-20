@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isoDate } from "../../utils/dates.js";
 
 const percentSchema = z.int().min(1).max(100).meta({
     example: 60,
@@ -10,7 +11,7 @@ const roleOnProjectSchema = z.string().trim().min(1).max(100).meta({ example: "B
 // O default vive aqui e não na coluna: sem ele o refine das datas não tinha
 // startDate para comparar, e um CHECK da base de dados sairia como 500.
 const startDateSchema = z.iso.date()
-    .default(() => new Date().toISOString().slice(0, 10))
+    .default(() => isoDate())
     .meta({ example: "2026-02-01", description: "Por omissão, a data de hoje." });
 
 //Schema REQUEST createAllocation

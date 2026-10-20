@@ -206,6 +206,28 @@ describe("PUT /users/:id/profile", () => {
         expect(res.body.data.userId).toBe(colega.id);
     });
 
+    it("um company_admin edita o próprio perfil", async () => {
+        const { user: gestora, header } = await createActor(UserRole.CompanyAdmin);
+
+        const res = await gravar(gestora.id, header);
+
+        expect(res.status).toBe(201);
+        expect(res.body.data.userId).toBe(gestora.id);
+    });
+
+    it.each([
+        ["outro company_admin", UserRole.CompanyAdmin],
+        ["o system_admin", UserRole.SystemAdmin],
+    ])("recusa a um company_admin editar o perfil de %s da sua empresa, e não grava nada", async (_titulo, role) => {
+        const { user: gestora, header } = await createActor(UserRole.CompanyAdmin);
+        const alvo = await criarUtilizador({ companyId: gestora.companyId, role });
+
+        const res = await gravar(alvo.id, header);
+
+        expect(res.status).toBe(403);
+        expect(await perfis().countBy({ userId: alvo.id })).toBe(0);
+    });
+
     it("um system_admin edita qualquer perfil", async () => {
         const { header } = await createActor(UserRole.SystemAdmin);
         const outra = await criarEmpresa();

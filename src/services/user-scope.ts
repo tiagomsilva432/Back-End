@@ -1,4 +1,5 @@
 import { HttpError } from "../dtos/common/errors-dto.js";
+import { canAdministerAccount } from "./account-policy.js";
 import { requireInReach } from "./company-scope.js";
 import type { User } from "../entities/User.js";
 import { UserRole } from "../types/enums.js";
@@ -22,16 +23,16 @@ export function requireUserInReach(
     return requireInReach(actor, target, notFoundMessage);
 }
 
-/** Quem pode escrever sobre esta pessoa: ela própria, ou um admin. */
-export function canManageUser(actor: Actor, target: Pick<User, "id" | "companyId">): boolean {
+/** Quem pode escrever sobre esta pessoa: ela própria, ou quem administra a conta dela. */
+export function canManageUser(actor: Actor, target: Pick<User, "id" | "companyId" | "role">): boolean {
     return isUserInReach(actor, target)
-        && (actor.id === target.id || actor.role !== UserRole.Employee);
+        && (actor.id === target.id || canAdministerAccount(actor.role, target.role));
 }
 
 /** 403, não 404: o alvo já passou pelo requireUserInReach. */
 export function requireCanManageUser(
     actor: Actor,
-    target: Pick<User, "id" | "companyId">,
+    target: Pick<User, "id" | "companyId" | "role">,
     forbiddenMessage: string,
 ): void {
     if (!canManageUser(actor, target)) {

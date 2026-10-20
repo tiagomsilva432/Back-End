@@ -9,6 +9,7 @@ import jwt from "jsonwebtoken";
 import { UserStatus } from "../types/enums.js";
 import { randomUUID } from "node:crypto";
 import { requireUserInReach } from "../services/user-scope.js";
+import { isoDate } from "../utils/dates.js";
 import { uuidParam } from "../utils/params.js";
 import type {
     ChangePasswordRequest,
@@ -68,7 +69,7 @@ export const createAccount = async (req: Request, res: Response) => {
                 userId: created.id,
                 firstName: body.profile.firstName,
                 lastName: body.profile.lastName,
-                hireDate: body.profile.hireDate ?? new Date().toISOString().slice(0, 10),
+                hireDate: body.profile.hireDate ?? isoDate(),
                 jobTitle: body.profile.jobTitle ?? null,
                 phone: null,
                 address: null,

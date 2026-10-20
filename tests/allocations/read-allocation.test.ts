@@ -5,6 +5,7 @@ import { app } from "../../src/app.js";
 import { UserRole } from "../../src/types/enums.js";
 import { createActor } from "../helpers/auth.js";
 import { criarAlocacao, criarEmpresa, criarProjeto, criarUtilizador } from "../helpers/factories.js";
+import { isoDate } from "../../src/utils/dates.js";
 
 const doProjeto = (id: string, header?: string, query = "") => {
     const pedido = request(app).get(`/projects/${id}/allocations${query}`);
@@ -21,9 +22,9 @@ const carga = (id: string, header?: string) => {
     return header === undefined ? pedido : pedido.set("Authorization", header);
 };
 
-const ontem = () => new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-const hoje = () => new Date().toISOString().slice(0, 10);
-const amanha = () => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+const ontem = () => isoDate(new Date(Date.now() - 86_400_000));
+const hoje = () => isoDate();
+const amanha = () => isoDate(new Date(Date.now() + 86_400_000));
 
 describe("GET /projects/:id/allocations", () => {
     it("devolve quem trabalha no projeto", async () => {
@@ -236,6 +237,32 @@ describe("GET /users/:id/allocation-load", () => {
         const res = await carga(pessoa.id, header);
 
         expect(res.body.data.totalPercent).toBe(70);
+    });
+
+    it("não conta uma alocação que só começa no futuro", async () => {
+        const { user: gestora, header } = await createActor(UserRole.CompanyAdmin);
+        const pessoa = await criarUtilizador({ companyId: gestora.companyId });
+        const atual = await criarProjeto(gestora.companyId);
+        const futuro = await criarProjeto(gestora.companyId);
+        await criarAlocacao(pessoa.id, atual.id, { allocationPercent: 80 });
+        await criarAlocacao(pessoa.id, futuro.id, { allocationPercent: 80, startDate: "2099-01-01" });
+
+        const res = await carga(pessoa.id, header);
+
+        expect(res.body.data).toMatchObject({ totalPercent: 80, overAllocated: false });
+    });
+
+    it("conta uma alocação que começa hoje, mas não uma que começa amanhã", async () => {
+        const { user: gestora, header } = await createActor(UserRole.CompanyAdmin);
+        const pessoa = await criarUtilizador({ companyId: gestora.companyId });
+        const projetoA = await criarProjeto(gestora.companyId);
+        const projetoB = await criarProjeto(gestora.companyId);
+        await criarAlocacao(pessoa.id, projetoA.id, { allocationPercent: 30, startDate: hoje() });
+        await criarAlocacao(pessoa.id, projetoB.id, { allocationPercent: 50, startDate: amanha() });
+
+        const res = await carga(pessoa.id, header);
+
+        expect(res.body.data.totalPercent).toBe(30);
     });
 
     it("não marca sobrecarga exatamente nos 100%", async () => {
