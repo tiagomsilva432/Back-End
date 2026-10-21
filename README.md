@@ -274,6 +274,32 @@ the body is **unchanged**, and an explicit `null` clears it. `startDate` is not
 mutable - delete the allocation and create another. `DELETE` is for correcting a
 mistake; ending real work is closing it with an `endDate`, which keeps the history.
 
+### Skills
+
+The catalog in `skills` has no `companyId`: it is **shared by every company**,
+seeded by the `SeedBaseData` migration. People's skills live in `employee_skills`.
+
+| Endpoint | Who | Scope |
+| --- | --- | --- |
+| `GET /skills` | any active account | the whole catalog; takes `?category=` |
+| `POST /skills` | `system_admin` only | the catalog is everyone's |
+| `PATCH /skills/{id}` | `system_admin` only | |
+| `GET /skills/{id}/users` | any active account | own company; a `system_admin` passes `?companyId=` |
+| `GET /users/{id}/skills` | any active account | own company |
+| `PUT /users/{id}/skills/{skillId}` | whoever could administer that account, **never on itself** | own company |
+| `DELETE /users/{id}/skills/{skillId}` | the same as the `PUT` | own company |
+
+A skill name is unique **ignoring case**, so `react` cannot sit next to `React`.
+
+Skills are not self-declared. They feed staffing decisions, so a person cannot
+set their own - not even a `system_admin` - and a `company_admin` sets them for
+its `employee`s, not for another `company_admin`. The `PUT` replaces like the
+profile one: `proficiency` (1-5) or `yearsExperience` left out is cleared to
+`null`, and `{}` assigns the skill with no level.
+
+There is no `DELETE /skills/{id}`: removing a catalog entry would cascade
+through every company's people at once.
+
 ### Recovering an account
 
 | Endpoint | Who |

@@ -1,3 +1,4 @@
+import { Raw } from "typeorm";
 import { AppDataSource } from "../data-source.js";
 import { Skill } from "../entities/Skill.js";
 import type { SkillCategory } from "../types/enums.js";
@@ -13,6 +14,13 @@ export async function getSkillById(id: string): Promise<Skill | null> {
 export async function getSkillByName(name: string): Promise<Skill | null> {
     return await skillRepo.findOneBy({
         name
+    });
+}
+
+/** Sem distinguir maiúsculas: "react" e "React" seriam a mesma competência duas vezes. */
+export async function getSkillByNameIgnoringCase(name: string): Promise<Skill | null> {
+    return await skillRepo.findOneBy({
+        name: Raw((alias) => `LOWER(${alias}) = LOWER(:name)`, { name })
     });
 }
 

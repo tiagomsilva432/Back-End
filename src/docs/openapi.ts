@@ -13,6 +13,7 @@ import { companyPaths } from "../routes/company-routes.js";
 import { projectPaths } from "../routes/project-routes.js";
 import { userPaths } from "../routes/user-routes.js";
 import { allocationPaths } from "../routes/allocation-routes.js";
+import { skillPaths } from "../routes/skill-routes.js";
 import { docsPaths } from "./docs-paths.js";
 
 export const openApiDocument: ReturnType<typeof createDocument> = createDocument({
@@ -35,6 +36,7 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
         { name: "Projetos", description: "Gestão de projetos" },
         { name: "Utilizadores", description: "Diretório de pessoas e perfis" },
         { name: "Alocações", description: "Quem trabalha em quê" },
+        { name: "Competências", description: "O catálogo de competências e quem as tem" },
     ],
     paths: {
         ...healthPaths,
@@ -44,6 +46,7 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
         ...projectPaths,
         ...userPaths,
         ...allocationPaths,
+        ...skillPaths,
     },
     components: {
         schemas: {

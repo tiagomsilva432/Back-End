@@ -10,6 +10,7 @@ import companyRouter from "./routes/company-routes.js"
 import projectRouter from "./routes/project-routes.js"
 import userRouter from "./routes/user-routes.js"
 import allocationRouter from "./routes/allocation-routes.js"
+import skillRouter from "./routes/skill-routes.js"
 
 export const app = express();
 //Middlewares globais
@@ -27,6 +28,7 @@ app.use(companyRouter);
 app.use(projectRouter);
 app.use(userRouter);
 app.use(allocationRouter);
+app.use(skillRouter);
 
 //Rota não encontrada
 app.use((_req: Request, res: Response) => {

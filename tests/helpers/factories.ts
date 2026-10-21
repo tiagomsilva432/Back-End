@@ -2,9 +2,11 @@ import { hash } from "bcrypt";
 import { Company } from "../../src/entities/Company.js";
 import { Allocation } from "../../src/entities/Allocation.js";
 import { EmployeeProfile } from "../../src/entities/EmployeeProfile.js";
+import { EmployeeSkill } from "../../src/entities/EmployeeSkill.js";
 import { Project } from "../../src/entities/Project.js";
+import { Skill } from "../../src/entities/Skill.js";
 import { User } from "../../src/entities/User.js";
-import { ProjectStatus, UserRole, UserStatus } from "../../src/types/enums.js";
+import { ProjectStatus, SkillCategory, UserRole, UserStatus } from "../../src/types/enums.js";
 import { saltRounds } from "../../src/env-vars.js";
 import { manager } from "../setup/db.js";
 
@@ -93,6 +95,30 @@ export async function criarProjeto(companyId: string, nome?: string): Promise<Pr
             companyId,
             name: nome ?? `Projeto ${n}`,
             status: ProjectStatus.Active,
+        }),
+    );
+}
+
+/** O catálogo já vem semeado pela migração, por isso o nome por omissão nunca colide. */
+export async function criarCompetencia(nome?: string, categoria = SkillCategory.Other): Promise<Skill> {
+    const repo = manager().getRepository(Skill);
+
+    return repo.save(repo.create({ name: nome ?? `Competência ${proximo()}`, category: categoria }));
+}
+
+export async function criarCompetenciaDePessoa(
+    userId: string,
+    skillId: string,
+    opcoes: { proficiency?: number | null; yearsExperience?: string | null } = {},
+): Promise<EmployeeSkill> {
+    const repo = manager().getRepository(EmployeeSkill);
+
+    return repo.save(
+        repo.create({
+            userId,
+            skillId,
+            proficiency: opcoes.proficiency ?? null,
+            yearsExperience: opcoes.yearsExperience ?? null,
         }),
     );
 }
