@@ -4,6 +4,7 @@ import {
     getUser,
     getUserProfile,
     listUsers,
+    patchUserStatus,
     upsertUserProfile,
 } from "../controllers/user-controller.js";
 import {
@@ -12,6 +13,7 @@ import {
 } from "../dtos/user/employee-profile-dto.js";
 import {
     listUsersQuerySchema,
+    patchUserStatusSchema,
     userListResponseSchema,
     userResponseSchema,
 } from "../dtos/user/user-dto.js";
@@ -20,6 +22,7 @@ import { requireAuth } from "../middleware/requireAuth.js";
 import { requireRole } from "../middleware/requireRole.js";
 import { validateBody } from "../middleware/validateBody.js";
 import { validateQuery } from "../middleware/validateQuery.js";
+import { UserRole } from "../types/enums.js";
 
 const router = Router();
 
@@ -53,6 +56,14 @@ router.put(
     requireRole(),
     validateBody(upsertEmployeeProfileSchema),
     upsertUserProfile
+);
+
+router.patch(
+    "/users/:id/status",
+    requireAuth,
+    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    validateBody(patchUserStatusSchema),
+    patchUserStatus
 );
 
 const idParam = {
@@ -138,6 +149,31 @@ export const userPaths: ZodOpenApiPathsObject = {
                 "401": jsonResponse(401, "Token em falta ou inválido"),
                 "403": jsonResponse(403, "Sem permissões para alterar este perfil"),
                 "404": jsonResponse(404, "Utilizador não encontrado"),
+                ...errorResponses(500),
+            },
+        },
+    },
+    "/users/{id}/status": {
+        patch: {
+            tags: ["Utilizadores"],
+            summary: "Suspender, reativar ou terminar uma conta",
+            description:
+                "Quem altera tem de poder administrar a conta: um `company_admin` sobre os seus " +
+                "`employee`, um `system_admin` sobre qualquer uma. Ninguém altera a sua própria conta. " +
+                "Transições: `active` ↔ `suspended`, e qualquer uma → `terminated`, que é definitivo. " +
+                "Uma conta `invited` só pode passar a `terminated`, o que revoga o convite. " +
+                "Pedir o estado que a conta já tem responde 200 sem mudar nada. " +
+                "Uma conta suspensa perde o acesso no pedido seguinte, sem esperar que o token expire.",
+            security: [{ bearerAuth: [] }],
+            parameters: [idParam],
+            requestBody: jsonBody(patchUserStatusSchema),
+            responses: {
+                "200": jsonResponse(200, "Estado da conta atualizado", userResponseSchema),
+                ...errorResponses(400),
+                "401": jsonResponse(401, "Token em falta ou inválido"),
+                "403": jsonResponse(403, "Sem permissões para alterar o estado desta conta"),
+                "404": jsonResponse(404, "Utilizador não encontrado"),
+                "409": jsonResponse(409, "Transição de estado não permitida"),
                 ...errorResponses(500),
             },
         },

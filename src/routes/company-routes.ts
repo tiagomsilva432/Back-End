@@ -1,10 +1,11 @@
 import { Router } from "express";
 import type { ZodOpenApiPathsObject } from "zod-openapi";
-import { createCompany, getCompany, listCompanies } from "../controllers/company-controller.js";
+import { createCompany, getCompany, listCompanies, patchCompany } from "../controllers/company-controller.js";
 import {
     companyListResponseSchema,
     companyResponseSchema,
     createCompanySchema,
+    patchCompanySchema,
 } from "../dtos/company/company-dto.js";
 import { jsonBody, jsonResponse, errorResponses } from "../docs/response.js";
 import { requireAuth } from "../middleware/requireAuth.js";
@@ -35,6 +36,14 @@ router.get(
     requireAuth,
     requireRole(),
     getCompany
+);
+
+router.patch(
+    "/companies/:id",
+    requireAuth,
+    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    validateBody(patchCompanySchema),
+    patchCompany
 );
 
 const idParam = {
@@ -90,6 +99,27 @@ export const companyPaths: ZodOpenApiPathsObject = {
                 "401": jsonResponse(401, "Token em falta ou inválido"),
                 "403": jsonResponse(403, "Conta não está ativa"),
                 "404": jsonResponse(404, "Empresa não encontrada"),
+                ...errorResponses(500),
+            },
+        },
+        patch: {
+            tags: ["Empresas"],
+            summary: "Alterar uma empresa",
+            description:
+                "Um `company_admin` altera a sua própria empresa; um `system_admin` qualquer uma. " +
+                "O `taxId` (NIF) é exclusivo do `system_admin`: um `company_admin` que o envie recebe 403. " +
+                "Um PATCH junta: um campo omitido fica como está, e um `null` explícito limpa-o. " +
+                "Uma empresa fora do alcance devolve 404, não 403.",
+            security: [{ bearerAuth: [] }],
+            parameters: [idParam],
+            requestBody: jsonBody(patchCompanySchema),
+            responses: {
+                "200": jsonResponse(200, "Empresa atualizada", companyResponseSchema),
+                ...errorResponses(400),
+                "401": jsonResponse(401, "Token em falta ou inválido"),
+                "403": jsonResponse(403, "Sem permissões para alterar esta empresa ou o NIF"),
+                "404": jsonResponse(404, "Empresa não encontrada"),
+                "409": jsonResponse(409, "Já existe uma empresa com este NIF"),
                 ...errorResponses(500),
             },
         },

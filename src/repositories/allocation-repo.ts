@@ -85,3 +85,9 @@ export async function createAllocation(allocation: Allocation) {
 export async function updateAllocation(allocation: Allocation) {
     return await allocationRepo.save(allocation);
 }
+
+export async function deleteAllocation(id: string) {
+    return await allocationRepo.delete({
+        id
+    });
+}

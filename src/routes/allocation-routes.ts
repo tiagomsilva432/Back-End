@@ -6,6 +6,7 @@ import {
     listProjectAllocations,
     listUserAllocations,
     patchAllocation,
+    removeAllocation,
 } from "../controllers/allocation-controller.js";
 import {
     allocationListResponseSchema,
@@ -38,6 +39,13 @@ router.patch(
     requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
     validateBody(patchAllocationSchema),
     patchAllocation
+);
+
+router.delete(
+    "/allocations/:id",
+    requireAuth,
+    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    removeAllocation
 );
 
 // No role listed: reading is open to any active user, scoped to their company.
@@ -118,6 +126,24 @@ export const allocationPaths: ZodOpenApiPathsObject = {
                 "403": jsonResponse(403, "Sem permissões para alterar alocações"),
                 "404": jsonResponse(404, "Alocação não encontrada"),
                 "409": jsonResponse(409, "Já existe uma alocação aberta deste par"),
+                ...errorResponses(500),
+            },
+        },
+        delete: {
+            tags: ["Alocações"],
+            summary: "Apagar uma alocação",
+            description:
+                "Serve para corrigir um erro de registo, como um `startDate` errado: apaga-se e " +
+                "cria-se outra. Para terminar uma alocação, fecha-se com `PATCH` e `endDate`, " +
+                "o que mantém o histórico. Um `company_admin` apaga na sua empresa; um " +
+                "`system_admin` em qualquer uma.",
+            security: [{ bearerAuth: [] }],
+            parameters: [idParam("Id da alocação")],
+            responses: {
+                "200": jsonResponse(200, "Alocação apagada"),
+                "401": jsonResponse(401, "Token em falta ou inválido"),
+                "403": jsonResponse(403, "Sem permissões para apagar alocações"),
+                "404": jsonResponse(404, "Alocação não encontrada"),
                 ...errorResponses(500),
             },
         },

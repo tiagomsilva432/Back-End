@@ -223,6 +223,29 @@ creates the profile and 200 when it updates one.
 Anything outside the caller's reach answers **404, not 403** - a 403 would
 confirm the id exists. The same applies to an id that is not a uuid.
 
+Projects and companies are changed with a `PATCH`, which merges like the
+allocation one below:
+
+| Endpoint | Who |
+| --- | --- |
+| `PATCH /projects/{id}` | `system_admin`, `company_admin` over its own company |
+| `PATCH /companies/{id}` | `system_admin`, `company_admin` over its own company - but only a `system_admin` changes `taxId` |
+
+A project's company never changes. Its dates are checked against what is already
+stored, and a new `managerId` has to be in the project's company.
+
+### Suspending and terminating accounts
+
+| Endpoint | Who |
+| --- | --- |
+| `PATCH /users/{id}/status` | whoever could administer that account, never on itself |
+
+`active` and `suspended` go back and forth; anything can become `terminated`,
+which is final. An `invited` account can only become `terminated`, which revokes
+the invite - suspending it would not stop the activation link, which ignores the
+status. A suspended account is refused on its very next request, because
+`requireRole` reads the status from the database rather than from the token.
+
 ### Allocations
 
 Who works on which project, at what percent. `Allocation` has no `companyId` of
@@ -232,6 +255,7 @@ its own, so its scope is the company of its **project**.
 | --- | --- | --- |
 | `POST /allocations` | `system_admin`, `company_admin` | the user and the project must be in the same company |
 | `PATCH /allocations/{id}` | `system_admin`, `company_admin` | own company |
+| `DELETE /allocations/{id}` | `system_admin`, `company_admin` | own company |
 | `GET /projects/{id}/allocations` | any active account | own company; takes `?open=true` |
 | `GET /users/{id}/allocations` | any active account | own company; takes `?open=true` |
 | `GET /users/{id}/allocation-load` | any active account | own company |
@@ -247,7 +271,8 @@ staffing overlaps, so the write stays silent and
 
 `PATCH` merges, which is the opposite of the profile `PUT`: a field left out of
 the body is **unchanged**, and an explicit `null` clears it. `startDate` is not
-mutable - close the allocation and create another.
+mutable - delete the allocation and create another. `DELETE` is for correcting a
+mistake; ending real work is closing it with an `endDate`, which keeps the history.
 
 ### Recovering an account
 

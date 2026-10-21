@@ -1,9 +1,10 @@
 import { Router } from "express";
 import type { ZodOpenApiPathsObject } from "zod-openapi";
-import { createProject, getProject, listProjects } from "../controllers/project-controller.js";
+import { createProject, getProject, listProjects, patchProject } from "../controllers/project-controller.js";
 import {
     createProjectSchema,
     listProjectsQuerySchema,
+    patchProjectSchema,
     projectListResponseSchema,
     projectResponseSchema,
 } from "../dtos/project/project-dto.js";
@@ -38,6 +39,14 @@ router.get(
     requireAuth,
     requireRole(),
     getProject
+);
+
+router.patch(
+    "/projects/:id",
+    requireAuth,
+    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    validateBody(patchProjectSchema),
+    patchProject
 );
 
 const idParam = {
@@ -100,6 +109,27 @@ export const projectPaths: ZodOpenApiPathsObject = {
                 "401": jsonResponse(401, "Token em falta ou inválido"),
                 "403": jsonResponse(403, "Conta não está ativa"),
                 "404": jsonResponse(404, "Projeto não encontrado"),
+                ...errorResponses(500),
+            },
+        },
+        patch: {
+            tags: ["Projetos"],
+            summary: "Alterar um projeto",
+            description:
+                "Um `company_admin` altera os projetos da sua empresa; um `system_admin` qualquer um. " +
+                "Um PATCH junta: um campo omitido fica como está, e um `null` explícito limpa-o. " +
+                "As datas comparam-se com as que já estão gravadas. O gestor, se indicado, " +
+                "tem de ser da mesma empresa do projeto. A empresa de um projeto não se altera.",
+            security: [{ bearerAuth: [] }],
+            parameters: [idParam],
+            requestBody: jsonBody(patchProjectSchema),
+            responses: {
+                "200": jsonResponse(200, "Projeto atualizado", projectResponseSchema),
+                ...errorResponses(400),
+                "401": jsonResponse(401, "Token em falta ou inválido"),
+                "403": jsonResponse(403, "Sem permissões para alterar projetos"),
+                "404": jsonResponse(404, "Projeto ou gestor não encontrado"),
+                "409": jsonResponse(409, "Já existe um projeto com este nome nesta empresa"),
                 ...errorResponses(500),
             },
         },

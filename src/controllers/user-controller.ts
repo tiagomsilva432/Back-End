@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { HttpError } from "../dtos/common/errors-dto.js";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import type { UpsertEmployeeProfileRequest } from "../dtos/user/employee-profile-dto.js";
-import type { ListUsersQuery } from "../dtos/user/user-dto.js";
+import type { ListUsersQuery, PatchUserStatusRequest } from "../dtos/user/user-dto.js";
 import type { User } from "../entities/User.js";
 import { getCurrentActor } from "../middleware/requireRole.js";
 import {
@@ -10,10 +10,17 @@ import {
     getEmployeeProfileByUserId,
     updateEmployeeProfile,
 } from "../repositories/employee-profile-repo.js";
-import { getUserById, getUserByIdWithProfile, getUsersByCompanyId } from "../repositories/user-repo.js";
+import {
+    getUserById,
+    getUserByIdWithProfile,
+    getUsersByCompanyId,
+    updateUser,
+} from "../repositories/user-repo.js";
+import { canAdministerAccount } from "../services/account-policy.js";
 import { resolveCompanyScope } from "../services/company-scope.js";
 import { toProfileResponse, toUserResponse } from "../services/user-mapper.js";
 import { requireCanManageUser, requireUserInReach } from "../services/user-scope.js";
+import { UserStatus } from "../types/enums.js";
 import { uuidParam } from "../utils/params.js";
 
 const NOT_FOUND = "Utilizador não encontrado";
@@ -91,4 +98,52 @@ export const upsertUserProfile = async (req: Request, res: Response) => {
         undefined,
         toProfileResponse(saved),
     ).send(res);
+}
+
+/**
+ * As transições permitidas. Uma conta convidada só sai para terminada: o link de
+ * ativação não olha para o estado, por isso suspendê-la não a travava.
+ */
+const ALLOWED_TRANSITIONS: Record<UserStatus, readonly UserStatus[]> = {
+    [UserStatus.Invited]: [UserStatus.Terminated],
+    [UserStatus.Active]: [UserStatus.Suspended, UserStatus.Terminated],
+    [UserStatus.Suspended]: [UserStatus.Active, UserStatus.Terminated],
+    [UserStatus.Terminated]: [],
+};
+
+export const patchUserStatus = async (req: Request, res: Response) => {
+    const { status } = req.body as PatchUserStatusRequest;
+    const actor: User = getCurrentActor(req);
+    const id = uuidParam(req.params.id, NOT_FOUND);
+
+    const target = requireUserInReach(actor, await getUserByIdWithProfile(id), NOT_FOUND);
+
+    // Suspender-se a si próprio deixava a empresa sem quem a reativasse.
+    if (target.id === actor.id) {
+        throw new HttpError(403, "Não pode alterar o estado da sua própria conta");
+    }
+
+    if (!canAdministerAccount(actor.role, target.role)) {
+        throw new HttpError(403, "Sem permissões para alterar o estado desta conta");
+    }
+
+    if (target.status !== status) {
+        if (!ALLOWED_TRANSITIONS[target.status].includes(status)) {
+            throw new HttpError(409, `Uma conta ${target.status} não pode passar a ${status}`);
+        }
+
+        target.status = status;
+
+        // Terminar um convite revoga-o: o link deixa de servir.
+        if (status === UserStatus.Terminated) {
+            target.signupToken = null;
+            target.signupTokenExpiresAt = null;
+            target.passwordResetToken = null;
+            target.passwordResetExpiresAt = null;
+        }
+
+        await updateUser(target);
+    }
+
+    return new HttpResponse(200, "Estado da conta atualizado", undefined, toUserResponse(target)).send(res);
 }
