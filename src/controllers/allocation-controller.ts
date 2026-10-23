@@ -12,6 +12,7 @@ import { getCurrentActor } from "../middleware/requireRole.js";
 import {
     allocationRepo,
     createAllocation as saveAllocation,
+    deleteAllocation,
     getActiveAllocationsByUserId,
     getAllocationById,
     getAllocationsByProjectId,
@@ -161,4 +162,22 @@ export const patchAllocation = async (req: Request, res: Response) => {
     const saved = await updateAllocation(allocation);
 
     return new HttpResponse(200, "Alocação atualizada", undefined, toAllocationResponse(saved)).send(res);
+}
+
+/** Apagar é para corrigir um erro, como um startDate errado. Terminar uma alocação é fechá-la. */
+export const removeAllocation = async (req: Request, res: Response) => {
+    const actor: User = getCurrentActor(req);
+    const id = uuidParam(req.params.id, NOT_FOUND);
+
+    const allocation = await getAllocationById(id);
+
+    if (!allocation) {
+        throw new HttpError(404, NOT_FOUND);
+    }
+
+    await projectOfAllocation(actor, allocation.projectId);
+
+    await deleteAllocation(id);
+
+    return new HttpResponse(200, "Alocação apagada").send(res);
 }

@@ -223,6 +223,29 @@ creates the profile and 200 when it updates one.
 Anything outside the caller's reach answers **404, not 403** - a 403 would
 confirm the id exists. The same applies to an id that is not a uuid.
 
+Projects and companies are changed with a `PATCH`, which merges like the
+allocation one below:
+
+| Endpoint | Who |
+| --- | --- |
+| `PATCH /projects/{id}` | `system_admin`, `company_admin` over its own company |
+| `PATCH /companies/{id}` | `system_admin`, `company_admin` over its own company - but only a `system_admin` changes `taxId` |
+
+A project's company never changes. Its dates are checked against what is already
+stored, and a new `managerId` has to be in the project's company.
+
+### Suspending and terminating accounts
+
+| Endpoint | Who |
+| --- | --- |
+| `PATCH /users/{id}/status` | whoever could administer that account, never on itself |
+
+`active` and `suspended` go back and forth; anything can become `terminated`,
+which is final. An `invited` account can only become `terminated`, which revokes
+the invite - suspending it would not stop the activation link, which ignores the
+status. A suspended account is refused on its very next request, because
+`requireRole` reads the status from the database rather than from the token.
+
 ### Allocations
 
 Who works on which project, at what percent. `Allocation` has no `companyId` of
@@ -232,6 +255,7 @@ its own, so its scope is the company of its **project**.
 | --- | --- | --- |
 | `POST /allocations` | `system_admin`, `company_admin` | the user and the project must be in the same company |
 | `PATCH /allocations/{id}` | `system_admin`, `company_admin` | own company |
+| `DELETE /allocations/{id}` | `system_admin`, `company_admin` | own company |
 | `GET /projects/{id}/allocations` | any active account | own company; takes `?open=true` |
 | `GET /users/{id}/allocations` | any active account | own company; takes `?open=true` |
 | `GET /users/{id}/allocation-load` | any active account | own company |
@@ -247,7 +271,61 @@ staffing overlaps, so the write stays silent and
 
 `PATCH` merges, which is the opposite of the profile `PUT`: a field left out of
 the body is **unchanged**, and an explicit `null` clears it. `startDate` is not
-mutable - close the allocation and create another.
+mutable - delete the allocation and create another. `DELETE` is for correcting a
+mistake; ending real work is closing it with an `endDate`, which keeps the history.
+
+### Skills
+
+The catalog in `skills` has no `companyId`: it is **shared by every company**,
+seeded by the `SeedBaseData` migration. People's skills live in `employee_skills`.
+
+| Endpoint | Who | Scope |
+| --- | --- | --- |
+| `GET /skills` | any active account | the whole catalog; takes `?category=` |
+| `POST /skills` | `system_admin` only | the catalog is everyone's |
+| `PATCH /skills/{id}` | `system_admin` only | |
+| `GET /skills/{id}/users` | any active account | own company; a `system_admin` passes `?companyId=` |
+| `GET /users/{id}/skills` | any active account | own company |
+| `PUT /users/{id}/skills/{skillId}` | whoever could administer that account, **never on itself** | own company |
+| `DELETE /users/{id}/skills/{skillId}` | the same as the `PUT` | own company |
+
+A skill name is unique **ignoring case**, so `react` cannot sit next to `React`.
+
+Skills are not self-declared. They feed staffing decisions, so a person cannot
+set their own - not even a `system_admin` - and a `company_admin` sets them for
+its `employee`s, not for another `company_admin`. The `PUT` replaces like the
+profile one: `proficiency` (1-5) or `yearsExperience` left out is cleared to
+`null`, and `{}` assigns the skill with no level.
+
+There is no `DELETE /skills/{id}`: removing a catalog entry would cascade
+through every company's people at once.
+
+### Salaries
+
+Salaries are the one thing a colleague **cannot** read. Everything else about a
+person is visible to their whole company; this is not.
+
+| Endpoint | Who |
+| --- | --- |
+| `GET /users/{id}/salaries` | the person themselves, or whoever could administer that account |
+| `GET /users/{id}/salaries/current` | the same |
+| `POST /users/{id}/salaries` | whoever could administer that account, **never on itself** |
+| `DELETE /users/{id}/salaries/{salaryId}` | the same as the `POST`, and only the most recent salary |
+
+A salary is never edited, only followed by the next one: `POST` closes the open
+row on the day the new one starts (`effectiveTo` is exclusive - it is the day
+the next salary begins) and inserts the new one, in **one transaction**, because
+the partial unique index allows only one open row and halfway through the person
+would have none. History is not rewritten, so `effectiveFrom` has to be after
+the most recent salary's, or it answers 409.
+
+An `effectiveFrom` in the future schedules a raise. `/current` is the salary
+**paid today**, not the most recent row, so a scheduled raise shows up there only
+on its first day.
+
+`DELETE` is for correcting a mistake: it removes the most recent salary and
+reopens the previous one, if that is the one it had closed. Deleting from the
+middle of the history would leave a gap, so it answers 409.
 
 ### Recovering an account
 

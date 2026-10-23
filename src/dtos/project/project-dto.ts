@@ -41,6 +41,26 @@ export const createProjectSchema = z.object({
     })
     .meta({ id: "CreateProjectRequest", description: "Dados para criar um projeto" });
 
+/**
+ * Corpo do PATCH. Junta em vez de substituir: o que for omitido fica como está,
+ * e um null explícito limpa o campo. O name e o status não se limpam.
+ */
+export const patchProjectSchema = z.object({
+    name: z.string().trim().min(1).max(150).optional().meta({ example: "Portal do Cliente" }),
+    managerId: z.uuid().nullable().optional().meta({
+        example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42",
+        description: "Tem de ser um utilizador da mesma empresa. null tira o gestor.",
+    }),
+    clientName: z.string().trim().min(1).max(150).nullable().optional().meta({ example: "Câmara de Lisboa" }),
+    status: z.string().trim().toLowerCase().pipe(z.enum(ProjectStatus)).optional()
+        .meta({ example: ProjectStatus.Active }),
+    startDate: z.iso.date().nullable().optional().meta({ example: "2026-01-15" }),
+    endDate: z.iso.date().nullable().optional().meta({ example: "2026-06-30" }),
+    budget: budgetSchema.nullable().optional().meta({ example: "125000.00" }),
+})
+    .refine((patch) => Object.keys(patch).length > 0, { message: "Nada para alterar" })
+    .meta({ id: "PatchProjectRequest", description: "Alterar um projeto" });
+
 //Schema QUERY listProjects
 export const listProjectsQuerySchema = z.object({
     companyId: companyIdSchema.optional(),
@@ -65,5 +85,6 @@ export const projectListResponseSchema = z.array(projectResponseSchema)
     .meta({ id: "ProjectList", description: "Projetos da empresa, por nome" });
 
 export type CreateProjectRequest = z.infer<typeof createProjectSchema>;
+export type PatchProjectRequest = z.infer<typeof patchProjectSchema>;
 export type ListProjectsQuery = z.infer<typeof listProjectsQuerySchema>;
 export type ProjectResponse = z.infer<typeof projectResponseSchema>;

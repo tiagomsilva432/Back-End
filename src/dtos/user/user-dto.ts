@@ -17,6 +17,17 @@ export const listUsersQuerySchema = z.object({
         .meta({ example: UserStatus.Active, description: "Filtra por estado da conta." }),
 }).meta({ id: "ListUsersQuery", description: "Filtros do diretório de utilizadores" });
 
+/** `invited` não está aqui: uma conta só volta a convidada sendo criada de novo. */
+const settableStatuses = [UserStatus.Active, UserStatus.Suspended, UserStatus.Terminated] as const;
+
+//Schema REQUEST patchUserStatus
+export const patchUserStatusSchema = z.object({
+    status: z.string().trim().toLowerCase().pipe(z.enum(settableStatuses)).meta({
+        example: UserStatus.Suspended,
+        description: "`active` reativa uma conta suspensa. `terminated` é definitivo.",
+    }),
+}).meta({ id: "PatchUserStatusRequest", description: "Suspender, reativar ou terminar uma conta" });
+
 /** Campo a campo: o passwordHash e o signupToken nunca entram aqui. */
 export const userResponseSchema = z.object({
     id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
@@ -35,4 +46,5 @@ export const userListResponseSchema = z.array(userResponseSchema)
     .meta({ id: "UserList", description: "Utilizadores da empresa, por email" });
 
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
+export type PatchUserStatusRequest = z.infer<typeof patchUserStatusSchema>;
 export type UserResponse = z.infer<typeof userResponseSchema>;

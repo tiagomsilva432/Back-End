@@ -1,0 +1,53 @@
+import { z } from "zod";
+import { isoDate } from "../../utils/dates.js";
+
+// NUMERIC(12,2): 10 dígitos inteiros. Fica em string para não perder cêntimos.
+const amountSchema = z.union([z.string().trim(), z.number()])
+    .transform((value) => String(value))
+    .pipe(
+        z.string()
+            .regex(/^\d{1,10}(\.\d{1,2})?$/, {
+                message: "Montante inválido: usa no máximo 10 dígitos e 2 casas decimais",
+            })
+            .overwrite((value) => {
+                const [inteiro, decimais = ""] = value.split(".");
+                return `${inteiro}.${decimais.padEnd(2, "0")}`;
+            }),
+    );
+
+//Schema REQUEST createSalary
+export const createSalarySchema = z.object({
+    amount: amountSchema.meta({ example: "2150.00", description: "Bruto mensal. Não pode ser negativo." }),
+    currency: z.string().trim().toUpperCase().pipe(z.string().regex(/^[A-Z]{3}$/, {
+        message: "Moeda inválida: usa o código ISO de 3 letras",
+    })).default("EUR").meta({ example: "EUR" }),
+    effectiveFrom: z.iso.date()
+        .default(() => isoDate())
+        .meta({
+            example: "2026-11-01",
+            description: "Por omissão, a data de hoje. Pode ser futura: um aumento agendado.",
+        }),
+    reason: z.string().trim().min(1).max(255).optional().meta({ example: "Aumento anual" }),
+}).meta({ id: "CreateSalaryRequest", description: "Definir o salário seguinte de uma pessoa" });
+
+//Como um salário é devolvido
+export const salaryResponseSchema = z.object({
+    id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
+    userId: z.uuid(),
+    amount: z.string().meta({ example: "2150.00" }),
+    currency: z.string().meta({ example: "EUR" }),
+    effectiveFrom: z.string().meta({ example: "2026-11-01" }),
+    effectiveTo: z.string().nullable().meta({
+        example: null,
+        description: "Exclusivo: é o dia em que o salário seguinte começa. null no mais recente.",
+    }),
+    reason: z.string().nullable().meta({ example: "Aumento anual" }),
+    createdBy: z.uuid().meta({ description: "Quem o definiu." }),
+    createdAt: z.iso.datetime().meta({ example: "2026-10-21T10:30:00.000Z" }),
+}).meta({ id: "Salary", description: "Um salário de uma pessoa" });
+
+export const salaryListResponseSchema = z.array(salaryResponseSchema)
+    .meta({ id: "SalaryList", description: "Histórico de salários, do mais recente para o mais antigo" });
+
+export type CreateSalaryRequest = z.infer<typeof createSalarySchema>;
+export type SalaryResponse = z.infer<typeof salaryResponseSchema>;
