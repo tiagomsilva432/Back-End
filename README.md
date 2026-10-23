@@ -327,6 +327,50 @@ on its first day.
 reopens the previous one, if that is the one it had closed. Deleting from the
 middle of the history would leave a gap, so it answers 409.
 
+### Peer reviews
+
+Colleagues vote on whether someone deserves a raise. Admins collect the votes
+through review **cycles** - or one-off **ad-hoc** requests - and read the results
+anonymously.
+
+| Endpoint | Who |
+| --- | --- |
+| `POST /review-cycles` | `system_admin`, `company_admin` - own company; a `system_admin` names `companyId` |
+| `GET /review-cycles` | the same; takes `?open=true` |
+| `GET /review-cycles/{id}` | the same - the cycle plus how many requests are in each status |
+| `GET /review-cycles/{id}/requests` | the same - who reviews whom and the status, never the content |
+| `POST /review-cycles/{id}/close` | the same |
+| `GET /review-cycles/{id}/results` | the same, narrowed to the people whose results the caller may read |
+| `POST /review-requests` | `system_admin`, `company_admin` - an ad-hoc request outside any cycle |
+| `GET /review-requests/mine` | any active account - its own inbox; takes `?status=` |
+| `POST /review-requests/{id}/review` | the request's reviewer only |
+| `POST /review-requests/{id}/decline` | the request's reviewer only |
+| `GET /users/{id}/review-summary` | whoever could administer that account, **never the person** |
+| `GET /users/{id}/reviews` | the same |
+
+**Pairing.** Opening a cycle creates, in one transaction, a request for every
+pair of coworkers: two **active** people allocated to the same project whose
+allocations overlapped at some point between `since` (default: six months ago)
+and today. Each pair yields two requests, one each way. Employees and
+`company_admin`s alike take part. The cycle's `deadline` becomes each request's
+`dueDate`.
+
+**Answering.** A reviewer answers or declines only its own `pending` requests;
+anyone else's answers 404, so a request id confirms nothing. A request past its
+`dueDate` turns `expired` on the first attempt and answers 409. Closing a cycle
+expires everything still pending in it. A review is final once submitted.
+
+**Anonymity.** Results never say who wrote what. `GET /users/{id}/reviews`
+returns the score, the raise vote and the comments, but no `reviewerId` and no
+`requestId` - the request id would lead straight back to the reviewer through
+`/review-cycles/{id}/requests`. It carries the day but not the time, and is
+sorted by score rather than by time, so the order does not reveal who answered
+when.
+
+**Who sees results.** The same rule as salaries: whoever could administer the
+account, never the person themselves. A `company_admin` who took part in a cycle
+does not see its own row in the cycle's results, nor another `company_admin`'s.
+
 ### Recovering an account
 
 | Endpoint | Who |

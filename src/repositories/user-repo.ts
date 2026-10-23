@@ -1,3 +1,4 @@
+import { In } from "typeorm";
 import { AppDataSource } from "../data-source.js";
 import { User } from "../entities/User.js";
 import type { UserRole, UserStatus } from "../types/enums.js";
@@ -58,6 +59,16 @@ export async function getUsersByCompanyId(
         },
         relations: { profile: true },
         order: { email: "ASC" }
+    });
+}
+
+export async function getUsersByIds(ids: string[]): Promise <User[]> {
+    if (ids.length === 0) {
+        return [];
+    }
+
+    return await userRepo.findBy({
+        id: In(ids)
     });
 }
 
