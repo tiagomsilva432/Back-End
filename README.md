@@ -300,6 +300,33 @@ profile one: `proficiency` (1-5) or `yearsExperience` left out is cleared to
 There is no `DELETE /skills/{id}`: removing a catalog entry would cascade
 through every company's people at once.
 
+### Salaries
+
+Salaries are the one thing a colleague **cannot** read. Everything else about a
+person is visible to their whole company; this is not.
+
+| Endpoint | Who |
+| --- | --- |
+| `GET /users/{id}/salaries` | the person themselves, or whoever could administer that account |
+| `GET /users/{id}/salaries/current` | the same |
+| `POST /users/{id}/salaries` | whoever could administer that account, **never on itself** |
+| `DELETE /users/{id}/salaries/{salaryId}` | the same as the `POST`, and only the most recent salary |
+
+A salary is never edited, only followed by the next one: `POST` closes the open
+row on the day the new one starts (`effectiveTo` is exclusive - it is the day
+the next salary begins) and inserts the new one, in **one transaction**, because
+the partial unique index allows only one open row and halfway through the person
+would have none. History is not rewritten, so `effectiveFrom` has to be after
+the most recent salary's, or it answers 409.
+
+An `effectiveFrom` in the future schedules a raise. `/current` is the salary
+**paid today**, not the most recent row, so a scheduled raise shows up there only
+on its first day.
+
+`DELETE` is for correcting a mistake: it removes the most recent salary and
+reopens the previous one, if that is the one it had closed. Deleting from the
+middle of the history would leave a gap, so it answers 409.
+
 ### Recovering an account
 
 | Endpoint | Who |

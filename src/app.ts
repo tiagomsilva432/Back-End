@@ -11,6 +11,7 @@ import projectRouter from "./routes/project-routes.js"
 import userRouter from "./routes/user-routes.js"
 import allocationRouter from "./routes/allocation-routes.js"
 import skillRouter from "./routes/skill-routes.js"
+import salaryRouter from "./routes/salary-routes.js"
 
 export const app = express();
 //Middlewares globais
@@ -29,6 +30,7 @@ app.use(projectRouter);
 app.use(userRouter);
 app.use(allocationRouter);
 app.use(skillRouter);
+app.use(salaryRouter);
 
 //Rota não encontrada
 app.use((_req: Request, res: Response) => {

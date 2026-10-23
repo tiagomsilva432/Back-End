@@ -4,6 +4,7 @@ import { Allocation } from "../../src/entities/Allocation.js";
 import { EmployeeProfile } from "../../src/entities/EmployeeProfile.js";
 import { EmployeeSkill } from "../../src/entities/EmployeeSkill.js";
 import { Project } from "../../src/entities/Project.js";
+import { Salary } from "../../src/entities/Salary.js";
 import { Skill } from "../../src/entities/Skill.js";
 import { User } from "../../src/entities/User.js";
 import { ProjectStatus, SkillCategory, UserRole, UserStatus } from "../../src/types/enums.js";
@@ -119,6 +120,30 @@ export async function criarCompetenciaDePessoa(
             skillId,
             proficiency: opcoes.proficiency ?? null,
             yearsExperience: opcoes.yearsExperience ?? null,
+        }),
+    );
+}
+
+interface OpcoesSalario {
+    amount?: string;
+    currency?: string;
+    effectiveFrom?: string;
+    effectiveTo?: string | null;
+    reason?: string | null;
+}
+
+export async function criarSalario(userId: string, createdBy: string, opcoes: OpcoesSalario = {}): Promise<Salary> {
+    const repo = manager().getRepository(Salary);
+
+    return repo.save(
+        repo.create({
+            userId,
+            createdBy,
+            amount: opcoes.amount ?? "1500.00",
+            currency: opcoes.currency ?? "EUR",
+            effectiveFrom: opcoes.effectiveFrom ?? "2025-01-01",
+            effectiveTo: opcoes.effectiveTo ?? null,
+            reason: opcoes.reason ?? null,
         }),
     );
 }
