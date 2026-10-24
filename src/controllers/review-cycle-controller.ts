@@ -29,6 +29,7 @@ import {
 import { getUserById, getUsersByIds } from "../repositories/user-repo.js";
 import { canAdministerAccount } from "../services/account-policy.js";
 import { requireInReach, resolveCompanyScope } from "../services/company-scope.js";
+import { notifier } from "../services/notifier.js";
 import {
     toAnonymousReviewResponse,
     toReviewCycleResponse,
@@ -103,6 +104,14 @@ export const createReviewCycle = async (req: Request, res: Response) => {
         })),
     );
 
+    // Cada pessoa uma vez, por muitos colegas que tenha para avaliar.
+    await notifier.notify("review_cycle.opened", {
+        companyId,
+        recipientIds: requests.map((request) => request.reviewerId),
+        exclude: [actor.id],
+        data: { cycleId: cycle.id, cycleName: cycle.name, deadline: cycle.deadline },
+    });
+
     return new HttpResponse(201, "Ciclo aberto", undefined, {
         ...toReviewCycleResponse(cycle),
         requestCount: requests.length,
@@ -154,7 +163,14 @@ export const closeReviewCycle = async (req: Request, res: Response) => {
         throw new HttpError(409, "Este ciclo já está fechado");
     }
 
-    const closed = await closeCycle(cycle);
+    const { cycle: closed, expiredReviewerIds } = await closeCycle(cycle);
+
+    await notifier.notify("review_cycle.closed", {
+        companyId: closed.companyId,
+        recipientIds: expiredReviewerIds,
+        exclude: [actor.id],
+        data: { cycleId: closed.id, cycleName: closed.name },
+    });
 
     return new HttpResponse(200, "Ciclo fechado", undefined, toReviewCycleResponse(closed)).send(res);
 }

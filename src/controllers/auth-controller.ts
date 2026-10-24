@@ -2,11 +2,11 @@ import type { Response, Request } from "express";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import { HttpError } from "../dtos/common/errors-dto.js";
 import { feUrl, jwtExpiresIn, jwtSecret, passwordResetExpDate, saltRounds, signupTokenExpDate } from "../env-vars.js";
-import { createUser, getUserByEmailAndCompanyId, getUserById, getUserByPasswordResetToken, getUserBySignupToken, getUsersByEmail, updateUser } from "../repositories/user-repo.js";
+import { createUser, getUserByEmailAndCompanyId, getUserById, getUserByPasswordResetToken, getUserBySignupToken, getUsersByCompanyId, getUsersByEmail, updateUser } from "../repositories/user-repo.js";
 import { User } from "../entities/User.js";
 import { compare, hash } from "bcrypt";
 import jwt from "jsonwebtoken";
-import { UserStatus } from "../types/enums.js";
+import { UserRole, UserStatus } from "../types/enums.js";
 import { randomUUID } from "node:crypto";
 import { requireUserInReach } from "../services/user-scope.js";
 import { isoDate } from "../utils/dates.js";
@@ -25,6 +25,7 @@ import { canAdministerAccount, resolveAccountTarget } from "../services/account-
 import type { CreateAccountRequest, CreateAccountResponse } from "../dtos/auth/account-dto.js";
 import { getCompanyById } from "../repositories/company-repo.js";
 import { mailer } from "../services/mailer.js";
+import { notifier } from "../services/notifier.js";
 import { createEmployeeProfile, employeeProfileRepo } from "../repositories/employee-profile-repo.js";
 import { toProfileResponse } from "../services/user-mapper.js";
 
@@ -108,6 +109,20 @@ export const activateUserWithToken = async (req: Request, res: Response) => {
     user.signupTokenExpiresAt = null;
 
     await updateUser(user);
+
+    // Os admins da empresa sabem que o convite foi aceite. Sem outro admin
+    // (o primeiro, convidado por um system_admin), não há a quem dizer.
+    const admins = await getUsersByCompanyId(user.companyId, {
+        role: UserRole.CompanyAdmin,
+        status: UserStatus.Active,
+    });
+
+    await notifier.notify("user.activated", {
+        companyId: user.companyId,
+        recipientIds: admins.map((admin) => admin.id),
+        exclude: [user.id],
+        data: { userId: user.id, email: user.email },
+    });
 
     return new HttpResponse(200, "Conta ativada com sucesso").send(res);
 }

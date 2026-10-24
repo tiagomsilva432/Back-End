@@ -10,6 +10,7 @@ import type {
 import type { Project } from "../entities/Project.js";
 import type { User } from "../entities/User.js";
 import { getCurrentActor } from "../middleware/requireRole.js";
+import { getInvolvedUserIdsByProjectId } from "../repositories/allocation-repo.js";
 import { getCompanyById } from "../repositories/company-repo.js";
 import {
     createProject as saveProject,
@@ -22,6 +23,7 @@ import {
 } from "../repositories/project-repo.js";
 import { getUserById } from "../repositories/user-repo.js";
 import { requireInReach, resolveCompanyScope } from "../services/company-scope.js";
+import { notifier } from "../services/notifier.js";
 import { UserRole } from "../types/enums.js";
 import { uuidParam } from "../utils/params.js";
 
@@ -39,6 +41,38 @@ const toResponse = (project: Project): ProjectResponse => ({
     endDate: project.endDate,
     budget: project.budget,
 });
+
+/**
+ * O novo gestor sabe que passou a gerir; quem está no projeto sabe que o
+ * estado mudou. Quem fez a alteração não recebe nada.
+ */
+async function notifyProjectChanges(
+    actor: User,
+    saved: Project,
+    previous: Pick<Project, "managerId" | "status">,
+): Promise<void> {
+    const ref = { projectId: saved.id, projectName: saved.name };
+
+    if (saved.managerId !== previous.managerId) {
+        await notifier.notify("project.manager_assigned", {
+            companyId: saved.companyId,
+            recipientIds: [saved.managerId],
+            exclude: [actor.id],
+            data: ref,
+        });
+    }
+
+    if (saved.status !== previous.status) {
+        const involved = await getInvolvedUserIdsByProjectId(saved.id);
+
+        await notifier.notify("project.status_changed", {
+            companyId: saved.companyId,
+            recipientIds: [...involved, saved.managerId],
+            exclude: [actor.id],
+            data: { ...ref, from: previous.status, to: saved.status },
+        });
+    }
+}
 
 export const createProject = async (req: Request, res: Response) => {
     const body = req.body as CreateProjectRequest;
@@ -77,6 +111,13 @@ export const createProject = async (req: Request, res: Response) => {
         }),
     );
 
+    await notifier.notify("project.manager_assigned", {
+        companyId: created.companyId,
+        recipientIds: [created.managerId],
+        exclude: [actor.id],
+        data: { projectId: created.id, projectName: created.name },
+    });
+
     return new HttpResponse(201, "Projeto criado", undefined, toResponse(created)).send(res);
 }
 
@@ -112,6 +153,9 @@ export const patchProject = async (req: Request, res: Response) => {
     const id = uuidParam(req.params.id, NOT_FOUND);
 
     const project = requireInReach(actor, await getProjectById(id), NOT_FOUND);
+
+    // O save devolve o mesmo objeto, por isso o "antes" guarda-se já.
+    const previous = { managerId: project.managerId, status: project.status };
 
     const startDate = body.startDate === undefined ? project.startDate : body.startDate;
     const endDate = body.endDate === undefined ? project.endDate : body.endDate;
@@ -161,6 +205,8 @@ export const patchProject = async (req: Request, res: Response) => {
     project.endDate = endDate;
 
     const saved = await updateProject(project);
+
+    await notifyProjectChanges(actor, saved, previous);
 
     return new HttpResponse(200, "Projeto atualizado", undefined, toResponse(saved)).send(res);
 }

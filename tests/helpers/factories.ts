@@ -1,6 +1,8 @@
 import { hash } from "bcrypt";
 import { Company } from "../../src/entities/Company.js";
 import { Allocation } from "../../src/entities/Allocation.js";
+import { Announcement } from "../../src/entities/Announcement.js";
+import { Notification } from "../../src/entities/Notification.js";
 import { EmployeeProfile } from "../../src/entities/EmployeeProfile.js";
 import { EmployeeSkill } from "../../src/entities/EmployeeSkill.js";
 import { Project } from "../../src/entities/Project.js";
@@ -11,6 +13,8 @@ import { Salary } from "../../src/entities/Salary.js";
 import { Skill } from "../../src/entities/Skill.js";
 import { User } from "../../src/entities/User.js";
 import {
+    AnnouncementScope,
+    AnnouncementSeverity,
     ProjectStatus,
     ReviewRequestStatus,
     SkillCategory,
@@ -96,7 +100,11 @@ export async function criarPerfil(userId: string, opcoes: OpcoesPerfil = {}): Pr
     );
 }
 
-export async function criarProjeto(companyId: string, nome?: string): Promise<Project> {
+export async function criarProjeto(
+    companyId: string,
+    nome?: string,
+    opcoes: { managerId?: string | null } = {},
+): Promise<Project> {
     const repo = manager().getRepository(Project);
     const n = proximo();
 
@@ -105,6 +113,7 @@ export async function criarProjeto(companyId: string, nome?: string): Promise<Pr
             companyId,
             name: nome ?? `Projeto ${n}`,
             status: ProjectStatus.Active,
+            managerId: opcoes.managerId ?? null,
         }),
     );
 }
@@ -247,6 +256,65 @@ export async function criarAlocacao(
             roleOnProject: opcoes.roleOnProject ?? null,
             startDate: opcoes.startDate ?? "2026-01-01",
             endDate: opcoes.endDate ?? null,
+        }),
+    );
+}
+
+interface OpcoesAviso {
+    scope?: AnnouncementScope;
+    companyId?: string | null;
+    projectId?: string | null;
+    title?: string;
+    severity?: AnnouncementSeverity;
+    pinned?: boolean;
+    startsAt?: Date;
+    endsAt?: Date | null;
+}
+
+/**
+ * Um aviso de sistema ativo por omissão. As datas são do relógio do JavaScript,
+ * como as que a API grava: o now() da base de dados fica parado no início da
+ * transação do teste.
+ */
+export async function criarAviso(createdBy: string, opcoes: OpcoesAviso = {}): Promise<Announcement> {
+    const repo = manager().getRepository(Announcement);
+    const n = proximo();
+
+    return repo.save(
+        repo.create({
+            scope: opcoes.scope ?? AnnouncementScope.System,
+            companyId: opcoes.companyId ?? null,
+            projectId: opcoes.projectId ?? null,
+            createdBy,
+            title: opcoes.title ?? `Aviso ${n}`,
+            body: `Texto do aviso ${n}`,
+            severity: opcoes.severity ?? AnnouncementSeverity.Info,
+            pinned: opcoes.pinned ?? false,
+            startsAt: opcoes.startsAt ?? new Date(Date.now() - 60_000),
+            endsAt: opcoes.endsAt ?? null,
+        }),
+    );
+}
+
+interface OpcoesNotificacao {
+    type?: string;
+    data?: Record<string, unknown>;
+    readAt?: Date | null;
+}
+
+export async function criarNotificacao(
+    recipient: Pick<User, "id" | "companyId">,
+    opcoes: OpcoesNotificacao = {},
+): Promise<Notification> {
+    const repo = manager().getRepository(Notification);
+
+    return repo.save(
+        repo.create({
+            recipientId: recipient.id,
+            companyId: recipient.companyId,
+            type: opcoes.type ?? "project.manager_assigned",
+            data: opcoes.data ?? { projectId: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42", projectName: `Projeto ${proximo()}` },
+            readAt: opcoes.readAt ?? null,
         }),
     );
 }

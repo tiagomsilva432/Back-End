@@ -9,6 +9,13 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
+  // Um stream já mandou os headers: não há envelope JSON que ainda caiba.
+  if (res.headersSent) {
+    console.error("[Error after headers sent]", err);
+    res.end();
+    return;
+  }
+
   if (err instanceof HttpError) {
     // Os details de um 4xx são erros de campo; os de um 5xx são internos.
     const exposeDetails = err.status < 500 || envIsDev();

@@ -13,6 +13,8 @@ import allocationRouter from "./routes/allocation-routes.js"
 import skillRouter from "./routes/skill-routes.js"
 import salaryRouter from "./routes/salary-routes.js"
 import reviewRouter from "./routes/review-routes.js"
+import announcementRouter from "./routes/announcement-routes.js"
+import notificationRouter from "./routes/notification-routes.js"
 
 export const app = express();
 //Middlewares globais
@@ -33,6 +35,8 @@ app.use(allocationRouter);
 app.use(skillRouter);
 app.use(salaryRouter);
 app.use(reviewRouter);
+app.use(announcementRouter);
+app.use(notificationRouter);
 
 //Rota não encontrada
 app.use((_req: Request, res: Response) => {

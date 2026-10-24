@@ -7,6 +7,8 @@ import type {
 } from "../dtos/allocation/allocation-dto.js";
 import { HttpError } from "../dtos/common/errors-dto.js";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
+import type { Allocation } from "../entities/Allocation.js";
+import type { Project } from "../entities/Project.js";
 import type { User } from "../entities/User.js";
 import { getCurrentActor } from "../middleware/requireRole.js";
 import {
@@ -26,7 +28,9 @@ import { getProjectById } from "../repositories/project-repo.js";
 import { getUserById } from "../repositories/user-repo.js";
 import { toAllocationResponse } from "../services/allocation-mapper.js";
 import { requireInReach } from "../services/company-scope.js";
+import { notifier } from "../services/notifier.js";
 import { requireUserInReach } from "../services/user-scope.js";
+import { isoDate } from "../utils/dates.js";
 import { uuidParam } from "../utils/params.js";
 
 const NOT_FOUND = "Alocação não encontrada";
@@ -37,6 +41,42 @@ const ALREADY_OPEN = "Este utilizador já tem uma alocação aberta neste projet
 /** A alocação não tem companyId: o alcance vem do projeto. */
 const projectOfAllocation = async (actor: User, projectId: string) =>
     requireInReach(actor, await getProjectById(projectId), NOT_FOUND);
+
+type AllocationSnapshot = Pick<Allocation, "allocationPercent" | "roleOnProject" | "endDate">;
+
+/** Uma notificação por pedido: fechar a alocação ganha a tudo o que mudou junto. */
+async function notifyAllocationChange(
+    actor: User,
+    project: Project,
+    saved: Allocation,
+    before: AllocationSnapshot,
+): Promise<void> {
+    const changes = (["allocationPercent", "roleOnProject", "endDate"] as const)
+        .filter((field) => saved[field] !== before[field]);
+
+    if (changes.length === 0) {
+        return;
+    }
+
+    const target = { companyId: project.companyId, recipientIds: [saved.userId], exclude: [actor.id] };
+    const ref = { allocationId: saved.id, projectId: project.id, projectName: project.name };
+
+    if (before.endDate === null && saved.endDate !== null) {
+        await notifier.notify("allocation.ended", { ...target, data: { ...ref, endDate: saved.endDate } });
+        return;
+    }
+
+    await notifier.notify("allocation.updated", {
+        ...target,
+        data: {
+            ...ref,
+            allocationPercent: saved.allocationPercent,
+            roleOnProject: saved.roleOnProject,
+            endDate: saved.endDate,
+            changes,
+        },
+    });
+}
 
 export const createAllocation = async (req: Request, res: Response) => {
     const body = req.body as CreateAllocationRequest;
@@ -67,6 +107,24 @@ export const createAllocation = async (req: Request, res: Response) => {
             endDate: body.endDate ?? null,
         }),
     );
+
+    // Registar uma alocação que já acabou é histórico, não novidade.
+    if (!created.endDate || created.endDate >= isoDate()) {
+        await notifier.notify("allocation.created", {
+            companyId: project.companyId,
+            recipientIds: [created.userId],
+            exclude: [actor.id],
+            data: {
+                allocationId: created.id,
+                projectId: project.id,
+                projectName: project.name,
+                allocationPercent: created.allocationPercent,
+                roleOnProject: created.roleOnProject,
+                startDate: created.startDate,
+                endDate: created.endDate,
+            },
+        });
+    }
 
     return new HttpResponse(201, "Alocação criada", undefined, toAllocationResponse(created)).send(res);
 }
@@ -128,7 +186,7 @@ export const patchAllocation = async (req: Request, res: Response) => {
         throw new HttpError(404, NOT_FOUND);
     }
 
-    await projectOfAllocation(actor, allocation.projectId);
+    const project = await projectOfAllocation(actor, allocation.projectId);
 
     const endDate = body.endDate === undefined ? allocation.endDate : body.endDate;
 
@@ -149,6 +207,13 @@ export const patchAllocation = async (req: Request, res: Response) => {
         throw new HttpError(409, ALREADY_OPEN);
     }
 
+    // O save devolve o mesmo objeto, por isso o "antes" guarda-se já.
+    const before: AllocationSnapshot = {
+        allocationPercent: allocation.allocationPercent,
+        roleOnProject: allocation.roleOnProject,
+        endDate: allocation.endDate,
+    };
+
     allocation.endDate = endDate;
 
     if (body.allocationPercent !== undefined) {
@@ -161,10 +226,15 @@ export const patchAllocation = async (req: Request, res: Response) => {
 
     const saved = await updateAllocation(allocation);
 
+    await notifyAllocationChange(actor, project, saved, before);
+
     return new HttpResponse(200, "Alocação atualizada", undefined, toAllocationResponse(saved)).send(res);
 }
 
-/** Apagar é para corrigir um erro, como um startDate errado. Terminar uma alocação é fechá-la. */
+/**
+ * Apagar é para corrigir um erro, como um startDate errado. Terminar uma alocação
+ * é fechá-la. Por isso apagar não notifica ninguém: fechar notifica.
+ */
 export const removeAllocation = async (req: Request, res: Response) => {
     const actor: User = getCurrentActor(req);
     const id = uuidParam(req.params.id, NOT_FOUND);

@@ -1,0 +1,125 @@
+import { z } from "zod";
+import { ProjectStatus } from "../types/enums.js";
+
+/**
+ * Todas as notificações que existem. Acrescentar uma é uma entrada aqui e uma
+ * chamada a notifier.notify() onde a coisa acontece: o schema valida o que se
+ * grava, e a mensagem é o texto que a API devolve.
+ *
+ * O `data` guarda ids, e os nomes como estavam na altura (o projeto pode mudar
+ * de nome depois). Nomes de pessoas não: o frontend resolve-os pelo id.
+ */
+
+interface NotificationDefinition<S extends z.ZodObject> {
+    data: S;
+    message: (data: z.infer<S>) => string;
+}
+
+const defineNotification = <S extends z.ZodObject>(
+    data: S,
+    message: (data: z.infer<S>) => string,
+): NotificationDefinition<S> => ({ data, message });
+
+const STATUS_LABELS: Record<ProjectStatus, string> = {
+    [ProjectStatus.Planned]: "planeado",
+    [ProjectStatus.Active]: "ativo",
+    [ProjectStatus.OnHold]: "em pausa",
+    [ProjectStatus.Completed]: "concluído",
+    [ProjectStatus.Cancelled]: "cancelado",
+};
+
+const until = (date: string | null) => (date ? ` até ${date}` : "");
+
+const project = {
+    projectId: z.uuid(),
+    projectName: z.string(),
+};
+
+const allocation = {
+    allocationId: z.uuid(),
+    ...project,
+};
+
+export const notificationCatalog = {
+    "allocation.created": defineNotification(
+        z.object({
+            ...allocation,
+            allocationPercent: z.int(),
+            roleOnProject: z.string().nullable(),
+            startDate: z.string(),
+            endDate: z.string().nullable(),
+        }),
+        (d) => `Tens uma nova alocação no projeto ${d.projectName} (${d.allocationPercent}%)`,
+    ),
+    "allocation.updated": defineNotification(
+        z.object({
+            ...allocation,
+            allocationPercent: z.int(),
+            roleOnProject: z.string().nullable(),
+            endDate: z.string().nullable(),
+            changes: z.array(z.enum(["allocationPercent", "roleOnProject", "endDate"])),
+        }),
+        (d) => `A tua alocação no projeto ${d.projectName} foi alterada`,
+    ),
+    "allocation.ended": defineNotification(
+        z.object({ ...allocation, endDate: z.string() }),
+        (d) => `A tua alocação no projeto ${d.projectName} foi fechada (fim a ${d.endDate})`,
+    ),
+    "project.manager_assigned": defineNotification(
+        z.object(project),
+        (d) => `Passaste a gerir o projeto ${d.projectName}`,
+    ),
+    "project.status_changed": defineNotification(
+        z.object({ ...project, from: z.enum(ProjectStatus), to: z.enum(ProjectStatus) }),
+        (d) => `O projeto ${d.projectName} passou de ${STATUS_LABELS[d.from]} a ${STATUS_LABELS[d.to]}`,
+    ),
+    "review_cycle.opened": defineNotification(
+        z.object({ cycleId: z.uuid(), cycleName: z.string(), deadline: z.string().nullable() }),
+        (d) => `Abriu o ciclo de avaliação ${d.cycleName}: tens colegas para avaliar${until(d.deadline)}`,
+    ),
+    "review_cycle.closed": defineNotification(
+        z.object({ cycleId: z.uuid(), cycleName: z.string() }),
+        (d) => `O ciclo de avaliação ${d.cycleName} fechou e os teus pedidos por responder expiraram`,
+    ),
+    "review_request.created": defineNotification(
+        z.object({ requestId: z.uuid(), revieweeId: z.uuid(), dueDate: z.string().nullable() }),
+        (d) => `Tens um novo pedido de avaliação${until(d.dueDate)}`,
+    ),
+    "review_request.declined": defineNotification(
+        z.object({ requestId: z.uuid(), reviewerId: z.uuid(), revieweeId: z.uuid() }),
+        () => "Um pedido de avaliação que fizeste foi recusado",
+    ),
+    // Anónima de propósito: nem o pedido, nem quem avaliou, nem o conteúdo. Com o
+    // pedido e a hora, cruzava-se com as datas das avaliações e via-se quem foi.
+    "review.submitted": defineNotification(
+        z.object({ revieweeId: z.uuid() }),
+        () => "Foi submetida uma avaliação que pediste",
+    ),
+    "user.activated": defineNotification(
+        z.object({ userId: z.uuid(), email: z.string() }),
+        (d) => `${d.email} ativou a conta`,
+    ),
+} as const;
+
+export type NotificationType = keyof typeof notificationCatalog;
+
+/** O que quem chama passa. O parse tira tudo o que o schema não conhece. */
+export type NotificationData<T extends NotificationType> = z.input<(typeof notificationCatalog)[T]["data"]>;
+
+export const isNotificationType = (type: string): type is NotificationType =>
+    Object.hasOwn(notificationCatalog, type);
+
+/**
+ * O texto de uma notificação gravada. Um tipo que entretanto saiu do catálogo,
+ * ou dados que já não batem com ele, mostram o próprio tipo em vez de rebentar.
+ */
+export function renderNotificationMessage(type: string, data: unknown): string {
+    if (!isNotificationType(type)) {
+        return type;
+    }
+
+    const entry = notificationCatalog[type] as unknown as NotificationDefinition<z.ZodObject>;
+    const parsed = entry.data.safeParse(data);
+
+    return parsed.success ? entry.message(parsed.data) : type;
+}

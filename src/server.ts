@@ -2,6 +2,7 @@ import "reflect-metadata";
 import "dotenv/config";
 import { app } from "./app.js";
 import { AppDataSource } from "./data-source.js";
+import { realtime } from "./services/realtime.js";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost";
 const PORT = Number(process.env.PORT) || 3000;
@@ -25,6 +26,8 @@ const shutdown = async (signal: string) => {
     shuttingDown = true;
     console.log(`\n${signal} recebido, a encerrar...`);
 
+    // Os streams abertos nunca acabam sozinhos: avisa-se e fecha-se antes.
+    realtime.closeAll("server_shutdown");
     server.close();
     try {
         await AppDataSource.destroy();

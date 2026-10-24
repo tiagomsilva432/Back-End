@@ -18,6 +18,7 @@ import {
 } from "../repositories/user-repo.js";
 import { canAdministerAccount } from "../services/account-policy.js";
 import { resolveCompanyScope } from "../services/company-scope.js";
+import { realtime } from "../services/realtime.js";
 import { toProfileResponse, toUserResponse } from "../services/user-mapper.js";
 import { requireCanManageUser, requireUserInReach } from "../services/user-scope.js";
 import { UserStatus } from "../types/enums.js";
@@ -143,6 +144,11 @@ export const patchUserStatus = async (req: Request, res: Response) => {
         }
 
         await updateUser(target);
+
+        // O stream em direto não espera que o token expire.
+        if (status !== UserStatus.Active) {
+            realtime.disconnectUser(target.id, "account_inactive");
+        }
     }
 
     return new HttpResponse(200, "Estado da conta atualizado", undefined, toUserResponse(target)).send(res);
