@@ -1,6 +1,7 @@
-import { In, IsNull, LessThanOrEqual, MoreThanOrEqual, Not } from "typeorm";
+import { IsNull, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
 import { AppDataSource } from "../data-source.js";
 import { Allocation } from "../entities/Allocation.js";
+import { UserStatus } from "../types/enums.js";
 import { isoDate } from "../utils/dates.js";
 
 export const allocationRepo = AppDataSource.getRepository(Allocation);
@@ -47,22 +48,43 @@ export async function getOpenAllocation(userId: string, projectId: string): Prom
     });
 }
 
-export async function getCoworkerIdsByUserId(userId: string): Promise<string[]> {
-    const myAllocations = await getOpenAllocationsByUserId(userId);
+export interface CoworkerPair {
+    reviewerId: string;
+    revieweeId: string;
+}
 
-    if (myAllocations.length === 0) {
-        return [];
-    }
-
-    const shared = await allocationRepo.find({
-        where: {
-            projectId: In(myAllocations.map((allocation) => allocation.projectId)),
-            userId: Not(userId),
-            endDate: IsNull()
-        }
-    });
-
-    return [...new Set(shared.map((allocation) => allocation.userId))];
+/**
+ * Pares de colegas de uma empresa: duas pessoas ativas no mesmo projeto com
+ * alocações que se sobrepõem, e cuja sobreposição cai entre `since` e `today`.
+ * O join é simétrico, por isso cada par sai nos dois sentidos.
+ */
+export async function getCoworkerPairsByCompanyId(
+    companyId: string,
+    since: string,
+    today: string,
+): Promise<CoworkerPair[]> {
+    return await allocationRepo
+        .createQueryBuilder("a1")
+        .innerJoin(Allocation, "a2", "a2.projectId = a1.projectId AND a2.userId <> a1.userId")
+        .innerJoin("a1.project", "p")
+        .innerJoin("a1.user", "u1")
+        .innerJoin("a2.user", "u2")
+        .select("a1.userId", "reviewerId")
+        .addSelect("a2.userId", "revieweeId")
+        .distinct(true)
+        .where("p.companyId = :companyId", { companyId })
+        .andWhere("u1.status = :active AND u2.status = :active", { active: UserStatus.Active })
+        // O troço em comum: do início mais tardio ao fim mais cedo. Tem de existir,
+        // e de tocar na janela [since, today].
+        .andWhere(
+            "GREATEST(a1.startDate, a2.startDate) <= LEAST(COALESCE(a1.endDate, 'infinity'::date), COALESCE(a2.endDate, 'infinity'::date))",
+        )
+        .andWhere("GREATEST(a1.startDate, a2.startDate) <= :today", { today })
+        .andWhere(
+            "LEAST(COALESCE(a1.endDate, 'infinity'::date), COALESCE(a2.endDate, 'infinity'::date)) >= :since",
+            { since },
+        )
+        .getRawMany<CoworkerPair>();
 }
 
 /** Alocações que contam para a carga: já começaram e ainda não terminaram. */

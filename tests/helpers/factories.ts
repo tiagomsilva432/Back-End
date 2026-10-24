@@ -4,10 +4,19 @@ import { Allocation } from "../../src/entities/Allocation.js";
 import { EmployeeProfile } from "../../src/entities/EmployeeProfile.js";
 import { EmployeeSkill } from "../../src/entities/EmployeeSkill.js";
 import { Project } from "../../src/entities/Project.js";
+import { Review } from "../../src/entities/Review.js";
+import { ReviewCycle } from "../../src/entities/ReviewCycle.js";
+import { ReviewRequest } from "../../src/entities/ReviewRequest.js";
 import { Salary } from "../../src/entities/Salary.js";
 import { Skill } from "../../src/entities/Skill.js";
 import { User } from "../../src/entities/User.js";
-import { ProjectStatus, SkillCategory, UserRole, UserStatus } from "../../src/types/enums.js";
+import {
+    ProjectStatus,
+    ReviewRequestStatus,
+    SkillCategory,
+    UserRole,
+    UserStatus,
+} from "../../src/types/enums.js";
 import { saltRounds } from "../../src/env-vars.js";
 import { manager } from "../setup/db.js";
 
@@ -144,6 +153,74 @@ export async function criarSalario(userId: string, createdBy: string, opcoes: Op
             effectiveFrom: opcoes.effectiveFrom ?? "2025-01-01",
             effectiveTo: opcoes.effectiveTo ?? null,
             reason: opcoes.reason ?? null,
+        }),
+    );
+}
+
+interface OpcoesCiclo {
+    name?: string;
+    deadline?: string | null;
+    closedAt?: Date | null;
+}
+
+export async function criarCiclo(companyId: string, openedBy: string, opcoes: OpcoesCiclo = {}): Promise<ReviewCycle> {
+    const repo = manager().getRepository(ReviewCycle);
+
+    return repo.save(
+        repo.create({
+            companyId,
+            openedBy,
+            name: opcoes.name ?? `Ciclo ${proximo()}`,
+            deadline: opcoes.deadline ?? null,
+            closedAt: opcoes.closedAt ?? null,
+        }),
+    );
+}
+
+interface OpcoesPedido {
+    cycleId?: string | null;
+    status?: ReviewRequestStatus;
+    dueDate?: string | null;
+}
+
+export async function criarPedido(
+    reviewer: Pick<User, "id" | "companyId">,
+    revieweeId: string,
+    requestedBy: string,
+    opcoes: OpcoesPedido = {},
+): Promise<ReviewRequest> {
+    const repo = manager().getRepository(ReviewRequest);
+
+    return repo.save(
+        repo.create({
+            companyId: reviewer.companyId,
+            cycleId: opcoes.cycleId ?? null,
+            requestedBy,
+            reviewerId: reviewer.id,
+            revieweeId,
+            status: opcoes.status ?? ReviewRequestStatus.Pending,
+            dueDate: opcoes.dueDate ?? null,
+        }),
+    );
+}
+
+interface OpcoesAvaliacao {
+    recommendsRaise?: boolean;
+    performanceScore?: number | null;
+    comments?: string | null;
+}
+
+/** Grava a avaliação e marca o pedido como submetido, como faz o endpoint. */
+export async function criarAvaliacao(request: ReviewRequest, opcoes: OpcoesAvaliacao = {}): Promise<Review> {
+    await manager().getRepository(ReviewRequest).update(request.id, { status: ReviewRequestStatus.Submitted });
+    const repo = manager().getRepository(Review);
+
+    return repo.save(
+        repo.create({
+            requestId: request.id,
+            recommendsRaise: opcoes.recommendsRaise ?? true,
+            performanceScore: opcoes.performanceScore === undefined ? 4 : opcoes.performanceScore,
+            comments: opcoes.comments ?? null,
         }),
     );
 }

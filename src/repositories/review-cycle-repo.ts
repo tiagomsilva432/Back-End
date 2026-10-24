@@ -1,6 +1,8 @@
 import { IsNull } from "typeorm";
 import { AppDataSource } from "../data-source.js";
 import { ReviewCycle } from "../entities/ReviewCycle.js";
+import { ReviewRequest } from "../entities/ReviewRequest.js";
+import { ReviewRequestStatus } from "../types/enums.js";
 
 export const reviewCycleRepo = AppDataSource.getRepository(ReviewCycle);
 
@@ -37,4 +39,34 @@ export async function createReviewCycle(cycle: ReviewCycle) {
 
 export async function updateReviewCycle(cycle: ReviewCycle) {
     return await reviewCycleRepo.save(cycle);
+}
+
+/**
+ * O ciclo e os seus pedidos numa só transação: um ciclo sem os pedidos todos
+ * ficava aberto com metade das pessoas de fora. Os pedidos precisam do id do
+ * ciclo, por isso vêm de uma função chamada depois de o ciclo ser gravado.
+ */
+export async function createCycleWithRequests(
+    cycle: ReviewCycle,
+    buildRequests: (saved: ReviewCycle) => ReviewRequest[],
+): Promise<{ cycle: ReviewCycle; requests: ReviewRequest[] }> {
+    return await reviewCycleRepo.manager.transaction(async (manager) => {
+        const saved = await manager.save(cycle);
+        const requests = await manager.save(buildRequests(saved));
+        return { cycle: saved, requests };
+    });
+}
+
+/** Fechar um ciclo expira o que ficou por responder, na mesma transação. */
+export async function closeCycle(cycle: ReviewCycle): Promise<ReviewCycle> {
+    return await reviewCycleRepo.manager.transaction(async (manager) => {
+        cycle.closedAt = new Date();
+        const saved = await manager.save(cycle);
+        await manager.update(
+            ReviewRequest,
+            { cycleId: cycle.id, status: ReviewRequestStatus.Pending },
+            { status: ReviewRequestStatus.Expired },
+        );
+        return saved;
+    });
 }
