@@ -45,4 +45,19 @@ export enum ReviewRequestStatus {
 }
 export const isReviewRequestStatus = guard(ReviewRequestStatus);
 
+/** Quem vê um aviso: toda a gente, uma empresa, ou quem está num projeto. */
+export enum AnnouncementScope {
+    System = "system",
+    Company = "company",
+    Project = "project",
+}
+export const isAnnouncementScope = guard(AnnouncementScope);
+
+export enum AnnouncementSeverity {
+    Info = "info",
+    Warning = "warning",
+    Critical = "critical",
+}
+export const isAnnouncementSeverity = guard(AnnouncementSeverity);
+
 export const ENUM_COLUMN_LENGTH = 20;

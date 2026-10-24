@@ -100,6 +100,40 @@ export async function getActiveAllocationsByUserId(userId: string): Promise<Allo
     });
 }
 
+/**
+ * Quem está envolvido num projeto: alocações que ainda não terminaram, mesmo as
+ * que só começam depois. Não é o mesmo que as abertas (endDate null): uma
+ * alocação que fecha no fim do mês ainda conta até lá.
+ */
+export async function getInvolvedUserIdsByProjectId(projectId: string): Promise<string[]> {
+    const hoje = isoDate();
+
+    const allocations = await allocationRepo.find({
+        select: { userId: true },
+        where: [
+            { projectId, endDate: IsNull() },
+            { projectId, endDate: MoreThanOrEqual(hoje) }
+        ]
+    });
+
+    return [...new Set(allocations.map((a) => a.userId))];
+}
+
+/** O mesmo do outro lado: os projetos em que uma pessoa está envolvida. */
+export async function getInvolvedProjectIdsByUserId(userId: string): Promise<string[]> {
+    const hoje = isoDate();
+
+    const allocations = await allocationRepo.find({
+        select: { projectId: true },
+        where: [
+            { userId, endDate: IsNull() },
+            { userId, endDate: MoreThanOrEqual(hoje) }
+        ]
+    });
+
+    return [...new Set(allocations.map((a) => a.projectId))];
+}
+
 export async function createAllocation(allocation: Allocation) {
     return await allocationRepo.save(allocation);
 }

@@ -103,7 +103,10 @@ request body, its responses and its permission rules, and it cannot drift
 because it is built from the same schemas that validate the requests.
 
 Everything else needs `Authorization: Bearer <token>` from `POST /auth/login`.
-`GET /auth/me` returns the account that token belongs to.
+`GET /auth/me` returns the account that token belongs to. The one exception is
+`GET /notifications/stream`: it is a Server-Sent Events stream, outside the
+envelope below, and it also accepts a single-use `?ticket=` instead of the
+header (see [Notifications](#notifications)).
 
 Errors and successes share one envelope:
 
@@ -234,6 +237,9 @@ allocation one below:
 A project's company never changes. Its dates are checked against what is already
 stored, and a new `managerId` has to be in the project's company.
 
+The manager is also the one `employee` who may post announcements on that
+project (see [Announcements](#announcements)), and is notified on becoming it.
+
 ### Suspending and terminating accounts
 
 | Endpoint | Who |
@@ -245,6 +251,8 @@ which is final. An `invited` account can only become `terminated`, which revokes
 the invite - suspending it would not stop the activation link, which ignores the
 status. A suspended account is refused on its very next request, because
 `requireRole` reads the status from the database rather than from the token.
+Its live notification stream is cut at once too, with `event: close` and the
+reason `account_inactive`.
 
 ### Allocations
 
@@ -273,6 +281,10 @@ staffing overlaps, so the write stays silent and
 the body is **unchanged**, and an explicit `null` clears it. `startDate` is not
 mutable - delete the allocation and create another. `DELETE` is for correcting a
 mistake; ending real work is closing it with an `endDate`, which keeps the history.
+
+Allocating someone notifies them, and so does closing or changing their
+allocation. `DELETE` notifies nobody: it is a correction, not news. Neither does
+back-filling an allocation that has already ended.
 
 ### Skills
 
@@ -371,6 +383,138 @@ when.
 account, never the person themselves. A `company_admin` who took part in a cycle
 does not see its own row in the cycle's results, nor another `company_admin`'s.
 
+**Notifications.** Only ad-hoc requests tell the admin who asked when they are
+submitted or declined - in a cycle that would be one notification per review,
+and the cycle's progress already shows it. `review.submitted` carries only the
+`revieweeId`: no request id, no reviewer and no content, because the request id
+and the time together would point at the reviewer. The reviewee is never
+notified, even when an admin requested a review of themselves.
+
+### Announcements
+
+One-way messages. The `scope` decides who sees one:
+
+| Scope | Who sees it | Who posts, edits and deletes it |
+| --- | --- | --- |
+| `system` | everyone, in every company | `system_admin` only |
+| `company` | everyone in that company | a `system_admin` (naming `companyId`), or a `company_admin` of that company |
+| `project` | the people involved, in their feed; anyone in the company, on the project page | the two above, or the project's manager (`managerId`) |
+
+"Involved" means an allocation that has not ended yet - open, or with an
+`endDate` today or later - plus the project's manager.
+
+| Endpoint | What it is |
+| --- | --- |
+| `POST /announcements` | post one; `scope` picks the body (`companyId` for `company`, `projectId` for `project`) |
+| `GET /announcements/mine` | the caller's feed: active `system`, own `company` and involved `project` announcements, each with `read`; takes `?unread=true` |
+| `GET /projects/{id}/announcements` | the project page, for anyone in the project's company; `?includeInactive=true` counts only for whoever manages it |
+| `GET /announcements` | the management list: what the caller may edit. Takes `?scope=`, `?companyId=` (`system_admin`), `?projectId=`, `?includeInactive=true` |
+| `GET /announcements/{id}` | one announcement, with `read` |
+| `PATCH /announcements/{id}` | title, body, severity, pinned and window; merges like the other `PATCH`es |
+| `DELETE /announcements/{id}` | deletes it, and its reads |
+| `POST /announcements/{id}/read` | marks it read, or dismisses a banner; repeating it changes nothing |
+
+**Window.** `startsAt` (default: now) and `endsAt` (default: none) bound when it
+shows, so a maintenance warning can go up ahead of time and come down on its
+own. Outside its window an announcement exists only for those who manage it; to
+anyone else a scheduled one answers 404. Times need an offset (`Z` or `+01:00`).
+`severity` is `info`, `warning` or `critical`, and `pinned` ones sort first.
+
+**Live.** Posting, editing or deleting an active announcement pushes it to the
+same audience through the [notification stream](#notifications), as
+`event: announcement`. There is no scheduler: a scheduled announcement shows up
+in the feed when its window opens, but nothing is pushed at that moment.
+
+Out of reach answers 404, as everywhere; readable but not yours to manage
+answers 403. Announcements are not notifications: a system announcement does
+not write one row per user across every company. Who has read what lives in
+`announcement_reads`.
+
+### Notifications
+
+A personal inbox. Every notification is **a row first**: it is stored whether or
+not the person is online, and the live stream only carries the ones created
+while they are connected. Someone who was offline reads what they missed through
+the REST endpoints when they come back.
+
+| Endpoint | What it is |
+| --- | --- |
+| `GET /notifications/mine` | newest first, in pages: `?limit=` (1-100, default 20), `?before=` with the previous page's `nextBefore`, `?unread=true` |
+| `GET /notifications/mine/unread-count` | `{ unread }`, for the bell |
+| `POST /notifications/{id}/read` | marks one read; someone else's answers 404 |
+| `POST /notifications/mine/read-all` | marks all read; returns `{ updated }` |
+| `POST /notifications/stream-ticket` | a single-use ticket for the stream, valid for 30 seconds |
+| `GET /notifications/stream` | the live stream (Server-Sent Events) |
+
+Each one carries a `type`, its `data` (ids, plus names as they were at the time)
+and a ready-to-show Portuguese `message`. The types today:
+
+| Type | Who gets it | When |
+| --- | --- | --- |
+| `allocation.created` | the person | allocated to a project |
+| `allocation.updated` | the person | percent, role or end date changed |
+| `allocation.ended` | the person | the allocation was closed |
+| `project.manager_assigned` | the new manager | a project is created with, or changed to, a manager |
+| `project.status_changed` | the people involved and the manager | the project's status changes |
+| `review_cycle.opened` | every reviewer, once | a cycle opens |
+| `review_cycle.closed` | the reviewers whose requests expired | a cycle closes |
+| `review_request.created` | the reviewer | an ad-hoc request is made |
+| `review_request.declined` | whoever requested it | an ad-hoc request is declined |
+| `review.submitted` | whoever requested it | an ad-hoc review is submitted |
+| `user.activated` | the company's active `company_admin`s | an invite is accepted |
+
+Whoever performed the action is never notified of it.
+
+**Adding a type** takes two steps: an entry in
+`src/services/notification-catalog.ts` (the schema of its `data`, and its
+message), and a `notifier.notify(...)` call where the thing happens, after the
+write succeeds and before the response. `notify` drops nulls, duplicates and
+excluded ids, validates `data` against the catalog, stores the rows and pushes
+them. Like the mailer, it never fails the request: a failure is only logged.
+
+**The stream.** The browser's `EventSource` cannot send an `Authorization`
+header, and a JWT in the URL would end up in logs and stay valid for hours. So
+the client trades its token for a ticket and opens the stream with that:
+
+```js
+async function connect() {
+  const { data } = await api.post("/notifications/stream-ticket"); // with the Bearer
+  const es = new EventSource(`${API}/notifications/stream?ticket=${data.ticket}`);
+
+  es.addEventListener("ready", () => syncInbox());   // GET /notifications/mine
+  es.addEventListener("notification", (e) => addToBell(JSON.parse(e.data)));
+  es.addEventListener("announcement", (e) => updateBanners(JSON.parse(e.data)));
+  es.addEventListener("close", (e) => {
+    es.close();
+    if (JSON.parse(e.data).reason === "server_shutdown") setTimeout(connect, 3000);
+  });
+  es.onerror = () => { es.close(); setTimeout(connect, 3000); };
+}
+```
+
+| Event | Data |
+| --- | --- |
+| `ready` | `{ unread }`: connected. Re-sync the inbox over REST |
+| `notification` | one notification, shaped like the REST ones |
+| `announcement` | `{ action: "created" \| "updated", announcement }`, or `{ action: "deleted", id }` |
+| `close` | `{ reason }`, right before the server ends the stream |
+
+The `close` reasons are `token_expired` (the JWT behind the ticket ran out: log
+in again), `account_inactive` (suspended or terminated), `server_shutdown`
+(reconnect shortly) and `too_many_connections` (more than five streams open for
+one person: the oldest is closed, and reconnecting it would only knock out
+another tab).
+
+A ticket works once, so the browser's own auto-reconnect would replay a spent
+ticket and get a 401: the client reconnects itself, with a fresh ticket. A
+fetch-based client may send the Bearer header on the stream instead. The request
+log masks `ticket=` in the URLs it prints.
+
+**Limits.** Open streams and tickets live in the server's memory, so this works
+with **one** API process; several would need a shared channel such as Postgres
+`LISTEN/NOTIFY`. Over HTTP/1.1, each tab's stream takes one of the browser's
+six or so connections to the API.
+
 ### Recovering an account
 
 | Endpoint | Who |
@@ -463,6 +607,11 @@ own `postgres:18-alpine` on a random port and throws it away at the end.
 - The mailer is stubbed through `resetMailSpies()` in `tests/helpers/mailer-spy.ts`,
   called once in the `beforeEach`. A new `mailer` method needs its spy added there
   and nowhere else.
+- The realtime hub is spied on, not stubbed, in `tests/helpers/realtime-spy.ts`:
+  the spies call through, so a test can open a real stream and still assert on
+  what was pushed. The `afterEach` closes every stream and clears the tickets.
+- Controllers `await` `notifier.notify(...)` before answering, so a test can read
+  the notification rows right after the request returns.
 
 Every test runs inside a transaction that is rolled back, so no test can see
 another's writes and no cleanup code is needed. `jest.config.mjs` documents the

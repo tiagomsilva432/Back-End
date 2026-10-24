@@ -20,6 +20,7 @@ import {
     updateReviewRequest,
 } from "../repositories/review-request-repo.js";
 import { getUserById } from "../repositories/user-repo.js";
+import { notifier } from "../services/notifier.js";
 import { toReviewRequestResponse, toSubmittedReviewResponse } from "../services/review-mapper.js";
 import { requireUserInReach } from "../services/user-scope.js";
 import { ReviewRequestStatus, UserStatus } from "../types/enums.js";
@@ -85,6 +86,13 @@ export const createAdHocReviewRequest = async (req: Request, res: Response) => {
         }),
     );
 
+    await notifier.notify("review_request.created", {
+        companyId: created.companyId,
+        recipientIds: [created.reviewerId],
+        exclude: [actor.id],
+        data: { requestId: created.id, revieweeId: created.revieweeId, dueDate: created.dueDate },
+    });
+
     return new HttpResponse(201, "Pedido criado", undefined, toReviewRequestResponse(created)).send(res);
 }
 
@@ -116,6 +124,18 @@ export const submitReview = async (req: Request, res: Response) => {
         }),
     );
 
+    // Só nos ad-hoc: num ciclo, quem o abriu recebia uma por cada avaliação, e o
+    // progresso já se vê no ciclo. Nunca para o avaliado, que o pode ter pedido
+    // sobre si próprio. O que a notificação leva está no catálogo.
+    if (request.cycleId === null) {
+        await notifier.notify("review.submitted", {
+            companyId: request.companyId,
+            recipientIds: [request.requestedBy],
+            exclude: [actor.id, request.revieweeId],
+            data: { revieweeId: request.revieweeId },
+        });
+    }
+
     return new HttpResponse(201, "Avaliação submetida", undefined, toSubmittedReviewResponse(saved)).send(res);
 }
 
@@ -127,6 +147,16 @@ export const declineReviewRequest = async (req: Request, res: Response) => {
 
     request.status = ReviewRequestStatus.Declined;
     const saved = await updateReviewRequest(request);
+
+    // Como no submit: só os ad-hoc, e nunca para o avaliado.
+    if (saved.cycleId === null) {
+        await notifier.notify("review_request.declined", {
+            companyId: saved.companyId,
+            recipientIds: [saved.requestedBy],
+            exclude: [actor.id, saved.revieweeId],
+            data: { requestId: saved.id, reviewerId: saved.reviewerId, revieweeId: saved.revieweeId },
+        });
+    }
 
     return new HttpResponse(200, "Pedido recusado", undefined, toReviewRequestResponse(saved)).send(res);
 }

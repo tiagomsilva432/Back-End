@@ -16,6 +16,8 @@ import { allocationPaths } from "../routes/allocation-routes.js";
 import { skillPaths } from "../routes/skill-routes.js";
 import { salaryPaths } from "../routes/salary-routes.js";
 import { reviewPaths } from "../routes/review-routes.js";
+import { announcementPaths } from "../routes/announcement-routes.js";
+import { notificationPaths } from "../routes/notification-routes.js";
 import { docsPaths } from "./docs-paths.js";
 
 export const openApiDocument: ReturnType<typeof createDocument> = createDocument({
@@ -41,6 +43,8 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
         { name: "Competências", description: "O catálogo de competências e quem as tem" },
         { name: "Salários", description: "Histórico de salários de cada pessoa" },
         { name: "Avaliações", description: "Avaliações entre colegas para decidir aumentos" },
+        { name: "Avisos", description: "Avisos do sistema, de uma empresa ou de um projeto" },
+        { name: "Notificações", description: "A caixa de cada pessoa, e o stream em direto" },
     ],
     paths: {
         ...healthPaths,
@@ -53,6 +57,8 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
         ...skillPaths,
         ...salaryPaths,
         ...reviewPaths,
+        ...announcementPaths,
+        ...notificationPaths,
     },
     components: {
         schemas: {

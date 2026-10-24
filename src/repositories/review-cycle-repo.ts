@@ -57,9 +57,19 @@ export async function createCycleWithRequests(
     });
 }
 
-/** Fechar um ciclo expira o que ficou por responder, na mesma transação. */
-export async function closeCycle(cycle: ReviewCycle): Promise<ReviewCycle> {
+/**
+ * Fechar um ciclo expira o que ficou por responder, na mesma transação. Devolve
+ * também quem tinha pedidos pendentes, para lhes dizer que expiraram.
+ */
+export async function closeCycle(
+    cycle: ReviewCycle,
+): Promise<{ cycle: ReviewCycle; expiredReviewerIds: string[] }> {
     return await reviewCycleRepo.manager.transaction(async (manager) => {
+        const pending = await manager.find(ReviewRequest, {
+            select: { reviewerId: true },
+            where: { cycleId: cycle.id, status: ReviewRequestStatus.Pending },
+        });
+
         cycle.closedAt = new Date();
         const saved = await manager.save(cycle);
         await manager.update(
@@ -67,6 +77,7 @@ export async function closeCycle(cycle: ReviewCycle): Promise<ReviewCycle> {
             { cycleId: cycle.id, status: ReviewRequestStatus.Pending },
             { status: ReviewRequestStatus.Expired },
         );
-        return saved;
+
+        return { cycle: saved, expiredReviewerIds: [...new Set(pending.map((request) => request.reviewerId))] };
     });
 }
