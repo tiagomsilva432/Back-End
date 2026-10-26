@@ -579,6 +579,72 @@ pushing.
 
 ---
 
+## Production
+
+One server, four containers: `db`, `migrate` (runs the migrations and exits),
+`api`, and `web` (Caddy: HTTPS, the built frontend, and `/api` proxied to the
+API). Both repositories must be cloned side by side:
+
+```
+/srv/erp/Back-End
+/srv/erp/Front-End
+```
+
+### First deploy
+
+On a fresh Ubuntu server with ports 22, 80 and 443 open:
+
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+
+```bash
+mkdir -p /srv/erp && cd /srv/erp && git clone https://github.com/tiagomsilva432/Back-End.git && git clone https://github.com/tiagomsilva432/Front-End.git
+```
+
+```bash
+cd /srv/erp/Back-End && cp deploy/env.prod.example .env.prod
+```
+
+Fill in `.env.prod`. `PUBLIC_URL` is the public address with the protocol; with
+no domain, use the server IP through sslip.io, e.g. `https://203-0-113-10.sslip.io`.
+
+```bash
+sh deploy/up.sh
+```
+
+Create the first `system_admin`:
+
+```bash
+docker compose --env-file .env.prod -f compose.prod.yaml exec -e ADMIN_PASSWORD='<password>' api npm run admin:create:prod -- --email=<email>
+```
+
+Schedule the daily backup (`crontab -e`):
+
+```
+0 3 * * * /bin/sh /srv/erp/Back-End/deploy/backup.sh
+```
+
+### Updates
+
+```bash
+sh deploy/update.sh
+```
+
+### Logs
+
+```bash
+docker compose --env-file .env.prod -f compose.prod.yaml logs -f api
+```
+
+### Testing locally
+
+The same stack runs on a development machine with `PUBLIC_URL=http://localhost`,
+`HTTP_PORT=8080` and `FRONTEND_DIR` pointing at the Front-End checkout. Open
+http://localhost:8080.
+
+---
+
 ## Tests
 
 ```bash

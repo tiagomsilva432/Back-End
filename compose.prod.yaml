@@ -1,0 +1,90 @@
+# Production stack. Always run through deploy/up.sh, which passes --env-file .env.prod.
+name: erp
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-api: &api
+  build:
+    context: .
+    dockerfile: Dockerfile.prod
+  image: erp-api:prod
+  env_file: .env.prod
+  environment:
+    NODE_ENV: production
+    PORT: 3000
+    DB_HOST: db
+    DB_PORT: 5432
+    FE_URL: ${PUBLIC_URL:?PUBLIC_URL em falta no .env.prod}
+    CORS_ORIGINS: ${PUBLIC_URL}
+  logging: *logging
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:?DB_USER em falta no .env.prod}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD em falta no .env.prod}
+      POSTGRES_DB: ${DB_NAME:?DB_NAME em falta no .env.prod}
+    volumes:
+      - db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging: *logging
+
+  # Runs the pending migrations and exits; the API only starts once it succeeds.
+  migrate:
+    <<: *api
+    restart: "no"
+    command: ["npm", "run", "db:migrate:prod"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    <<: *api
+    restart: unless-stopped
+    init: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  web:
+    build:
+      context: ./deploy
+      dockerfile: web.Dockerfile
+      additional_contexts:
+        frontend: ${FRONTEND_DIR:-../Front-End}
+    image: erp-web:prod
+    restart: unless-stopped
+    environment:
+      PUBLIC_URL: ${PUBLIC_URL}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    logging: *logging
+
+volumes:
+  db_data:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,27 @@
+# PUBLIC_URL is a full address: https://203-0-113-10.sslip.io, https://erp.example.pt,
+# or http://localhost for a local test. With https, Caddy obtains the certificate itself.
+{$PUBLIC_URL} {
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+
+	# The API, without the /api prefix. Server-Sent Events are flushed as they arrive.
+	handle_path /api/* {
+		reverse_proxy api:3000
+	}
+
+	# The API documentation page loads /docs.json from the root.
+	handle /docs* {
+		reverse_proxy api:3000
+	}
+
+	# The frontend: any path that is not a file falls back to the SPA.
+	handle {
+		root * /srv
+		encode zstd gzip
+		try_files {path} /index.html
+		file_server
+	}
+}

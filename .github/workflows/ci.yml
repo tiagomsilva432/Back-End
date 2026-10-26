@@ -83,6 +83,9 @@ jobs:
       - name: Docker image builds
         run: docker build -t back-end:ci .
 
+      - name: Production image builds
+        run: docker build -f Dockerfile.prod -t back-end:prod .
+
 
       - name: Smoke test the compiled build
         env:
