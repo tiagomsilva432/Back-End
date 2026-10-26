@@ -80,7 +80,24 @@ async function sendActivationEmail(company: Sender, to: string, activationUrl: s
     );
 }
 
+async function sendPasswordResetEmail(company: Sender, to: string, resetUrl: string): Promise<void> {
+    await send(
+        company,
+        to,
+        `ERP "Os Silvas" - Redefinição de password na empresa ${company.name}`,
+        [
+            `Foi pedida a redefinição da password da tua conta na empresa ${company.name}.`,
+            "",
+            "Define uma password nova aqui:",
+            resetUrl,
+            "",
+            "Se não foste tu, ignora este email: a password atual continua válida.",
+        ].join("\n"),
+    );
+}
+
 /** Objeto e não exports soltos: é o que permite o jest.spyOn nos testes. */
 export const mailer = {
     sendActivationEmail,
+    sendPasswordResetEmail,
 };

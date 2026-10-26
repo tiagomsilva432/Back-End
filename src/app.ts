@@ -6,6 +6,15 @@ import { requestLogger } from "./middleware/requestLogger.js";
 import docsRouter from "./routes/docs-routes.js";
 import healthRouter from "./routes/health-routes.js";
 import authRouter from "./routes/auth-routes.js"
+import companyRouter from "./routes/company-routes.js"
+import projectRouter from "./routes/project-routes.js"
+import userRouter from "./routes/user-routes.js"
+import allocationRouter from "./routes/allocation-routes.js"
+import skillRouter from "./routes/skill-routes.js"
+import salaryRouter from "./routes/salary-routes.js"
+import reviewRouter from "./routes/review-routes.js"
+import announcementRouter from "./routes/announcement-routes.js"
+import notificationRouter from "./routes/notification-routes.js"
 
 export const app = express();
 //Middlewares globais
@@ -19,6 +28,15 @@ app.use(requestLogger);
 app.use(docsRouter);
 app.use(healthRouter);
 app.use(authRouter);
+app.use(companyRouter);
+app.use(projectRouter);
+app.use(userRouter);
+app.use(allocationRouter);
+app.use(skillRouter);
+app.use(salaryRouter);
+app.use(reviewRouter);
+app.use(announcementRouter);
+app.use(notificationRouter);
 
 //Rota não encontrada
 app.use((_req: Request, res: Response) => {

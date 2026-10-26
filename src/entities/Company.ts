@@ -35,4 +35,11 @@ export class Company {
 
     @OneToMany(() => Project, (project) => project.company)
     projects!: Project[];
+
+    constructor(name: string, taxId: string | null = null, email: string | null = null, country = "PT") {
+        this.name = name;
+        this.taxId = taxId;
+        this.email = email;
+        this.country = country;
+    }
 }

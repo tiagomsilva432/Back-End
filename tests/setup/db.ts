@@ -1,8 +1,11 @@
 import { afterAll, afterEach, beforeAll, beforeEach, jest } from "@jest/globals";
 import type { EntityTarget, ObjectLiteral, QueryRunner, Repository } from "typeorm";
 import { AppDataSource } from "../../src/data-source.js";
+import { realtime } from "../../src/services/realtime.js";
+import { streamTickets } from "../../src/services/stream-tickets.js";
 import { errorSpy, logSpy } from "../helpers/console-spy.js";
-import { mailSpy } from "../helpers/mailer-spy.js";
+import { resetMailSpies } from "../helpers/mailer-spy.js";
+import { resetRealtimeSpies } from "../helpers/realtime-spy.js";
 
 let queryRunner: QueryRunner;
 
@@ -34,11 +37,14 @@ beforeEach(async () => {
     await queryRunner.startTransaction();
     logSpy.mockClear();
     errorSpy.mockClear();
-    mailSpy.mockClear();
-    mailSpy.mockImplementation(async () => {});
+    resetMailSpies();
+    resetRealtimeSpies();
 });
 
 afterEach(async () => {
+    // O hub e os bilhetes vivem em memória: sem isto passavam de um teste para o outro.
+    realtime.closeAll();
+    streamTickets.clear();
     await queryRunner.rollbackTransaction();
     await queryRunner.release();
 });

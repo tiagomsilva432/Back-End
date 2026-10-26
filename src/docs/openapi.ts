@@ -2,8 +2,22 @@ import { createDocument } from "zod-openapi";
 import { createAccountSchema } from "../dtos/auth/account-dto.js";
 import { loginResponseSchema, loginSchema } from "../dtos/auth/login-dto.js";
 import { meResponseSchema } from "../dtos/auth/me-dto.js";
+import { createCompanySchema } from "../dtos/company/company-dto.js";
+import { createProjectSchema } from "../dtos/project/project-dto.js";
+import { upsertEmployeeProfileSchema } from "../dtos/user/employee-profile-dto.js";
+import { createAllocationSchema } from "../dtos/allocation/allocation-dto.js";
+import { changePasswordSchema, confirmPasswordResetSchema, requestPasswordResetSchema } from "../dtos/auth/password-dto.js";
 import { healthPaths } from "../routes/health-routes.js";
 import { authPaths } from "../routes/auth-routes.js";
+import { companyPaths } from "../routes/company-routes.js";
+import { projectPaths } from "../routes/project-routes.js";
+import { userPaths } from "../routes/user-routes.js";
+import { allocationPaths } from "../routes/allocation-routes.js";
+import { skillPaths } from "../routes/skill-routes.js";
+import { salaryPaths } from "../routes/salary-routes.js";
+import { reviewPaths } from "../routes/review-routes.js";
+import { announcementPaths } from "../routes/announcement-routes.js";
+import { notificationPaths } from "../routes/notification-routes.js";
 import { docsPaths } from "./docs-paths.js";
 
 export const openApiDocument: ReturnType<typeof createDocument> = createDocument({
@@ -22,11 +36,29 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
     tags: [
         { name: "Sistema", description: "Estado e diagnóstico da API" },
         { name: "Auth", description: "Autenticação e gestão de contas" },
+        { name: "Empresas", description: "Gestão de empresas" },
+        { name: "Projetos", description: "Gestão de projetos" },
+        { name: "Utilizadores", description: "Diretório de pessoas e perfis" },
+        { name: "Alocações", description: "Quem trabalha em quê" },
+        { name: "Competências", description: "O catálogo de competências e quem as tem" },
+        { name: "Salários", description: "Histórico de salários de cada pessoa" },
+        { name: "Avaliações", description: "Avaliações entre colegas para decidir aumentos" },
+        { name: "Avisos", description: "Avisos do sistema, de uma empresa ou de um projeto" },
+        { name: "Notificações", description: "A caixa de cada pessoa, e o stream em direto" },
     ],
     paths: {
         ...healthPaths,
         ...docsPaths,
         ...authPaths,
+        ...companyPaths,
+        ...projectPaths,
+        ...userPaths,
+        ...allocationPaths,
+        ...skillPaths,
+        ...salaryPaths,
+        ...reviewPaths,
+        ...announcementPaths,
+        ...notificationPaths,
     },
     components: {
         schemas: {
@@ -34,6 +66,13 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
             LoginResponse: loginResponseSchema,
             CreateAccountRequest: createAccountSchema,
             MeResponse: meResponseSchema,
+            CreateCompanyRequest: createCompanySchema,
+            CreateProjectRequest: createProjectSchema,
+            UpsertEmployeeProfileRequest: upsertEmployeeProfileSchema,
+            CreateAllocationRequest: createAllocationSchema,
+            ChangePasswordRequest: changePasswordSchema,
+            RequestPasswordResetRequest: requestPasswordResetSchema,
+            ConfirmPasswordResetRequest: confirmPasswordResetSchema,
         },
         securitySchemes: {
             bearerAuth: {
