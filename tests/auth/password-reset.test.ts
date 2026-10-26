@@ -86,6 +86,20 @@ describe("POST /auth/password/reset", () => {
         expect(mailResetSpy).not.toHaveBeenCalled();
     });
 
+    it("uma conta terminada não recebe token nem email, e a resposta é a mesma", async () => {
+        const terminada = await comPassword({ email: EMAIL, status: UserStatus.Terminated });
+
+        const res = await pedir({ email: EMAIL });
+        const semMatch = await pedir({ email: "ninguem@empresa.pt" });
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual(semMatch.body);
+        expect(await users().findOneBy({ id: terminada.id })).toMatchObject({
+            passwordResetToken: null,
+        });
+        expect(mailResetSpy).not.toHaveBeenCalled();
+    });
+
     it("o mesmo email em duas empresas recebe dois tokens diferentes e dois emails", async () => {
         const empresaA = await criarEmpresa("Alfa Lda");
         const empresaB = await criarEmpresa("Zulu Lda");
@@ -183,6 +197,8 @@ describe("POST /auth/password/reset/confirm", () => {
             passwordResetExpiresAt: null,
             mustChangePassword: false,
         });
+        // O link também chegou por email.
+        expect(depois!.emailVerifiedAt).toBeInstanceOf(Date);
     });
 
     it("não mexe no status nem nas colunas do convite", async () => {

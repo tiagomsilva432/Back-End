@@ -1,24 +1,9 @@
 import { z } from "zod";
 import { ProjectStatus } from "../../types/enums.js";
+import { companyIdSchema, decimalString } from "../common/fields-dto.js";
 
-const budgetSchema = z.union([z.string().trim(), z.number()])
-    .transform((value) => String(value))
-    .pipe(
-        z.string()
-            .regex(/^\d{1,12}(\.\d{1,2})?$/, {
-                message: "Orçamento inválido: usa no máximo 12 dígitos e 2 casas decimais",
-            })
-            .overwrite((value) => {
-                const [inteiro, decimais = ""] = value.split(".");
-                return `${inteiro}.${decimais.padEnd(2, "0")}`;
-            }),
-    );
-
-const companyIdSchema = z.uuid().meta({
-    example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42",
-    description:
-        "Só o system_admin o indica. Um company_admin usa sempre a sua própria empresa; um valor diferente é recusado com 403.",
-});
+// NUMERIC(14,2): 12 dígitos inteiros.
+const budgetSchema = decimalString(12, 2, "Orçamento inválido: usa no máximo 12 dígitos e 2 casas decimais");
 
 //Schema REQUEST createProject
 export const createProjectSchema = z.object({

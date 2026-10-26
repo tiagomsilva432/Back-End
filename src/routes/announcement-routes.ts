@@ -21,7 +21,7 @@ import {
     listProjectAnnouncementsQuerySchema,
     patchAnnouncementSchema,
 } from "../dtos/announcement/announcement-dto.js";
-import { errorResponses, jsonBody, jsonResponse } from "../docs/response.js";
+import { errorResponses, jsonBody, jsonResponse, pathId } from "../docs/response.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireRole } from "../middleware/requireRole.js";
 import { validateBody } from "../middleware/validateBody.js";
@@ -93,14 +93,6 @@ router.get(
     listProjectAnnouncements
 );
 
-const idParam = (description: string) => ({
-    name: "id",
-    in: "path" as const,
-    required: true,
-    schema: { type: "string" as const, format: "uuid" },
-    description,
-});
-
 const WHO_MANAGES =
     "Sistema: só um `system_admin`. Empresa: um `system_admin`, ou um `company_admin` dessa empresa. " +
     "Projeto: esses dois, ou o gestor do projeto (`managerId`).";
@@ -169,7 +161,7 @@ export const announcementPaths: ZodOpenApiPathsObject = {
             description:
                 "Um aviso de outra empresa, ou um agendado ou acabado para quem não o gere, responde 404.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do aviso")],
+            parameters: [pathId("Id do aviso")],
             responses: {
                 "200": jsonResponse(200, "Aviso", announcementFeedItemSchema),
                 "401": jsonResponse(401, "Token em falta ou inválido"),
@@ -186,7 +178,7 @@ export const announcementPaths: ZodOpenApiPathsObject = {
                 "O scope, a empresa e o projeto não mudam. Quem o vê recebe `action: \"updated\"`, também " +
                 "quando deixa de estar ativo.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do aviso")],
+            parameters: [pathId("Id do aviso")],
             requestBody: jsonBody(patchAnnouncementSchema),
             responses: {
                 "200": jsonResponse(200, "Aviso atualizado", announcementResponseSchema),
@@ -202,7 +194,7 @@ export const announcementPaths: ZodOpenApiPathsObject = {
             summary: "Apagar um aviso",
             description: `${WHO_MANAGES} As leituras vão com ele.`,
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do aviso")],
+            parameters: [pathId("Id do aviso")],
             responses: {
                 "200": jsonResponse(200, "Aviso apagado"),
                 "401": jsonResponse(401, "Token em falta ou inválido"),
@@ -218,7 +210,7 @@ export const announcementPaths: ZodOpenApiPathsObject = {
             summary: "Marcar um aviso como lido",
             description: "Também serve para dispensar um banner. Repetir não muda nada.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do aviso")],
+            parameters: [pathId("Id do aviso")],
             responses: {
                 "200": jsonResponse(200, "Aviso lido", announcementFeedItemSchema),
                 "401": jsonResponse(401, "Token em falta ou inválido"),
@@ -236,7 +228,7 @@ export const announcementPaths: ZodOpenApiPathsObject = {
                 "Para a página do projeto. Qualquer conta ativa da empresa do projeto, como nas alocações. " +
                 "`?includeInactive=true` só conta para quem gere o projeto.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do projeto")],
+            parameters: [pathId("Id do projeto")],
             requestParams: { query: listProjectAnnouncementsQuerySchema },
             responses: {
                 "200": jsonResponse(200, "Avisos do projeto", announcementFeedResponseSchema),

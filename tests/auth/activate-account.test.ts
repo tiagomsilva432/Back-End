@@ -43,6 +43,8 @@ describe("POST /auth/account/activate", () => {
             signupToken: null,
             signupTokenExpiresAt: null,
         });
+        // O token chegou por email.
+        expect(user!.emailVerifiedAt).toBeInstanceOf(Date);
 
         expect(user!.passwordHash).not.toBe(PASSWORD_VALIDA);
         expect(await compare(PASSWORD_VALIDA, user!.passwordHash!)).toBe(true);

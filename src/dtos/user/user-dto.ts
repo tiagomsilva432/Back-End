@@ -1,12 +1,7 @@
 import { z } from "zod";
 import { UserRole, UserStatus } from "../../types/enums.js";
+import { companyIdSchema } from "../common/fields-dto.js";
 import { employeeProfileResponseSchema } from "./employee-profile-dto.js";
-
-const companyIdSchema = z.uuid().meta({
-    example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42",
-    description:
-        "Só o system_admin o indica. Um company_admin usa sempre a sua própria empresa; um valor diferente é recusado com 403.",
-});
 
 //Schema QUERY listUsers
 export const listUsersQuerySchema = z.object({

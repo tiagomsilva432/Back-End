@@ -2,11 +2,11 @@ import type { Response, Request } from "express";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import { HttpError } from "../dtos/common/errors-dto.js";
 import { feUrl, jwtExpiresIn, jwtSecret, passwordResetExpDate, saltRounds, signupTokenExpDate } from "../env-vars.js";
-import { createUser, getUserByEmailAndCompanyId, getUserById, getUserByPasswordResetToken, getUserBySignupToken, getUsersByCompanyId, getUsersByEmail, updateUser } from "../repositories/user-repo.js";
+import { createUser, getUserByEmailAndCompanyId, getUserById, getUserByPasswordResetToken, getUserBySignupToken, getUsersByEmail, updateUser } from "../repositories/user-repo.js";
 import { User } from "../entities/User.js";
 import { compare, hash } from "bcrypt";
 import jwt from "jsonwebtoken";
-import { UserRole, UserStatus } from "../types/enums.js";
+import { UserStatus } from "../types/enums.js";
 import { randomUUID } from "node:crypto";
 import { requireUserInReach } from "../services/user-scope.js";
 import { isoDate } from "../utils/dates.js";
@@ -22,6 +22,7 @@ import type { MeResponse } from "../dtos/auth/me-dto.js";
 import { getAuth } from "../middleware/requireAuth.js";
 import { getCurrentActor } from "../middleware/requireRole.js";
 import { canAdministerAccount, resolveAccountTarget } from "../services/account-policy.js";
+import { companyAdminIdsOrSystemAdmins } from "../services/admin-recipients.js";
 import type { ActivateAccountRequest, CreateAccountRequest, CreateAccountResponse } from "../dtos/auth/account-dto.js";
 import { getCompanyById } from "../repositories/company-repo.js";
 import { mailer } from "../services/mailer.js";
@@ -103,19 +104,16 @@ export const activateUserWithToken = async (req: Request, res: Response) => {
     user.mustChangePassword = false;
     user.signupToken = null;
     user.signupTokenExpiresAt = null;
+    // O token chegou por email: quem o usa tem acesso à caixa.
+    user.emailVerifiedAt = new Date();
 
     await updateUser(user);
 
-    // Os admins da empresa sabem que o convite foi aceite. Sem outro admin
-    // (o primeiro, convidado por um system_admin), não há a quem dizer.
-    const admins = await getUsersByCompanyId(user.companyId, {
-        role: UserRole.CompanyAdmin,
-        status: UserStatus.Active,
-    });
-
+    // Os admins da empresa sabem que o convite foi aceite. O primeiro
+    // company_admin não tem nenhum: vai para os system_admins.
     await notifier.notify("user.activated", {
         companyId: user.companyId,
-        recipientIds: admins.map((admin) => admin.id),
+        recipientIds: await companyAdminIdsOrSystemAdmins(user.companyId, user.id),
         exclude: [user.id],
         data: { userId: user.id, email: user.email },
     });
@@ -182,6 +180,9 @@ export const loginWithEmailAndPassword = async (req: Request, res: Response) => 
     };
 
     const token: string = jwt.sign(claims, jwtSecret(), { expiresIn: jwtExpiresIn() });
+
+    user.lastLoginAt = new Date();
+    await updateUser(user);
 
     const data: LoginResponse = {
         token,
@@ -307,7 +308,8 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
 
     for (const candidate of candidates) {
         // Sem passwordHash não há password para redefinir: essa conta ativa-se.
-        if (!candidate.passwordHash) {
+        // Uma conta terminada é definitiva: terminar já lhe apagou o token.
+        if (!candidate.passwordHash || candidate.status === UserStatus.Terminated) {
             continue;
         }
 
@@ -345,6 +347,8 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
     user.mustChangePassword = false;
     user.passwordResetToken = null;
     user.passwordResetExpiresAt = null;
+    // O link também chegou por email.
+    user.emailVerifiedAt ??= new Date();
 
     await updateUser(user);
 

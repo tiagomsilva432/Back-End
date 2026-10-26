@@ -2,8 +2,10 @@ import { describe, expect, it } from "@jest/globals";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import { app } from "../../src/app.js";
+import { User } from "../../src/entities/User.js";
 import { UserStatus } from "../../src/types/enums.js";
 import { criarEmpresa, criarUtilizador } from "../helpers/factories.js";
+import { repo } from "../setup/db.js";
 
 const PASSWORD = "Password1!";
 
@@ -39,6 +41,17 @@ describe("POST /auth/login", () => {
             companyId: utilizador.companyId,
             role: "employee",
         });
+
+        const depois = await repo(User).findOneByOrFail({ id: utilizador.id });
+        expect(depois.lastLoginAt).toBeInstanceOf(Date);
+    });
+
+    it("uma password errada não mexe no lastLoginAt", async () => {
+        const utilizador = await criarUtilizador({ email: "ines@empresa.pt", password: PASSWORD });
+
+        await request(app).post("/auth/login").send({ email: "ines@empresa.pt", password: "Errada1!" }).expect(401);
+
+        expect((await repo(User).findOneByOrFail({ id: utilizador.id })).lastLoginAt).toBeNull();
     });
 
     it("aceita o email com maiúsculas e espaços", async () => {

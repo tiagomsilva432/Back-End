@@ -10,6 +10,12 @@ export const envIsDev = (): boolean => process.env.NODE_ENV !== "production";
 //URLS
 export const BASE_URL: string = process.env.BASE_URL ?? "http://localhost";
 export const PORT: number = numberEnv("PORT", 3000);
+/**
+ * Onde o browser chega à API: o servidor que a documentação usa. Atrás do
+ * Caddy é o PUBLIC_URL com /api, e não o BASE_URL:PORT de dentro do contentor.
+ */
+export const apiPublicUrl = (): string =>
+    (process.env.API_PUBLIC_URL || `${BASE_URL}:${PORT}`).replace(/\/$/, "");
 /** Base do frontend, para o link de ativação. Sem barra final. */
 export const feUrl = (): string =>
     (process.env.FE_URL ?? "http://localhost:5173").replace(/\/$/, "");

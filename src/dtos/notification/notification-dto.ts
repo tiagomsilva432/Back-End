@@ -1,8 +1,5 @@
 import { z } from "zod";
-
-const flag = (description: string) =>
-    z.enum(["true", "false"]).optional().transform((v) => v === "true")
-        .meta({ example: "true", description });
+import { flag } from "../common/fields-dto.js";
 
 //Schema QUERY listMyNotifications
 export const listMyNotificationsQuerySchema = z.object({

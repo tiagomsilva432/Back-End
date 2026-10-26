@@ -2,7 +2,8 @@ import { z } from "zod";
 import { HolidayKind } from "../../services/holidays.js";
 import { ABSENT } from "../../services/absence-policy.js";
 import { AbsenceStatus, AbsenceType } from "../../types/enums.js";
-import { daysBetween, isoDate } from "../../utils/dates.js";
+import { daysBetween } from "../../utils/dates.js";
+import { yearSchema } from "../common/fields-dto.js";
 
 const idSchema = z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" });
 
@@ -12,8 +13,6 @@ export const MAX_CALENDAR_DAYS = 366;
 const companyIdFilter = idSchema.optional().meta({
     description: "Só para um system_admin. Os outros veem sempre a sua empresa.",
 });
-
-const currentYear = () => Number(isoDate().slice(0, 4));
 
 const range = {
     from: z.iso.date().meta({ example: "2026-12-01", description: "Primeiro dia, inclusivo." }),
@@ -38,8 +37,7 @@ export const projectCalendarQuerySchema = z.object(range)
     .meta({ id: "ProjectCalendarQuery", description: "O intervalo do calendário do projeto" });
 
 export const listHolidaysQuerySchema = z.object({
-    year: z.coerce.number().int().min(2000).max(2100).default(currentYear)
-        .meta({ example: 2026, description: "Por omissão, o ano corrente." }),
+    year: yearSchema,
     companyId: companyIdFilter,
 }).meta({ id: "ListHolidaysQuery", description: "O ano dos feriados" });
 

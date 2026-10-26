@@ -1,12 +1,4 @@
 import { createDocument } from "zod-openapi";
-import { createAccountSchema } from "../dtos/auth/account-dto.js";
-import { loginResponseSchema, loginSchema } from "../dtos/auth/login-dto.js";
-import { meResponseSchema } from "../dtos/auth/me-dto.js";
-import { createCompanySchema } from "../dtos/company/company-dto.js";
-import { createProjectSchema } from "../dtos/project/project-dto.js";
-import { upsertEmployeeProfileSchema } from "../dtos/user/employee-profile-dto.js";
-import { createAllocationSchema } from "../dtos/allocation/allocation-dto.js";
-import { changePasswordSchema, confirmPasswordResetSchema, requestPasswordResetSchema } from "../dtos/auth/password-dto.js";
 import { healthPaths } from "../routes/health-routes.js";
 import { authPaths } from "../routes/auth-routes.js";
 import { companyPaths } from "../routes/company-routes.js";
@@ -20,6 +12,7 @@ import { announcementPaths } from "../routes/announcement-routes.js";
 import { notificationPaths } from "../routes/notification-routes.js";
 import { absencePaths } from "../routes/absence-routes.js";
 import { calendarPaths } from "../routes/calendar-routes.js";
+import { apiPublicUrl } from "../env-vars.js";
 import { docsPaths } from "./docs-paths.js";
 
 export const openApiDocument: ReturnType<typeof createDocument> = createDocument({
@@ -31,8 +24,8 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
     },
     servers: [
         {
-            url: `${process.env.BASE_URL ?? "http://localhost"}:${process.env.PORT ?? 3000}`,
-            description: "Servidor local",
+            url: apiPublicUrl(),
+            description: "Servidor da API",
         },
     ],
     tags: [
@@ -66,20 +59,8 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
         ...absencePaths,
         ...calendarPaths,
     },
+    // Os schemas entram sozinhos: cada um com .meta({ id }) é registado ao ser usado.
     components: {
-        schemas: {
-            LoginRequest: loginSchema,
-            LoginResponse: loginResponseSchema,
-            CreateAccountRequest: createAccountSchema,
-            MeResponse: meResponseSchema,
-            CreateCompanyRequest: createCompanySchema,
-            CreateProjectRequest: createProjectSchema,
-            UpsertEmployeeProfileRequest: upsertEmployeeProfileSchema,
-            CreateAllocationRequest: createAllocationSchema,
-            ChangePasswordRequest: changePasswordSchema,
-            RequestPasswordResetRequest: requestPasswordResetSchema,
-            ConfirmPasswordResetRequest: confirmPasswordResetSchema,
-        },
         securitySchemes: {
             bearerAuth: {
                 type: "http",

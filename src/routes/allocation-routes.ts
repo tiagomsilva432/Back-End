@@ -16,19 +16,18 @@ import {
     listAllocationsQuerySchema,
     patchAllocationSchema,
 } from "../dtos/allocation/allocation-dto.js";
-import { errorResponses, jsonBody, jsonResponse } from "../docs/response.js";
+import { errorResponses, jsonBody, jsonResponse, pathId } from "../docs/response.js";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { requireRole } from "../middleware/requireRole.js";
+import { requireAdmin, requireRole } from "../middleware/requireRole.js";
 import { validateBody } from "../middleware/validateBody.js";
 import { validateQuery } from "../middleware/validateQuery.js";
-import { UserRole } from "../types/enums.js";
 
 const router = Router();
 
 router.post(
     "/allocations",
     requireAuth,
-    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    requireAdmin,
     validateBody(createAllocationSchema),
     createAllocation
 );
@@ -36,7 +35,7 @@ router.post(
 router.patch(
     "/allocations/:id",
     requireAuth,
-    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    requireAdmin,
     validateBody(patchAllocationSchema),
     patchAllocation
 );
@@ -44,7 +43,7 @@ router.patch(
 router.delete(
     "/allocations/:id",
     requireAuth,
-    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    requireAdmin,
     removeAllocation
 );
 
@@ -71,14 +70,6 @@ router.get(
     requireRole(),
     getUserAllocationLoad
 );
-
-const idParam = (description: string) => ({
-    name: "id",
-    in: "path" as const,
-    required: true,
-    schema: { type: "string" as const, format: "uuid" },
-    description,
-});
 
 //Documentação OpenAPI destas rotas
 export const allocationPaths: ZodOpenApiPathsObject = {
@@ -117,7 +108,7 @@ export const allocationPaths: ZodOpenApiPathsObject = {
                 "`endDate: null` reabre a alocação, e responde 409 se o par já tiver outra aberta. " +
                 "O `startDate` não se altera: apaga-se e cria-se outra.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id da alocação")],
+            parameters: [pathId("Id da alocação")],
             requestBody: jsonBody(patchAllocationSchema),
             responses: {
                 "200": jsonResponse(200, "Alocação atualizada", allocationResponseSchema),
@@ -138,7 +129,7 @@ export const allocationPaths: ZodOpenApiPathsObject = {
                 "o que mantém o histórico. Um `company_admin` apaga na sua empresa; um " +
                 "`system_admin` em qualquer uma.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id da alocação")],
+            parameters: [pathId("Id da alocação")],
             responses: {
                 "200": jsonResponse(200, "Alocação apagada"),
                 "401": jsonResponse(401, "Token em falta ou inválido"),
@@ -156,7 +147,7 @@ export const allocationPaths: ZodOpenApiPathsObject = {
                 "Qualquer conta ativa da empresa do projeto. `?open=true` deixa só as abertas. " +
                 "Um projeto de outra empresa devolve 404, não 403.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do projeto")],
+            parameters: [pathId("Id do projeto")],
             requestParams: { query: listAllocationsQuerySchema },
             responses: {
                 "200": jsonResponse(200, "Alocações", allocationListResponseSchema),
@@ -175,7 +166,7 @@ export const allocationPaths: ZodOpenApiPathsObject = {
             description:
                 "Qualquer conta ativa da empresa da pessoa. `?open=true` deixa só as abertas.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do utilizador")],
+            parameters: [pathId("Id do utilizador")],
             requestParams: { query: listAllocationsQuerySchema },
             responses: {
                 "200": jsonResponse(200, "Alocações", allocationListResponseSchema),
@@ -195,7 +186,7 @@ export const allocationPaths: ZodOpenApiPathsObject = {
                 "Soma as alocações ativas (abertas, ou que ainda não terminaram). " +
                 "`overAllocated` fica a `true` acima de 100%, que é permitido e só se reporta.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do utilizador")],
+            parameters: [pathId("Id do utilizador")],
             responses: {
                 "200": jsonResponse(200, "Carga de alocação", allocationLoadResponseSchema),
                 "401": jsonResponse(401, "Token em falta ou inválido"),

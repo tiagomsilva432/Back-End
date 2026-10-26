@@ -7,7 +7,7 @@ import type {
     ListAbsencesQuery,
     ListMyAbsencesQuery,
 } from "../dtos/absence/absence-dto.js";
-import { HttpError } from "../dtos/common/errors-dto.js";
+import { HttpError, invalidData } from "../dtos/common/errors-dto.js";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import type { AbsenceRequest } from "../entities/AbsenceRequest.js";
 import type { User } from "../entities/User.js";
@@ -22,7 +22,7 @@ import {
     updateAbsence,
 } from "../repositories/absence-repo.js";
 import { getManagerIdsOfProjectsAllocatedBetween } from "../repositories/allocation-repo.js";
-import { getUserById, getUsersByCompanyId, getUsersByRole } from "../repositories/user-repo.js";
+import { getUserById } from "../repositories/user-repo.js";
 import { toAbsenceResponse } from "../services/absence-mapper.js";
 import {
     canDecideAbsence,
@@ -31,11 +31,12 @@ import {
     requireDecidableAbsence,
     requireReadableAbsence,
 } from "../services/absence-policy.js";
+import { companyAdminIdsOrSystemAdmins } from "../services/admin-recipients.js";
 import { getHolidaysOf, holidayDates, requireCompany, withWorkingDays } from "../services/company-calendar.js";
 import { countWorkingDays } from "../services/holidays.js";
 import { notifier } from "../services/notifier.js";
 import { requireUserInReach } from "../services/user-scope.js";
-import { AbsenceStatus, AbsenceType, UserRole, UserStatus } from "../types/enums.js";
+import { AbsenceStatus, AbsenceType, UserRole } from "../types/enums.js";
 import { isoDate } from "../utils/dates.js";
 import { uuidParam } from "../utils/params.js";
 
@@ -52,24 +53,11 @@ const notificationData = (absence: AbsenceRequest) => ({
 });
 
 /**
- * Quem decide os pedidos desta pessoa: os outros company_admins ativos da empresa.
- * Sem nenhum (pediu o único company_admin, ou a empresa ficou sem), só um
- * system_admin pode decidir, e são esses os avisados.
+ * Quem decide os pedidos desta pessoa: os outros company_admins ativos da
+ * empresa, ou os system_admins quando não há nenhum.
  */
-const deciderIds = async (absence: Pick<AbsenceRequest, "userId" | "companyId">): Promise<string[]> => {
-    const companyAdmins = (await getUsersByCompanyId(absence.companyId, {
-        role: UserRole.CompanyAdmin,
-        status: UserStatus.Active,
-    }))
-        .map((admin) => admin.id)
-        .filter((id) => id !== absence.userId);
-
-    if (companyAdmins.length > 0) {
-        return companyAdmins;
-    }
-
-    return (await getUsersByRole(UserRole.SystemAdmin, { status: UserStatus.Active })).map((admin) => admin.id);
-};
+const deciderIds = (absence: Pick<AbsenceRequest, "userId" | "companyId">): Promise<string[]> =>
+    companyAdminIdsOrSystemAdmins(absence.companyId, absence.userId);
 
 /**
  * Os gestores dos projetos da pessoa nesses dias sabem que ela vai faltar,
@@ -107,9 +95,7 @@ export const createAbsence = async (req: Request, res: Response) => {
     const workingDays = countWorkingDays(body.startDate, body.endDate, holidayDates(holidays));
 
     if (workingDays === 0) {
-        throw new HttpError(400, "Dados inválidos", "BAD_REQUEST", [
-            { field: "endDate", message: "O intervalo só tem fins de semana e feriados" },
-        ]);
+        throw invalidData([{ field: "endDate", message: "O intervalo só tem fins de semana e feriados" }]);
     }
 
     if (await getOverlappingActiveAbsence(actor.id, body.startDate, body.endDate)) {

@@ -24,6 +24,15 @@ export const jsonBody = (schema: z.ZodType): ZodOpenApiRequestBodyObject => ({
     content: { "application/json": { schema } },
 });
 
+/** Um id no caminho, como o `{id}` de `/users/{id}`. */
+export const pathId = (description: string, name = "id") => ({
+    name,
+    in: "path" as const,
+    required: true,
+    schema: { type: "string" as const, format: "uuid" },
+    description,
+});
+
 /** Atalho para as respostas de erro mais comuns. */
 export const errorResponses = (
     ...statuses: number[]

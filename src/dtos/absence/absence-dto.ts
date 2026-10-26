@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AbsenceStatus, AbsenceType } from "../../types/enums.js";
 import { daysBetween, isoDate } from "../../utils/dates.js";
+import { yearSchema } from "../common/fields-dto.js";
 
 const idSchema = z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" });
 
@@ -16,8 +17,6 @@ const statusFilter = z.string().trim().toLowerCase().pipe(z.enum(AbsenceStatus))
     .meta({ example: AbsenceStatus.Pending, description: "Filtra por estado." });
 
 const reasonSchema = z.string().trim().min(1).max(1000);
-
-const currentYear = () => Number(isoDate().slice(0, 4));
 
 //Schema REQUEST createAbsence
 export const createAbsenceSchema = z.object({
@@ -66,8 +65,7 @@ export const listAbsencesQuerySchema = z.object({
 }).meta({ id: "ListAbsencesQuery", description: "Filtros dos pedidos para aprovar" });
 
 export const absenceSummaryQuerySchema = z.object({
-    year: z.coerce.number().int().min(2000).max(2100).default(currentYear)
-        .meta({ example: 2026, description: "Por omissão, o ano corrente." }),
+    year: yearSchema,
 }).meta({ id: "AbsenceSummaryQuery", description: "O ano a contar" });
 
 //Como um pedido é devolvido

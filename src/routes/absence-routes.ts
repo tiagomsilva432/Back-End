@@ -21,16 +21,13 @@ import {
     listAbsencesQuerySchema,
     listMyAbsencesQuerySchema,
 } from "../dtos/absence/absence-dto.js";
-import { errorResponses, jsonBody, jsonResponse } from "../docs/response.js";
+import { errorResponses, jsonBody, jsonResponse, pathId } from "../docs/response.js";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { requireRole } from "../middleware/requireRole.js";
+import { requireAdmin, requireRole } from "../middleware/requireRole.js";
 import { validateBody } from "../middleware/validateBody.js";
 import { validateQuery } from "../middleware/validateQuery.js";
-import { UserRole } from "../types/enums.js";
 
 const router = Router();
-
-const admins = requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin);
 
 // Sem roles na rota: toda a gente pede para si. Quem decide vê-se no controller,
 // pela empresa do pedido e por não ser o próprio.
@@ -45,7 +42,7 @@ router.post(
 router.get(
     "/absences",
     requireAuth,
-    admins,
+    requireAdmin,
     validateQuery(listAbsencesQuerySchema),
     listAbsences
 );
@@ -96,14 +93,6 @@ router.get(
     validateQuery(absenceSummaryQuerySchema),
     getAbsenceSummary
 );
-
-const idParam = (description: string) => ({
-    name: "id",
-    in: "path" as const,
-    required: true,
-    schema: { type: "string" as const, format: "uuid" },
-    description,
-});
 
 /** O motivo é opcional, e o corpo também. */
 const optionalDecisionBody = {
@@ -183,7 +172,7 @@ export const absencePaths: ZodOpenApiPathsObject = {
             summary: "Ver um pedido",
             description: WHO_SEES,
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do pedido")],
+            parameters: [pathId("Id do pedido")],
             responses: {
                 "200": jsonResponse(200, "Pedido", absenceResponseSchema),
                 "401": jsonResponse(401, "Token em falta ou inválido"),
@@ -202,7 +191,7 @@ export const absencePaths: ZodOpenApiPathsObject = {
                 "gestores dos projetos onde ela está alocada nesses dias recebem `absence.teammate_away`, com o " +
                 "tipo tapado como no calendário.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do pedido")],
+            parameters: [pathId("Id do pedido")],
             responses: {
                 "200": jsonResponse(200, "Pedido aprovado", absenceResponseSchema),
                 "401": jsonResponse(401, "Token em falta ou inválido"),
@@ -221,7 +210,7 @@ export const absencePaths: ZodOpenApiPathsObject = {
                 `${WHO_DECIDES} Só um \`pending\`. O \`reason\`, opcional, fica em \`decisionNote\` e vai na ` +
                 "notificação `absence.rejected` para a pessoa.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do pedido")],
+            parameters: [pathId("Id do pedido")],
             requestBody: optionalDecisionBody,
             responses: {
                 "200": jsonResponse(200, "Pedido recusado", absenceResponseSchema),
@@ -243,7 +232,7 @@ export const absencePaths: ZodOpenApiPathsObject = {
                 "um pendente ou aprovado a qualquer altura. A notificação `absence.cancelled` vai para o outro " +
                 "lado: a pessoa, se foi um admin; quem decide, se foi a pessoa.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do pedido")],
+            parameters: [pathId("Id do pedido")],
             requestBody: optionalDecisionBody,
             responses: {
                 "200": jsonResponse(200, "Pedido cancelado", absenceResponseSchema),
@@ -264,7 +253,7 @@ export const absencePaths: ZodOpenApiPathsObject = {
                 "Os dias úteis de ausências aprovadas, por tipo. Um pedido que passa a passagem de ano conta só os " +
                 "dias desse ano. A pessoa e quem gere as ausências da empresa; um colega recebe 403.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do utilizador")],
+            parameters: [pathId("Id do utilizador")],
             requestParams: { query: absenceSummaryQuerySchema },
             responses: {
                 "200": jsonResponse(200, "Resumo das ausências", absenceSummaryResponseSchema),

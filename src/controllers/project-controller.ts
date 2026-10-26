@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { HttpError } from "../dtos/common/errors-dto.js";
+import { HttpError, invalidData } from "../dtos/common/errors-dto.js";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import type {
     CreateProjectRequest,
@@ -157,9 +157,7 @@ export const patchProject = async (req: Request, res: Response) => {
 
     // O Zod só vê o patch, por isso as datas comparam-se aqui com as que estão gravadas.
     if (startDate && endDate && endDate < startDate) {
-        throw new HttpError(400, "Dados inválidos", "BAD_REQUEST", [
-            { field: "endDate", message: "A data de fim não pode ser anterior à data de início" },
-        ]);
+        throw invalidData([{ field: "endDate", message: "A data de fim não pode ser anterior à data de início" }]);
     }
 
     if (body.managerId) {

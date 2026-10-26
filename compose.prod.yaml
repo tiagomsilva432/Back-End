@@ -20,6 +20,8 @@ x-api: &api
     DB_PORT: 5432
     FE_URL: ${PUBLIC_URL:?PUBLIC_URL em falta no .env.prod}
     CORS_ORIGINS: ${PUBLIC_URL}
+    # Caddy serves the API under /api: where the docs page sends its requests.
+    API_PUBLIC_URL: ${PUBLIC_URL}/api
   logging: *logging
 
 services:

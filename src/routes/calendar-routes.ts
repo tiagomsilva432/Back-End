@@ -17,16 +17,13 @@ import {
     projectCalendarQuerySchema,
     projectCalendarResponseSchema,
 } from "../dtos/calendar/calendar-dto.js";
-import { errorResponses, jsonBody, jsonResponse } from "../docs/response.js";
+import { errorResponses, jsonBody, jsonResponse, pathId } from "../docs/response.js";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { requireRole } from "../middleware/requireRole.js";
+import { requireAdmin, requireRole } from "../middleware/requireRole.js";
 import { validateBody } from "../middleware/validateBody.js";
 import { validateQuery } from "../middleware/validateQuery.js";
-import { UserRole } from "../types/enums.js";
 
 const router = Router();
-
-const admins = requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin);
 
 // Ler é para qualquer conta ativa, na sua empresa. O que cada um vê de cada
 // ausência decide-se no mapper.
@@ -57,7 +54,7 @@ router.get(
 router.post(
     "/holidays",
     requireAuth,
-    admins,
+    requireAdmin,
     validateBody(createHolidaySchema),
     createHoliday
 );
@@ -65,17 +62,9 @@ router.post(
 router.delete(
     "/holidays/:id",
     requireAuth,
-    admins,
+    requireAdmin,
     removeHoliday
 );
-
-const idParam = (description: string) => ({
-    name: "id",
-    in: "path" as const,
-    required: true,
-    schema: { type: "string" as const, format: "uuid" },
-    description,
-});
 
 const WHAT_SHOWS =
     "Os feriados (nacionais, calculados do país da empresa, e os que a empresa juntou) e as ausências que " +
@@ -110,7 +99,7 @@ export const calendarPaths: ZodOpenApiPathsObject = {
                 `O mesmo, só com as ausências de quem está alocado ao projeto em algum dia do intervalo, e do ` +
                 `gestor. Qualquer conta ativa da empresa do projeto, como nas alocações. ${WHAT_SHOWS}`,
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do projeto")],
+            parameters: [pathId("Id do projeto")],
             requestParams: { query: projectCalendarQuerySchema },
             responses: {
                 "200": jsonResponse(200, "Calendário do projeto", projectCalendarResponseSchema),
@@ -166,7 +155,7 @@ export const calendarPaths: ZodOpenApiPathsObject = {
             summary: "Apagar um feriado da empresa",
             description: "Os mesmos do POST. Os nacionais não têm id: não se apagam.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do feriado")],
+            parameters: [pathId("Id do feriado")],
             responses: {
                 "200": jsonResponse(200, "Feriado apagado"),
                 "401": jsonResponse(401, "Token em falta ou inválido"),

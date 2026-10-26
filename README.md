@@ -10,7 +10,7 @@ Express 5 + TypeORM + PostgreSQL, written in TypeScript (ESM).
 
 ## Requirements
 
-- **Node.js 20+** (developed on 24)
+- **Node.js 20.11+** (developed on 24) - `import.meta.dirname` needs it
 - **PostgreSQL 18+** - every primary key defaults to `uuidv7()`, which is built in from 18
 - **Docker**, running, for the test suite
 
@@ -29,7 +29,8 @@ cp .env.example .env
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `PORT` | `3000` | HTTP port |
-| `BASE_URL` | `http://localhost` | used only for the startup log |
+| `BASE_URL` | `http://localhost` | used for the startup log and, without `API_PUBLIC_URL`, the docs' server |
+| `API_PUBLIC_URL` | `BASE_URL:PORT` | where a browser reaches the API, for the "Try it" requests in `/docs`. Production sets it to `PUBLIC_URL/api` |
 | `FE_URL` | `http://localhost:5173` | base of the frontend, used to build the activation link |
 | `DB_HOST` / `DB_PORT` | `localhost` / `5432` | |
 | `DB_USER` / `DB_PASSWORD` | `postgres` / `postgres` | |
@@ -90,7 +91,8 @@ npm run dev
 
 ## The API
 
-Four routes need no token, and the first one is where to start:
+Besides the auth routes (login, activation, password reset), four routes need
+no token, and the first one is where to start:
 
 | Endpoint | What it is |
 | --- | --- |
@@ -558,7 +560,7 @@ and a ready-to-show Portuguese `message`. The types today:
 | `review_request.created` | the reviewer | an ad-hoc request is made |
 | `review_request.declined` | whoever requested it | an ad-hoc request is declined |
 | `review.submitted` | whoever requested it | an ad-hoc review is submitted |
-| `user.activated` | the company's active `company_admin`s | an invite is accepted |
+| `user.activated` | the company's other active `company_admin`s, or the active `system_admin`s when there is none | an invite is accepted |
 | `absence.requested` | the deciders: the company's other active `company_admin`s, or the active `system_admin`s when there is none | someone asks for vacation or leave |
 | `absence.auto_approved` | the deciders | someone registers a sick day, which is approved at once |
 | `absence.approved` | the person | their request is approved |
@@ -630,8 +632,8 @@ six or so connections to the API.
 An activation link expires after `SIGNUP_TOKEN_EXPIRATION_DAYS`. Resending is
 the only way back: the account still occupies its `(company, email)` pair, so
 creating it again answers 409. Resending works **only on an `invited` account** -
-re-minting a token for an active one would hand the requester a way in, since
-the activation URL is logged.
+re-minting a token for an active one would reopen a link that sets a new
+password without knowing the old one.
 
 `POST /auth/password/change` is deliberately **not** behind `requireRole`. That
 middleware rejects any account carrying `mustChangePassword` with a 403, which is
@@ -654,6 +656,8 @@ grants nothing. `POST /auth/password/reset` always answers 200 with the same
 body, whether the email matched nothing, one account or several - it is not an
 oracle for which addresses exist. An account that never activated has no
 password to reset and is skipped; that one is recovered by resend-activation.
+A `terminated` account is skipped too: terminating it already revoked its
+tokens, and that is final.
 
 ---
 

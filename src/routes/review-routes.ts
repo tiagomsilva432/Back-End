@@ -34,21 +34,18 @@ import {
     submitReviewSchema,
     submittedReviewResponseSchema,
 } from "../dtos/review/review-dto.js";
-import { errorResponses, jsonBody, jsonResponse } from "../docs/response.js";
+import { errorResponses, jsonBody, jsonResponse, pathId } from "../docs/response.js";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { requireRole } from "../middleware/requireRole.js";
+import { requireAdmin, requireRole } from "../middleware/requireRole.js";
 import { validateBody } from "../middleware/validateBody.js";
 import { validateQuery } from "../middleware/validateQuery.js";
-import { UserRole } from "../types/enums.js";
 
 const router = Router();
-
-const admins = requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin);
 
 router.post(
     "/review-cycles",
     requireAuth,
-    admins,
+    requireAdmin,
     validateBody(createReviewCycleSchema),
     createReviewCycle
 );
@@ -56,7 +53,7 @@ router.post(
 router.get(
     "/review-cycles",
     requireAuth,
-    admins,
+    requireAdmin,
     validateQuery(listReviewCyclesQuerySchema),
     listReviewCycles
 );
@@ -64,35 +61,35 @@ router.get(
 router.get(
     "/review-cycles/:id",
     requireAuth,
-    admins,
+    requireAdmin,
     getReviewCycle
 );
 
 router.get(
     "/review-cycles/:id/requests",
     requireAuth,
-    admins,
+    requireAdmin,
     listReviewCycleRequests
 );
 
 router.post(
     "/review-cycles/:id/close",
     requireAuth,
-    admins,
+    requireAdmin,
     closeReviewCycle
 );
 
 router.get(
     "/review-cycles/:id/results",
     requireAuth,
-    admins,
+    requireAdmin,
     getReviewCycleResults
 );
 
 router.post(
     "/review-requests",
     requireAuth,
-    admins,
+    requireAdmin,
     validateBody(createReviewRequestSchema),
     createAdHocReviewRequest
 );
@@ -125,7 +122,7 @@ router.post(
 router.get(
     "/users/:id/review-summary",
     requireAuth,
-    admins,
+    requireAdmin,
     validateQuery(reviewResultsQuerySchema),
     getUserReviewSummary
 );
@@ -133,18 +130,10 @@ router.get(
 router.get(
     "/users/:id/reviews",
     requireAuth,
-    admins,
+    requireAdmin,
     validateQuery(reviewResultsQuerySchema),
     listUserReviews
 );
-
-const idParam = (description: string) => ({
-    name: "id",
-    in: "path" as const,
-    required: true,
-    schema: { type: "string" as const, format: "uuid" },
-    description,
-});
 
 const tags = ["Avaliações"];
 const security = [{ bearerAuth: [] }];
@@ -199,7 +188,7 @@ export const reviewPaths: ZodOpenApiPathsObject = {
             summary: "Ver um ciclo e o seu progresso",
             description: `${adminsOnly}Quantos pedidos há em cada estado.`,
             security,
-            parameters: [idParam("Id do ciclo")],
+            parameters: [pathId("Id do ciclo")],
             responses: {
                 "200": jsonResponse(200, "Ciclo", reviewCycleDetailResponseSchema),
                 ...unauthorized,
@@ -217,7 +206,7 @@ export const reviewPaths: ZodOpenApiPathsObject = {
                 `${adminsOnly}Mostra o estado de cada pedido - quem já respondeu - mas nunca o ` +
                 "conteúdo: as avaliações são anónimas.",
             security,
-            parameters: [idParam("Id do ciclo")],
+            parameters: [pathId("Id do ciclo")],
             responses: {
                 "200": jsonResponse(200, "Pedidos do ciclo", reviewRequestListResponseSchema),
                 ...unauthorized,
@@ -233,7 +222,7 @@ export const reviewPaths: ZodOpenApiPathsObject = {
             summary: "Fechar um ciclo",
             description: `${adminsOnly}Na mesma transação, os pedidos por responder passam a \`expired\`.`,
             security,
-            parameters: [idParam("Id do ciclo")],
+            parameters: [pathId("Id do ciclo")],
             responses: {
                 "200": jsonResponse(200, "Ciclo fechado", reviewCycleResponseSchema),
                 ...unauthorized,
@@ -253,7 +242,7 @@ export const reviewPaths: ZodOpenApiPathsObject = {
                 "Só aparecem as pessoas cujos resultados quem pergunta pode ler: um `company_admin` " +
                 "que entrou no ciclo não vê a sua linha, nem a de outro `company_admin`.",
             security,
-            parameters: [idParam("Id do ciclo")],
+            parameters: [pathId("Id do ciclo")],
             responses: {
                 "200": jsonResponse(200, "Resultados do ciclo", reviewSummaryListResponseSchema),
                 ...unauthorized,
@@ -309,7 +298,7 @@ export const reviewPaths: ZodOpenApiPathsObject = {
                 "`pending`. Fora de prazo passa a `expired` e responde 409. A avaliação e o novo " +
                 "estado gravam-se na mesma transação, e não se alteram depois.",
             security,
-            parameters: [idParam("Id do pedido")],
+            parameters: [pathId("Id do pedido")],
             requestBody: jsonBody(submitReviewSchema),
             responses: {
                 "201": jsonResponse(201, "Avaliação submetida", submittedReviewResponseSchema),
@@ -328,7 +317,7 @@ export const reviewPaths: ZodOpenApiPathsObject = {
             summary: "Recusar um pedido",
             description: "As mesmas regras de responder: só o reviewer, e só um pedido `pending` dentro do prazo.",
             security,
-            parameters: [idParam("Id do pedido")],
+            parameters: [pathId("Id do pedido")],
             responses: {
                 "200": jsonResponse(200, "Pedido recusado", reviewRequestResponseSchema),
                 ...unauthorized,
@@ -345,7 +334,7 @@ export const reviewPaths: ZodOpenApiPathsObject = {
             summary: "Resumo das avaliações de uma pessoa",
             description: `${resultsReaders}Todas as avaliações, ou as de um ciclo com \`?cycleId=\`.`,
             security,
-            parameters: [idParam("Id do utilizador")],
+            parameters: [pathId("Id do utilizador")],
             requestParams: { query: reviewResultsQuerySchema },
             responses: {
                 "200": jsonResponse(200, "Resumo das avaliações", reviewSummaryResponseSchema),
@@ -366,7 +355,7 @@ export const reviewPaths: ZodOpenApiPathsObject = {
                 "Sem o reviewer nem o id do pedido - qualquer um dos dois levava a quem escreveu - e " +
                 "com o dia mas sem a hora. Ordenadas pela nota, nunca pelo tempo.",
             security,
-            parameters: [idParam("Id do utilizador")],
+            parameters: [pathId("Id do utilizador")],
             requestParams: { query: reviewResultsQuerySchema },
             responses: {
                 "200": jsonResponse(200, "Avaliações", anonymousReviewListResponseSchema),

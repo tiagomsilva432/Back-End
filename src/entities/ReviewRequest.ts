@@ -17,8 +17,9 @@ import { Review } from "./Review.js";
 
 /**
  * One request for one reviewer to review one reviewee.
- * Ad-hoc requests have a null cycleId; cycle requests are generated in bulk
- * from the project_coworkers view. Company metrics aggregate over cycles only.
+ * Ad-hoc requests have a null cycleId; cycle requests are generated in bulk,
+ * one per coworker pair (getCoworkerPairsByCompanyId). Company metrics
+ * aggregate over cycles only.
  */
 @Entity("review_requests")
 @Check("ck_review_requests_distinct_parties", `"reviewer_id" <> "reviewee_id"`)
