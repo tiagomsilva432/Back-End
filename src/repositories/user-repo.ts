@@ -62,6 +62,20 @@ export async function getUsersByCompanyId(
     });
 }
 
+/** De todas as empresas: um system_admin vive numa e age em todas. */
+export async function getUsersByRole(
+    role: UserRole,
+    filters: { status?: UserStatus } = {}
+): Promise <User[]> {
+    return await userRepo.find({
+        where: {
+            role,
+            ...(filters.status ? { status: filters.status } : {})
+        },
+        order: { email: "ASC" }
+    });
+}
+
 export async function getUsersByIds(ids: string[]): Promise <User[]> {
     if (ids.length === 0) {
         return [];

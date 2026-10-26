@@ -22,7 +22,7 @@ import {
     updateAbsence,
 } from "../repositories/absence-repo.js";
 import { getManagerIdsOfProjectsAllocatedBetween } from "../repositories/allocation-repo.js";
-import { getUserById, getUsersByCompanyId } from "../repositories/user-repo.js";
+import { getUserById, getUsersByCompanyId, getUsersByRole } from "../repositories/user-repo.js";
 import { toAbsenceResponse } from "../services/absence-mapper.js";
 import {
     canDecideAbsence,
@@ -51,10 +51,38 @@ const notificationData = (absence: AbsenceRequest) => ({
     endDate: absence.endDate,
 });
 
-/** Os company_admins ativos da empresa: são eles que aprovam. */
-const companyAdminIds = async (companyId: string): Promise<string[]> =>
-    (await getUsersByCompanyId(companyId, { role: UserRole.CompanyAdmin, status: UserStatus.Active }))
-        .map((admin) => admin.id);
+/**
+ * Quem decide os pedidos desta pessoa: os outros company_admins ativos da empresa.
+ * Sem nenhum (pediu o único company_admin, ou a empresa ficou sem), só um
+ * system_admin pode decidir, e são esses os avisados.
+ */
+const deciderIds = async (absence: Pick<AbsenceRequest, "userId" | "companyId">): Promise<string[]> => {
+    const companyAdmins = (await getUsersByCompanyId(absence.companyId, {
+        role: UserRole.CompanyAdmin,
+        status: UserStatus.Active,
+    }))
+        .map((admin) => admin.id)
+        .filter((id) => id !== absence.userId);
+
+    if (companyAdmins.length > 0) {
+        return companyAdmins;
+    }
+
+    return (await getUsersByRole(UserRole.SystemAdmin, { status: UserStatus.Active })).map((admin) => admin.id);
+};
+
+/**
+ * Os gestores dos projetos da pessoa nesses dias sabem que ela vai faltar,
+ * mas como colegas: uma baixa chega-lhes como "ausente".
+ */
+const notifyTeammatesAway = async (absence: AbsenceRequest, actorId: string): Promise<void> => {
+    await notifier.notify("absence.teammate_away", {
+        companyId: absence.companyId,
+        recipientIds: await getManagerIdsOfProjectsAllocatedBetween(absence.userId, absence.startDate, absence.endDate),
+        exclude: [actorId, absence.userId],
+        data: { ...notificationData(absence), type: publicAbsenceType(absence.type) },
+    });
+};
 
 const requirePending = (absence: AbsenceRequest): void => {
     if (absence.status !== AbsenceStatus.Pending) {
@@ -88,26 +116,35 @@ export const createAbsence = async (req: Request, res: Response) => {
         throw new HttpError(409, "Já tens um pedido pendente ou aprovado nesses dias");
     }
 
+    // Uma baixa não passa por aprovação. Sem decidedBy: ninguém a aprovou,
+    // e muito menos a própria pessoa.
+    const autoApproved = body.type === AbsenceType.Sick;
+
     const created = await saveAbsence(
         absenceRepo.create({
             companyId: actor.companyId,
             userId: actor.id,
             type: body.type,
+            status: autoApproved ? AbsenceStatus.Approved : AbsenceStatus.Pending,
             startDate: body.startDate,
             endDate: body.endDate,
             note: body.note ?? null,
             decidedBy: null,
-            decidedAt: null,
+            decidedAt: autoApproved ? new Date() : null,
             decisionNote: null,
         }),
     );
 
-    await notifier.notify("absence.requested", {
+    await notifier.notify(autoApproved ? "absence.auto_approved" : "absence.requested", {
         companyId: created.companyId,
-        recipientIds: await companyAdminIds(created.companyId),
+        recipientIds: await deciderIds(created),
         exclude: [actor.id],
         data: notificationData(created),
     });
+
+    if (autoApproved) {
+        await notifyTeammatesAway(created, actor.id);
+    }
 
     return new HttpResponse(201, "Pedido criado", undefined, toAbsenceResponse(created, workingDays)).send(res);
 }
@@ -168,14 +205,7 @@ export const approveAbsence = async (req: Request, res: Response) => {
         data: notificationData(saved),
     });
 
-    // Os gestores dos projetos da pessoa nesses dias sabem que ela vai faltar,
-    // mas como colegas: uma baixa chega-lhes como "ausente".
-    await notifier.notify("absence.teammate_away", {
-        companyId: saved.companyId,
-        recipientIds: await getManagerIdsOfProjectsAllocatedBetween(saved.userId, saved.startDate, saved.endDate),
-        exclude: [actor.id, saved.userId],
-        data: { ...notificationData(saved), type: publicAbsenceType(saved.type) },
-    });
+    await notifyTeammatesAway(saved, actor.id);
 
     const [data] = await withWorkingDays([saved]);
 
@@ -230,10 +260,10 @@ export const cancelAbsence = async (req: Request, res: Response) => {
     decide(absence, actor, AbsenceStatus.Cancelled, body?.reason ?? null);
     const saved = await updateAbsence(absence);
 
-    // Vai para o outro lado: a pessoa, se foi um admin; os admins, se foi ela.
+    // Vai para o outro lado: a pessoa, se foi um admin; quem decide, se foi ela.
     await notifier.notify("absence.cancelled", {
         companyId: saved.companyId,
-        recipientIds: byDecider ? [saved.userId] : await companyAdminIds(saved.companyId),
+        recipientIds: byDecider ? [saved.userId] : await deciderIds(saved),
         exclude: [actor.id],
         data: { ...notificationData(saved), reason: saved.decisionNote },
     });

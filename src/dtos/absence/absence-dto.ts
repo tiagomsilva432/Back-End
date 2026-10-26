@@ -85,7 +85,9 @@ export const absenceResponseSchema = z.object({
     }),
     note: z.string().nullable(),
     decidedBy: z.uuid().nullable().meta({
-        description: "Quem o levou ao estado em que está: aprovou, recusou ou cancelou.",
+        description:
+            "Quem o levou ao estado em que está: aprovou, recusou ou cancelou. Num `approved`, null quer dizer " +
+            "que foi aprovado automaticamente (uma baixa).",
     }),
     decidedAt: z.iso.datetime().nullable(),
     decisionNote: z.string().nullable(),

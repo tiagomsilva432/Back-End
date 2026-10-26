@@ -73,7 +73,12 @@ export const notificationCatalog = {
         z.object({ ...absence, reason: z.string().nullable() }),
         (d) => `O teu pedido de ${ABSENCE_LABELS[d.type]} ${period(d)} foi recusado${because(d.reason)}`,
     ),
-    // Vai para a pessoa, se foi um admin, ou para os admins, se foi a pessoa.
+    // Uma baixa não espera por ninguém: quem decide fica só a saber.
+    "absence.auto_approved": defineNotification(
+        z.object(absence),
+        (d) => `Foi registado um pedido de ${ABSENCE_LABELS[d.type]} ${period(d)}, aprovado automaticamente`,
+    ),
+    // Vai para a pessoa, se foi um admin, ou para quem decide, se foi a pessoa.
     "absence.cancelled": defineNotification(
         z.object({ ...absence, reason: z.string().nullable() }),
         (d) => `O pedido de ${ABSENCE_LABELS[d.type]} ${period(d)} foi cancelado${because(d.reason)}`,

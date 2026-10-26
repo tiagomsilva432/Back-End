@@ -128,8 +128,11 @@ export const absencePaths: ZodOpenApiPathsObject = {
                 "Para quem pede, sempre: férias (`vacation`), baixa (`sick`) ou outra ausência (`leave`), em dias " +
                 "inteiros e com o `endDate` incluído. As férias não podem começar no passado; uma baixa ou uma falta " +
                 "podem, porque se registam muitas vezes depois. Um intervalo só de fins de semana e feriados é 400, " +
-                "e um que toque noutro pedido pendente ou aprovado da mesma pessoa é 409. Fica `pending`, e os " +
-                "`company_admin`s da empresa recebem `absence.requested`.",
+                "e um que toque noutro pedido pendente ou aprovado da mesma pessoa é 409. Fica `pending`, e quem " +
+                "decide recebe `absence.requested`. Uma baixa não passa por aprovação: fica logo `approved`, sem " +
+                "`decidedBy`; quem decide recebe `absence.auto_approved`, e os gestores dos projetos da pessoa " +
+                "nesses dias `absence.teammate_away`. Quem decide são os outros `company_admin`s ativos da " +
+                "empresa; sem nenhum, os `system_admin`s.",
             security: [{ bearerAuth: [] }],
             requestBody: jsonBody(createAbsenceSchema),
             responses: {
@@ -238,7 +241,7 @@ export const absencePaths: ZodOpenApiPathsObject = {
             description:
                 "A pessoa cancela o seu se estiver pendente, ou aprovado e ainda por começar. Quem decide cancela " +
                 "um pendente ou aprovado a qualquer altura. A notificação `absence.cancelled` vai para o outro " +
-                "lado: a pessoa, se foi um admin; os `company_admin`s, se foi a pessoa.",
+                "lado: a pessoa, se foi um admin; quem decide, se foi a pessoa.",
             security: [{ bearerAuth: [] }],
             parameters: [idParam("Id do pedido")],
             requestBody: optionalDecisionBody,

@@ -433,9 +433,9 @@ not write one row per user across every company. Who has read what lives in
 
 ### Absences
 
-Vacation, sick days and other leave. A person asks, a company admin decides, and
-an approved absence shows up on the [calendar](#calendar) so everyone knows who
-is away.
+Vacation, sick days and other leave. A person asks, a company admin decides
+(a sick day needs no decision), and an approved absence shows up on the
+[calendar](#calendar) so everyone knows who is away.
 
 | Endpoint | Who |
 | --- | --- |
@@ -450,9 +450,15 @@ is away.
 
 **Requests.** A request is `{ type, startDate, endDate, note? }`, where `type` is
 `vacation`, `sick` or `leave`. It covers whole days, and `endDate` is
-inclusive, so one day has `startDate = endDate`. It spans at most 366 days. It is
-born `pending`, and the company's active `company_admin`s are notified.
+inclusive, so one day has `startDate = endDate`. It spans at most 366 days.
 
+- Vacation and leave are born `pending`, and the deciders are notified.
+- A sick day is born `approved`, with no `decidedBy`: it never waits for
+  anyone. The deciders are told, and so are the managers of the person's
+  projects on those days, as when an admin approves.
+- The deciders are the company's other active `company_admin`s. When there is
+  none, because the only `company_admin` asked or the company has none active,
+  the active `system_admin`s are notified instead: only they can decide.
 - Vacation cannot start in the past. A sick day or leave can, because it is
   often registered afterwards.
 - A range with no working day (only weekend and holidays) answers 400.
@@ -469,7 +475,8 @@ answers 409. Nobody decides their own request: a `company_admin`'s request is
 decided by another `company_admin` of the same company, or by a `system_admin`.
 An employee trying to decide a colleague's request gets 404, and anyone trying
 to decide their own gets 403. `decidedBy`, `decidedAt` and `decisionNote` record
-the last decision - approved, rejected or cancelled.
+the last decision - approved, rejected or cancelled. An `approved` request with
+no `decidedBy` was approved automatically.
 
 **Cancelling.** The person cancels a `pending` request, or an `approved` one
 that has not started yet. A decider cancels a `pending` or `approved` one at any
@@ -552,11 +559,12 @@ and a ready-to-show Portuguese `message`. The types today:
 | `review_request.declined` | whoever requested it | an ad-hoc request is declined |
 | `review.submitted` | whoever requested it | an ad-hoc review is submitted |
 | `user.activated` | the company's active `company_admin`s | an invite is accepted |
-| `absence.requested` | the company's active `company_admin`s | someone asks for an absence |
+| `absence.requested` | the deciders: the company's other active `company_admin`s, or the active `system_admin`s when there is none | someone asks for vacation or leave |
+| `absence.auto_approved` | the deciders | someone registers a sick day, which is approved at once |
 | `absence.approved` | the person | their request is approved |
 | `absence.rejected` | the person | their request is rejected; carries the `reason` |
-| `absence.cancelled` | the person if an admin cancelled it, or the company's active `company_admin`s if the person did | a request is cancelled |
-| `absence.teammate_away` | managers of the projects where the person is allocated on those days | an absence is approved. `type` is masked to `vacation` or `absent` |
+| `absence.cancelled` | the person if an admin cancelled it, or the deciders if the person did | a request is cancelled |
+| `absence.teammate_away` | managers of the projects where the person is allocated on those days | an absence is approved, or a sick day is registered. `type` is masked to `vacation` or `absent` |
 
 Whoever performed the action is never notified of it.
 

@@ -5,7 +5,7 @@ import { AbsenceRequest } from "../../src/entities/AbsenceRequest.js";
 import { Notification } from "../../src/entities/Notification.js";
 import { AbsenceStatus, AbsenceType, UserRole, UserStatus } from "../../src/types/enums.js";
 import { authorization, createActor } from "../helpers/auth.js";
-import { criarAusencia, criarFeriado, criarUtilizador } from "../helpers/factories.js";
+import { criarAlocacao, criarAusencia, criarFeriado, criarProjeto, criarUtilizador } from "../helpers/factories.js";
 import { repo } from "../setup/db.js";
 
 const ausencias = () => repo(AbsenceRequest);
@@ -25,7 +25,7 @@ const recebidas = async (userId: string) =>
         .map(({ type, data }) => ({ type, data }));
 
 // Segunda 7 a sexta 11 de dezembro de 2026, com o dia 8 (Imaculada Conceição) pelo meio.
-const baixa = { type: AbsenceType.Sick, startDate: "2026-12-07", endDate: "2026-12-11" };
+const falta = { type: AbsenceType.Leave, startDate: "2026-12-07", endDate: "2026-12-11" };
 
 /** Um company_admin, uma employee, e um colega. */
 const cenario = async () => {
@@ -47,18 +47,18 @@ describe("POST /absences", () => {
             mustChangePassword: false,
         });
 
-        const res = await pedir(authorization(ana), { ...baixa, note: "Gripe" });
+        const res = await pedir(authorization(ana), { ...falta, note: "Mudança de casa" });
 
         expect(res.status).toBe(201);
         expect(res.body.data).toMatchObject({
             companyId: ana.companyId,
             userId: ana.id,
-            type: AbsenceType.Sick,
+            type: AbsenceType.Leave,
             status: AbsenceStatus.Pending,
             startDate: "2026-12-07",
             endDate: "2026-12-11",
             workingDays: 4,
-            note: "Gripe",
+            note: "Mudança de casa",
             decidedBy: null,
             decidedAt: null,
         });
@@ -67,7 +67,7 @@ describe("POST /absences", () => {
             data: {
                 absenceId: res.body.data.id,
                 userId: ana.id,
-                type: AbsenceType.Sick,
+                type: AbsenceType.Leave,
                 startDate: "2026-12-07",
                 endDate: "2026-12-11",
             },
@@ -80,7 +80,7 @@ describe("POST /absences", () => {
         const { admin, ana } = await cenario();
         await criarFeriado(admin.companyId, admin.id, { date: "2026-12-09" });
 
-        const res = await pedir(authorization(ana), baixa);
+        const res = await pedir(authorization(ana), falta);
 
         expect(res.status).toBe(201);
         expect(res.body.data.workingDays).toBe(3);
@@ -90,11 +90,94 @@ describe("POST /absences", () => {
         const { admin, header } = await cenario();
         const outro = await ativo(admin.companyId, UserRole.CompanyAdmin);
 
-        const res = await pedir(header, baixa);
+        const res = await pedir(header, falta);
 
         expect(res.status).toBe(201);
         expect(await recebidas(admin.id)).toEqual([]);
         expect((await recebidas(outro.id)).map((n) => n.type)).toEqual(["absence.requested"]);
+    });
+
+    it("o pedido do único company_admin vai para os system_admins ativos, que são quem o pode decidir", async () => {
+        const { admin, header } = await cenario();
+        const { user: sysadmin } = await createActor(UserRole.SystemAdmin);
+        const suspenso = await criarUtilizador({
+            companyId: sysadmin.companyId,
+            role: UserRole.SystemAdmin,
+            status: UserStatus.Suspended,
+            password: "Password1!",
+            mustChangePassword: false,
+        });
+
+        const res = await pedir(header, falta);
+
+        expect(res.status).toBe(201);
+        expect(await recebidas(sysadmin.id)).toEqual([{
+            type: "absence.requested",
+            data: {
+                absenceId: res.body.data.id,
+                userId: admin.id,
+                type: AbsenceType.Leave,
+                startDate: "2026-12-07",
+                endDate: "2026-12-11",
+            },
+        }]);
+        // A empresa do pedido, e não a do system_admin.
+        expect((await repo(Notification).findOneByOrFail({ recipientId: sysadmin.id })).companyId).toBe(admin.companyId);
+        expect(await recebidas(suspenso.id)).toEqual([]);
+        expect(await recebidas(admin.id)).toEqual([]);
+    });
+
+    it("com um company_admin na empresa, os system_admins não são avisados", async () => {
+        const { ana } = await cenario();
+        const { user: sysadmin } = await createActor(UserRole.SystemAdmin);
+
+        expect((await pedir(authorization(ana), falta)).status).toBe(201);
+        expect(await recebidas(sysadmin.id)).toEqual([]);
+    });
+
+    it("uma baixa fica logo aprovada: avisa quem decide, e os gestores com o tipo tapado", async () => {
+        const { admin, header, ana } = await cenario();
+        const gestora = await ativo(admin.companyId);
+        const projeto = await criarProjeto(admin.companyId, "Website", { managerId: gestora.id });
+        await criarAlocacao(ana.id, projeto.id, { startDate: "2026-01-01" });
+
+        const res = await pedir(authorization(ana), { ...falta, type: AbsenceType.Sick, note: "Gripe" });
+
+        expect(res.status).toBe(201);
+        expect(res.body.data).toMatchObject({
+            type: AbsenceType.Sick,
+            status: AbsenceStatus.Approved,
+            workingDays: 4,
+            note: "Gripe",
+            decidedBy: null,
+            decisionNote: null,
+        });
+        expect(res.body.data.decidedAt).not.toBeNull();
+
+        const dados = { absenceId: res.body.data.id, userId: ana.id, startDate: "2026-12-07", endDate: "2026-12-11" };
+        expect(await recebidas(admin.id)).toEqual([
+            { type: "absence.auto_approved", data: { ...dados, type: AbsenceType.Sick } },
+        ]);
+        expect(await recebidas(gestora.id)).toEqual([
+            { type: "absence.teammate_away", data: { ...dados, type: "absent" } },
+        ]);
+        expect(await recebidas(ana.id)).toEqual([]);
+
+        // Já não está pendente: não há nada para aprovar.
+        const aprovar = await request(app).post(`/absences/${res.body.data.id}/approve`).set("Authorization", header);
+        expect(aprovar.status).toBe(409);
+    });
+
+    it("a baixa do único company_admin avisa os system_admins", async () => {
+        const { admin, header } = await cenario();
+        const { user: sysadmin } = await createActor(UserRole.SystemAdmin);
+
+        const res = await pedir(header, { ...falta, type: AbsenceType.Sick });
+
+        expect(res.status).toBe(201);
+        expect(res.body.data.status).toBe(AbsenceStatus.Approved);
+        expect((await recebidas(sysadmin.id)).map((n) => n.type)).toEqual(["absence.auto_approved"]);
+        expect(await recebidas(admin.id)).toEqual([]);
     });
 
     it("aceita férias no futuro, e uma baixa no passado", async () => {
@@ -105,7 +188,11 @@ describe("POST /absences", () => {
             startDate: "2099-07-06",
             endDate: "2099-07-10",
         });
-        const passada = await pedir(authorization(ana), { ...baixa, startDate: "2020-01-06", endDate: "2020-01-06" });
+        const passada = await pedir(authorization(ana), {
+            type: AbsenceType.Sick,
+            startDate: "2020-01-06",
+            endDate: "2020-01-06",
+        });
 
         expect(ferias.status).toBe(201);
         expect(ferias.body.data.workingDays).toBe(5);
@@ -117,8 +204,8 @@ describe("POST /absences", () => {
         const header = authorization(ana);
 
         const passado = await pedir(header, { type: AbsenceType.Vacation, startDate: "2020-01-06", endDate: "2020-01-10" });
-        const invertido = await pedir(header, { ...baixa, startDate: "2026-12-11", endDate: "2026-12-07" });
-        const tipo = await pedir(header, { ...baixa, type: "sabatica" });
+        const invertido = await pedir(header, { ...falta, startDate: "2026-12-11", endDate: "2026-12-07" });
+        const tipo = await pedir(header, { ...falta, type: "sabatica" });
 
         expect(passado.status).toBe(400);
         expect(passado.body.data).toContainEqual({ field: "startDate", message: "As férias não podem começar no passado" });
@@ -131,8 +218,8 @@ describe("POST /absences", () => {
     it("aceita até 366 dias, contando as duas pontas, e recusa mais", async () => {
         const { ana } = await cenario();
 
-        const demais = await pedir(authorization(ana), { ...baixa, startDate: "2026-01-01", endDate: "2027-01-02" });
-        const limite = await pedir(authorization(ana), { ...baixa, startDate: "2026-01-01", endDate: "2027-01-01" });
+        const demais = await pedir(authorization(ana), { ...falta, startDate: "2026-01-01", endDate: "2027-01-02" });
+        const limite = await pedir(authorization(ana), { ...falta, startDate: "2026-01-01", endDate: "2027-01-01" });
 
         expect(demais.status).toBe(400);
         expect(demais.body.data[0].field).toBe("endDate");
@@ -143,8 +230,8 @@ describe("POST /absences", () => {
         const { ana } = await cenario();
         const header = authorization(ana);
 
-        expect((await pedir(header, { ...baixa, startDate: "2026-12-26", endDate: "2026-12-27" })).status).toBe(400);
-        expect((await pedir(header, { ...baixa, startDate: "2026-12-25", endDate: "2026-12-25" })).status).toBe(400);
+        expect((await pedir(header, { ...falta, startDate: "2026-12-26", endDate: "2026-12-27" })).status).toBe(400);
+        expect((await pedir(header, { ...falta, startDate: "2026-12-25", endDate: "2026-12-25" })).status).toBe(400);
         expect(await ausencias().count()).toBe(0);
     });
 
@@ -155,18 +242,18 @@ describe("POST /absences", () => {
         await criarAusencia(ana, { status: AbsenceStatus.Rejected, startDate: "2026-11-02", endDate: "2026-11-06" });
         await criarAusencia(ana, { status: AbsenceStatus.Cancelled, startDate: "2026-11-09", endDate: "2026-11-13" });
 
-        const sobreposto = await pedir(header, { ...baixa, startDate: "2026-12-18", endDate: "2026-12-22" });
+        const sobreposto = await pedir(header, { ...falta, startDate: "2026-12-18", endDate: "2026-12-22" });
 
         expect(sobreposto.status).toBe(409);
-        expect((await pedir(header, { ...baixa, startDate: "2026-11-03", endDate: "2026-11-04" })).status).toBe(201);
-        expect((await pedir(header, { ...baixa, startDate: "2026-11-10", endDate: "2026-11-10" })).status).toBe(201);
+        expect((await pedir(header, { ...falta, startDate: "2026-11-03", endDate: "2026-11-04" })).status).toBe(201);
+        expect((await pedir(header, { ...falta, startDate: "2026-11-10", endDate: "2026-11-10" })).status).toBe(201);
     });
 
     it("um colega com um pedido nos mesmos dias não conta", async () => {
         const { ana, rui } = await cenario();
         await criarAusencia(rui, { status: AbsenceStatus.Approved, startDate: "2026-12-07", endDate: "2026-12-11" });
 
-        expect((await pedir(authorization(ana), baixa)).status).toBe(201);
+        expect((await pedir(authorization(ana), falta)).status).toBe(201);
     });
 });
 
