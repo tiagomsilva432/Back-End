@@ -186,7 +186,8 @@ lists them, sorted by name:
 The client shows a picker and repeats the login with the chosen `companyId`.
 Listing the companies leaks nothing: you only reach the 409 by having already
 proved the password against every account in it, and a wrong password gets the
-same uniform 401 as an unknown email.
+same uniform 401 as an unknown email. It takes the same time too: an email with
+no password to check still pays for one bcrypt compare, against a dummy hash.
 
 One token carries one company. There is no switching - working in two companies
 means logging in twice.
@@ -654,7 +655,8 @@ interchangeable, and the confirm step writes only the password: a suspended
 account can reset its password and is still suspended afterwards, so a reset
 grants nothing. `POST /auth/password/reset` always answers 200 with the same
 body, whether the email matched nothing, one account or several - it is not an
-oracle for which addresses exist. An account that never activated has no
+oracle for which addresses exist. The response does not wait for the email to
+be sent, so how long the request takes does not give the account away either. An account that never activated has no
 password to reset and is skipped; that one is recovered by resend-activation.
 A `terminated` account is skipped too: terminating it already revoked its
 tokens, and that is final.

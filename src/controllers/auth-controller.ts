@@ -27,6 +27,7 @@ import type { ActivateAccountRequest, CreateAccountRequest, CreateAccountRespons
 import { getCompanyById } from "../repositories/company-repo.js";
 import { mailer } from "../services/mailer.js";
 import { notifier } from "../services/notifier.js";
+import { passwordTiming } from "../services/password-timing.js";
 import { createEmployeeProfile, employeeProfileRepo } from "../repositories/employee-profile-repo.js";
 import { toProfileResponse } from "../services/user-mapper.js";
 
@@ -132,12 +133,23 @@ export const loginWithEmailAndPassword = async (req: Request, res: Response) => 
         : await getUsersByEmail(email);
 
     const matches: User[] = [];
+    let compared = false;
 
     // Sequencial para um pedido não multiplicar o trabalho de bcrypt.
     for (const candidate of candidates) {
-        if (candidate.passwordHash && (await compare(password, candidate.passwordHash))) {
+        if (!candidate.passwordHash) {
+            continue;
+        }
+
+        compared = true;
+
+        if (await compare(password, candidate.passwordHash)) {
             matches.push(candidate);
         }
+    }
+
+    if (!compared) {
+        await passwordTiming.burnCompare(password);
     }
 
     // Password antes do estado: mantém o 401 uniforme.
@@ -323,7 +335,10 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
 
             if (company) {
                 const resetUrl = `${feUrl()}/auth/password/reset?token=${saved.passwordResetToken}`;
-                await mailer.sendPasswordResetEmail(company, saved.email, resetUrl);
+                // Sem await: o envio só acontece para contas que existem, e esperar por ele denunciava-as.
+                void mailer.sendPasswordResetEmail(company, saved.email, resetUrl).catch((error: unknown) => {
+                    console.error(`Falha ao enviar a recuperação de ${saved.id}`, error);
+                });
             }
         } catch (error) {
             console.error(`Falha ao preparar a recuperação de ${candidate.id}`, error);
