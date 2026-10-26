@@ -1,11 +1,8 @@
 import { z } from "zod";
 import { AnnouncementScope, AnnouncementSeverity } from "../../types/enums.js";
+import { flag } from "../common/fields-dto.js";
 
 const idSchema = z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" });
-
-const flag = (description: string) =>
-    z.enum(["true", "false"]).optional().transform((v) => v === "true")
-        .meta({ example: "true", description });
 
 const titleSchema = z.string().trim().min(1).max(150).meta({ example: "Manutenção no sábado" });
 const bodySchema = z.string().trim().min(1).max(5000)

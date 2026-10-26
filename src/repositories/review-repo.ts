@@ -6,34 +6,6 @@ import { reviewRequestRepo } from "./review-request-repo.js";
 
 export const reviewRepo = AppDataSource.getRepository(Review);
 
-export async function getReviewById(id: string): Promise<Review | null> {
-    return await reviewRepo.findOneBy({
-        id
-    });
-}
-
-export async function getReviewByRequestId(requestId: string): Promise<Review | null> {
-    return await reviewRepo.findOneBy({
-        requestId
-    });
-}
-
-export async function getReviewsByRevieweeId(revieweeId: string): Promise<Review[]> {
-    return await reviewRepo.find({
-        where: { request: { revieweeId } },
-        relations: { request: true },
-        order: { submittedAt: "DESC" }
-    });
-}
-
-export async function getReviewsByCycleId(cycleId: string): Promise<Review[]> {
-    return await reviewRepo.find({
-        where: { request: { cycleId } },
-        relations: { request: true },
-        order: { submittedAt: "DESC" }
-    });
-}
-
 /**
  * Para o admin, sem rasto de quem escreveu: nem o reviewerId nem o requestId
  * saem daqui. Ordena-se pelo conteúdo, nunca pelo tempo, que denunciaria a ordem
@@ -61,7 +33,8 @@ export interface ReviewSummaryRow {
 }
 
 /**
- * O mesmo que a vista v_raise_review_summary, mas a partir dos pedidos: quem foi
+ * O mesmo que a vista v_raise_review_summary do esquema de referência
+ * (db/reference, nunca criada na base de dados), mas a partir dos pedidos: quem foi
  * pedido e ainda não recebeu nada aparece com zeros em vez de desaparecer.
  */
 export async function getReviewSummaries(filters: { revieweeId?: string; cycleId?: string }): Promise<ReviewSummaryRow[]> {
@@ -96,12 +69,4 @@ export async function submitReview(request: ReviewRequest, review: Review): Prom
         await manager.save(request);
         return saved;
     });
-}
-
-export async function createReview(review: Review) {
-    return await reviewRepo.save(review);
-}
-
-export async function updateReview(review: Review) {
-    return await reviewRepo.save(review);
 }

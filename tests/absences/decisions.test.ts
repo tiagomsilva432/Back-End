@@ -42,7 +42,7 @@ describe("POST /absences/{id}/approve", () => {
         const passado = await criarProjeto(admin.companyId, "Intranet", { managerId: antigo.id });
         await criarAlocacao(ana.id, projeto.id, { startDate: "2026-01-01" });
         await criarAlocacao(ana.id, passado.id, { startDate: "2026-01-01", endDate: "2026-06-30" });
-        const pedido = await criarAusencia(ana, { type: AbsenceType.Sick });
+        const pedido = await criarAusencia(ana, { type: AbsenceType.Leave });
 
         const res = await acao(pedido.id, "approve", header);
 
@@ -61,7 +61,7 @@ describe("POST /absences/{id}/approve", () => {
             startDate: "2026-12-14",
             endDate: "2026-12-18",
         };
-        expect(await recebidas(ana.id)).toEqual([{ type: "absence.approved", data: { ...dados, type: AbsenceType.Sick } }]);
+        expect(await recebidas(ana.id)).toEqual([{ type: "absence.approved", data: { ...dados, type: AbsenceType.Leave } }]);
         expect(await recebidas(gestora.id)).toEqual([{ type: "absence.teammate_away", data: { ...dados, type: "absent" } }]);
         expect(await recebidas(antigo.id)).toEqual([]);
         expect(await recebidas(rui.id)).toEqual([]);
@@ -171,6 +171,18 @@ describe("POST /absences/{id}/cancel", () => {
         expect(res.body.data).toMatchObject({ status: AbsenceStatus.Cancelled, decidedBy: ana.id });
         expect(await tipos(admin.id)).toEqual(["absence.cancelled"]);
         expect(await tipos(ana.id)).toEqual([]);
+    });
+
+    it("o único company_admin cancela o seu, e são os system_admins os avisados", async () => {
+        const { admin, header } = await cenario();
+        const { user: sysadmin } = await createActor(UserRole.SystemAdmin);
+        const pedido = await criarAusencia(admin);
+
+        const res = await acao(pedido.id, "cancel", header);
+
+        expect(res.status).toBe(200);
+        expect(await tipos(sysadmin.id)).toEqual(["absence.cancelled"]);
+        expect(await tipos(admin.id)).toEqual([]);
     });
 
     it("a pessoa cancela um aprovado que ainda não começou, mas não um que já começou", async () => {

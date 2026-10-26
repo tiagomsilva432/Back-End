@@ -1,7 +1,7 @@
 import { Brackets, In, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
 import { AppDataSource } from "../data-source.js";
 import { AbsenceRequest } from "../entities/AbsenceRequest.js";
-import { AbsenceStatus, UserStatus } from "../types/enums.js";
+import { AbsenceStatus, type AbsenceType, UserStatus } from "../types/enums.js";
 
 export const absenceRepo = AppDataSource.getRepository(AbsenceRequest);
 
@@ -18,6 +18,7 @@ export interface AbsenceFilter {
     companyId?: string;
     userId?: string;
     status?: AbsenceStatus;
+    type?: AbsenceType;
 }
 
 /** Do que começa mais tarde para o mais cedo. O id desempata os que começam no mesmo dia. */
@@ -26,7 +27,8 @@ export async function getAbsences(filter: AbsenceFilter): Promise<AbsenceRequest
         where: {
             ...(filter.companyId ? { companyId: filter.companyId } : {}),
             ...(filter.userId ? { userId: filter.userId } : {}),
-            ...(filter.status ? { status: filter.status } : {})
+            ...(filter.status ? { status: filter.status } : {}),
+            ...(filter.type ? { type: filter.type } : {})
         },
         order: { startDate: "DESC", id: "DESC" }
     });

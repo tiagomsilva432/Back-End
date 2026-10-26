@@ -15,8 +15,8 @@ import { User } from "./User.js";
 
 /**
  * One person away for a run of whole days: vacation, a sick day or other leave.
- * The dates are inclusive. It only shows on everyone's calendar once a
- * company_admin approves it.
+ * The dates are inclusive. It only shows on everyone's calendar once it is
+ * approved: by an admin, or straight away for a sick day.
  */
 @Entity("absence_requests")
 @Check("ck_absence_requests_dates_valid", `"end_date" >= "start_date"`)
@@ -60,7 +60,10 @@ export class AbsenceRequest {
     @Column({ type: "text", nullable: true })
     note!: string | null;
 
-    /** Who approved, rejected or cancelled it. Audit trail, so no inverse relation. */
+    /**
+     * Who approved, rejected or cancelled it. Null on an approved request means
+     * it was approved automatically. Audit trail, so no inverse relation.
+     */
     @Column({ type: "uuid", nullable: true })
     decidedBy!: string | null;
 

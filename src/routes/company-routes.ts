@@ -7,9 +7,9 @@ import {
     createCompanySchema,
     patchCompanySchema,
 } from "../dtos/company/company-dto.js";
-import { jsonBody, jsonResponse, errorResponses } from "../docs/response.js";
+import { jsonBody, jsonResponse, errorResponses, pathId } from "../docs/response.js";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { requireRole } from "../middleware/requireRole.js";
+import { requireAdmin, requireRole } from "../middleware/requireRole.js";
 import { validateBody } from "../middleware/validateBody.js";
 import { UserRole } from "../types/enums.js";
 
@@ -41,18 +41,12 @@ router.get(
 router.patch(
     "/companies/:id",
     requireAuth,
-    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    requireAdmin,
     validateBody(patchCompanySchema),
     patchCompany
 );
 
-const idParam = {
-    name: "id",
-    in: "path" as const,
-    required: true,
-    schema: { type: "string" as const, format: "uuid" },
-    description: "Id da empresa",
-};
+const idParam = pathId("Id da empresa");
 
 //Documentação OpenAPI destas rotas
 export const companyPaths: ZodOpenApiPathsObject = {

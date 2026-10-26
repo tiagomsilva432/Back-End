@@ -1,19 +1,9 @@
 import { z } from "zod";
 import { isoDate } from "../../utils/dates.js";
+import { decimalString } from "../common/fields-dto.js";
 
-// NUMERIC(12,2): 10 dígitos inteiros. Fica em string para não perder cêntimos.
-const amountSchema = z.union([z.string().trim(), z.number()])
-    .transform((value) => String(value))
-    .pipe(
-        z.string()
-            .regex(/^\d{1,10}(\.\d{1,2})?$/, {
-                message: "Montante inválido: usa no máximo 10 dígitos e 2 casas decimais",
-            })
-            .overwrite((value) => {
-                const [inteiro, decimais = ""] = value.split(".");
-                return `${inteiro}.${decimais.padEnd(2, "0")}`;
-            }),
-    );
+// NUMERIC(12,2): 10 dígitos inteiros.
+const amountSchema = decimalString(10, 2, "Montante inválido: usa no máximo 10 dígitos e 2 casas decimais");
 
 //Schema REQUEST createSalary
 export const createSalarySchema = z.object({

@@ -5,6 +5,7 @@ import request from "supertest";
 import { app } from "../../src/app.js";
 import { User } from "../../src/entities/User.js";
 import { UserStatus } from "../../src/types/enums.js";
+import { errorSpy } from "../helpers/console-spy.js";
 import { mailResetSpy } from "../helpers/mailer-spy.js";
 import { criarEmpresa, criarUtilizador } from "../helpers/factories.js";
 import { repo } from "../setup/db.js";
@@ -86,6 +87,20 @@ describe("POST /auth/password/reset", () => {
         expect(mailResetSpy).not.toHaveBeenCalled();
     });
 
+    it("uma conta terminada não recebe token nem email, e a resposta é a mesma", async () => {
+        const terminada = await comPassword({ email: EMAIL, status: UserStatus.Terminated });
+
+        const res = await pedir({ email: EMAIL });
+        const semMatch = await pedir({ email: "ninguem@empresa.pt" });
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual(semMatch.body);
+        expect(await users().findOneBy({ id: terminada.id })).toMatchObject({
+            passwordResetToken: null,
+        });
+        expect(mailResetSpy).not.toHaveBeenCalled();
+    });
+
     it("o mesmo email em duas empresas recebe dois tokens diferentes e dois emails", async () => {
         const empresaA = await criarEmpresa("Alfa Lda");
         const empresaB = await criarEmpresa("Zulu Lda");
@@ -128,8 +143,8 @@ describe("POST /auth/password/reset", () => {
         expect(mailResetSpy).not.toHaveBeenCalled();
     });
 
-    it("responde 200 e o mesmo corpo quando o envio do email falha", async () => {
-        await comPassword({ email: EMAIL });
+    it("responde 200 e o mesmo corpo quando o envio do email falha, e a falha fica no log", async () => {
+        const user = await comPassword({ email: EMAIL });
         mailResetSpy.mockRejectedValueOnce(new Error("SMTP em baixo"));
 
         const res = await pedir({ email: EMAIL });
@@ -137,6 +152,18 @@ describe("POST /auth/password/reset", () => {
 
         expect(res.status).toBe(200);
         expect(res.body).toEqual(semMatch.body);
+        expect(errorSpy).toHaveBeenCalledWith(`Falha ao enviar a recuperação de ${user.id}`, expect.any(Error));
+    });
+
+    it("não espera pelo envio do email: o tempo da resposta não denuncia a conta", async () => {
+        const user = await comPassword({ email: EMAIL });
+        mailResetSpy.mockImplementationOnce(() => new Promise(() => {}));
+
+        const res = await pedir({ email: EMAIL });
+
+        expect(res.status).toBe(200);
+        expect((await users().findOneBy({ id: user.id }))!.passwordResetToken).toEqual(expect.any(String));
+        expect(mailResetSpy).toHaveBeenCalledTimes(1);
     });
 
     it("nunca devolve o token", async () => {
@@ -183,6 +210,8 @@ describe("POST /auth/password/reset/confirm", () => {
             passwordResetExpiresAt: null,
             mustChangePassword: false,
         });
+        // O link também chegou por email.
+        expect(depois!.emailVerifiedAt).toBeInstanceOf(Date);
     });
 
     it("não mexe no status nem nas colunas do convite", async () => {

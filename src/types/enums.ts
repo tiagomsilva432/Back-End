@@ -64,6 +64,8 @@ export enum AbsenceType {
     Vacation = "vacation",
     Sick = "sick",
     Leave = "leave",
+    /** Uma falta injustificada: só um admin a marca, nunca a própria pessoa. */
+    Unjustified = "unjustified",
 }
 export const isAbsenceType = guard(AbsenceType);
 

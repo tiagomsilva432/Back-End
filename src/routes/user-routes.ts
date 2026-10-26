@@ -17,12 +17,11 @@ import {
     userListResponseSchema,
     userResponseSchema,
 } from "../dtos/user/user-dto.js";
-import { errorResponses, jsonBody, jsonResponse } from "../docs/response.js";
+import { errorResponses, jsonBody, jsonResponse, pathId } from "../docs/response.js";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { requireRole } from "../middleware/requireRole.js";
+import { requireAdmin, requireRole } from "../middleware/requireRole.js";
 import { validateBody } from "../middleware/validateBody.js";
 import { validateQuery } from "../middleware/validateQuery.js";
-import { UserRole } from "../types/enums.js";
 
 const router = Router();
 
@@ -61,18 +60,12 @@ router.put(
 router.patch(
     "/users/:id/status",
     requireAuth,
-    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    requireAdmin,
     validateBody(patchUserStatusSchema),
     patchUserStatus
 );
 
-const idParam = {
-    name: "id",
-    in: "path" as const,
-    required: true,
-    schema: { type: "string" as const, format: "uuid" },
-    description: "Id do utilizador",
-};
+const idParam = pathId("Id do utilizador");
 
 //Documentação OpenAPI destas rotas
 export const userPaths: ZodOpenApiPathsObject = {

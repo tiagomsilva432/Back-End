@@ -1,9 +1,12 @@
-import { describe, expect, it } from "@jest/globals";
+import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import { app } from "../../src/app.js";
+import { User } from "../../src/entities/User.js";
+import { passwordTiming } from "../../src/services/password-timing.js";
 import { UserStatus } from "../../src/types/enums.js";
 import { criarEmpresa, criarUtilizador } from "../helpers/factories.js";
+import { repo } from "../setup/db.js";
 
 const PASSWORD = "Password1!";
 
@@ -39,6 +42,17 @@ describe("POST /auth/login", () => {
             companyId: utilizador.companyId,
             role: "employee",
         });
+
+        const depois = await repo(User).findOneByOrFail({ id: utilizador.id });
+        expect(depois.lastLoginAt).toBeInstanceOf(Date);
+    });
+
+    it("uma password errada não mexe no lastLoginAt", async () => {
+        const utilizador = await criarUtilizador({ email: "ines@empresa.pt", password: PASSWORD });
+
+        await request(app).post("/auth/login").send({ email: "ines@empresa.pt", password: "Errada1!" }).expect(401);
+
+        expect((await repo(User).findOneByOrFail({ id: utilizador.id })).lastLoginAt).toBeNull();
     });
 
     it("aceita o email com maiúsculas e espaços", async () => {
@@ -269,5 +283,46 @@ describe("POST /auth/login - o mesmo email em duas empresas", () => {
 
         expect(res.status).toBe(403);
         expect(res.body.message).toBe("Conta não está ativa");
+    });
+});
+
+describe("POST /auth/login: o tempo do 401", () => {
+    const burnSpy = jest.spyOn(passwordTiming, "burnCompare");
+
+    beforeEach(() => {
+        burnSpy.mockClear();
+    });
+
+    const login = (email: string, password: string) =>
+        request(app).post("/auth/login").send({ email, password });
+
+    it("um email que não existe gasta um bcrypt na mesma", async () => {
+        await login("ninguem@empresa.pt", PASSWORD).expect(401);
+
+        expect(burnSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("uma conta sem password também", async () => {
+        await criarUtilizador({ email: "convite@empresa.pt" });
+
+        await login("convite@empresa.pt", PASSWORD).expect(401);
+
+        expect(burnSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("uma password errada já gastou o bcrypt verdadeiro", async () => {
+        await criarUtilizador({ email: "kiko@empresa.pt", password: PASSWORD });
+
+        await login("kiko@empresa.pt", "Errada1!").expect(401);
+
+        expect(burnSpy).not.toHaveBeenCalled();
+    });
+
+    it("um login certo também não", async () => {
+        await criarUtilizador({ email: "lara@empresa.pt", password: PASSWORD });
+
+        await login("lara@empresa.pt", PASSWORD).expect(200);
+
+        expect(burnSpy).not.toHaveBeenCalled();
     });
 });

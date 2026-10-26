@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SkillCategory } from "../../types/enums.js";
+import { decimalString } from "../common/fields-dto.js";
 
 const nameSchema = z.string().trim().min(1).max(100).meta({ example: "Kotlin" });
 
@@ -12,16 +13,12 @@ const companyIdSchema = z.uuid().meta({
         "Só o system_admin o indica. Os restantes usam sempre a sua própria empresa; um valor diferente é recusado com 403.",
 });
 
-// Kept as a string: NUMERIC(4,1) through a JS number would drift.
-const yearsExperienceSchema = z.union([z.string().trim(), z.number()])
-    .transform((value) => String(value))
-    .pipe(
-        z.string()
-            .regex(/^\d{1,3}(\.\d)?$/, {
-                message: "Anos de experiência inválidos: usa no máximo 3 dígitos e 1 casa decimal",
-            })
-            .overwrite((value) => (value.includes(".") ? value : `${value}.0`)),
-    );
+// NUMERIC(4,1): 3 dígitos inteiros.
+const yearsExperienceSchema = decimalString(
+    3,
+    1,
+    "Anos de experiência inválidos: usa no máximo 3 dígitos e 1 casa decimal",
+);
 
 //Schema REQUEST createSkill
 export const createSkillSchema = z.object({

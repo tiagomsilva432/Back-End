@@ -6,7 +6,7 @@ import type {
     ListProjectAnnouncementsQuery,
     PatchAnnouncementRequest,
 } from "../dtos/announcement/announcement-dto.js";
-import { HttpError } from "../dtos/common/errors-dto.js";
+import { HttpError, invalidData } from "../dtos/common/errors-dto.js";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import type { Announcement } from "../entities/Announcement.js";
 import type { Project } from "../entities/Project.js";
@@ -49,9 +49,7 @@ const projectOf = async (announcement: Announcement | null): Promise<Project | n
 /** Contra o que fica gravado: o CHECK da base de dados sairia como 500. */
 function requireValidWindow(startsAt: Date, endsAt: Date | null): void {
     if (endsAt && endsAt <= startsAt) {
-        throw new HttpError(400, "Dados inválidos", "BAD_REQUEST", [
-            { field: "endsAt", message: "O fim tem de ser depois do início" },
-        ]);
+        throw invalidData([{ field: "endsAt", message: "O fim tem de ser depois do início" }]);
     }
 }
 

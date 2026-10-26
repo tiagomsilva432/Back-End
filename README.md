@@ -10,7 +10,7 @@ Express 5 + TypeORM + PostgreSQL, written in TypeScript (ESM).
 
 ## Requirements
 
-- **Node.js 20+** (developed on 24)
+- **Node.js 20.11+** (developed on 24) - `import.meta.dirname` needs it
 - **PostgreSQL 18+** - every primary key defaults to `uuidv7()`, which is built in from 18
 - **Docker**, running, for the test suite
 
@@ -29,7 +29,8 @@ cp .env.example .env
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `PORT` | `3000` | HTTP port |
-| `BASE_URL` | `http://localhost` | used only for the startup log |
+| `BASE_URL` | `http://localhost` | used for the startup log and, without `API_PUBLIC_URL`, the docs' server |
+| `API_PUBLIC_URL` | `BASE_URL:PORT` | where a browser reaches the API, for the "Try it" requests in `/docs`. Production sets it to `PUBLIC_URL/api` |
 | `FE_URL` | `http://localhost:5173` | base of the frontend, used to build the activation link |
 | `DB_HOST` / `DB_PORT` | `localhost` / `5432` | |
 | `DB_USER` / `DB_PASSWORD` | `postgres` / `postgres` | |
@@ -90,7 +91,8 @@ npm run dev
 
 ## The API
 
-Four routes need no token, and the first one is where to start:
+Besides the auth routes (login, activation, password reset), four routes need
+no token, and the first one is where to start:
 
 | Endpoint | What it is |
 | --- | --- |
@@ -184,7 +186,8 @@ lists them, sorted by name:
 The client shows a picker and repeats the login with the chosen `companyId`.
 Listing the companies leaks nothing: you only reach the 409 by having already
 proved the password against every account in it, and a wrong password gets the
-same uniform 401 as an unknown email.
+same uniform 401 as an unknown email. It takes the same time too: an email with
+no password to check still pays for one bcrypt compare, against a dummy hash.
 
 One token carries one company. There is no switching - working in two companies
 means logging in twice.
@@ -433,26 +436,38 @@ not write one row per user across every company. Who has read what lives in
 
 ### Absences
 
-Vacation, sick days and other leave. A person asks, a company admin decides, and
-an approved absence shows up on the [calendar](#calendar) so everyone knows who
-is away.
+Vacation, sick days, other leave, and unjustified absences ("faltas"). A person
+asks, a company admin decides (a sick day needs no decision), and an approved
+absence shows up on the [calendar](#calendar) so everyone knows who is away. An
+admin can also register an absence for someone, such as a falta when they don't
+show up.
 
 | Endpoint | Who |
 | --- | --- |
 | `POST /absences` | any active account - always for themselves |
-| `GET /absences/mine` | any active account - its own requests, in any status; takes `?status=` |
-| `GET /absences` | `system_admin`, `company_admin` - the requests to decide. Own company; a `system_admin` sees every company or the one in `?companyId=`. Takes `?userId=` and `?status=` |
+| `GET /absences/mine` | any active account - its own absences, in any status, including the ones an admin registered; takes `?status=` and `?type=` |
+| `GET /absences` | `system_admin`, `company_admin` - the requests to decide. Own company; a `system_admin` sees every company or the one in `?companyId=`. Takes `?userId=`, `?status=` and `?type=` |
 | `GET /absences/{id}` | the person, or whoever manages that company's absences |
 | `POST /absences/{id}/approve` | a `system_admin`, or a `company_admin` of that company - **never on its own request** |
 | `POST /absences/{id}/reject` | the same; optional `{ reason }` |
 | `POST /absences/{id}/cancel` | the person, or the same deciders; optional `{ reason }` |
+| `POST /users/{id}/absences` | the same deciders - registers an absence for that person, already approved |
 | `GET /users/{id}/absence-summary` | the person, or whoever manages that company's absences; takes `?year=` |
 
 **Requests.** A request is `{ type, startDate, endDate, note? }`, where `type` is
 `vacation`, `sick` or `leave`. It covers whole days, and `endDate` is
-inclusive, so one day has `startDate = endDate`. It spans at most 366 days. It is
-born `pending`, and the company's active `company_admin`s are notified.
+inclusive, so one day has `startDate = endDate`. It spans at most 366 days.
+Nobody asks for an `unjustified` absence: only an admin marks one (see below).
 
+- Vacation and leave are born `pending`, and the deciders are notified.
+- A sick day is born `approved`, with no `decidedBy`: it never waits for
+  anyone. The deciders are told, and so are the managers of the person's
+  projects on those days, as when an admin approves.
+- The managers are only told while the absence has not ended: telling them
+  someone "will be away" last week is no use to anyone.
+- The deciders are the company's other active `company_admin`s. When there is
+  none, because the only `company_admin` asked or the company has none active,
+  the active `system_admin`s are notified instead: only they can decide.
 - Vacation cannot start in the past. A sick day or leave can, because it is
   often registered afterwards.
 - A range with no working day (only weekend and holidays) answers 400.
@@ -469,21 +484,40 @@ answers 409. Nobody decides their own request: a `company_admin`'s request is
 decided by another `company_admin` of the same company, or by a `system_admin`.
 An employee trying to decide a colleague's request gets 404, and anyone trying
 to decide their own gets 403. `decidedBy`, `decidedAt` and `decisionNote` record
-the last decision - approved, rejected or cancelled.
+the last decision - approved, rejected or cancelled. An `approved` request with
+no `decidedBy` was approved automatically.
+
+**Registering for someone.** `POST /users/{id}/absences` with `{ type,
+startDate, endDate, note? }` lets a decider record an absence for that person,
+born `approved` with `decidedBy` set to them. `type` can be any of the four:
+
+- `unjustified` - a falta, when someone didn't show up. It can only cover days
+  that have already arrived: a future falta answers 400.
+- anything else, such as the sick day of someone who phoned in. Here vacation
+  may be in the past: the admin may be recording something that already
+  happened.
+
+The same 400 and 409 as a request apply, a `terminated` account answers 409, and
+nobody registers an absence for themselves (403). The person gets
+`absence.registered`, and the managers `absence.teammate_away` if it has not
+ended. The person sees it in `GET /absences/mine` (`?type=unjustified` for just
+the faltas) and in their summary. If it was a mistake, a decider cancels it, and
+the person is notified.
 
 **Cancelling.** The person cancels a `pending` request, or an `approved` one
-that has not started yet. A decider cancels a `pending` or `approved` one at any
-time, for someone who came back early or a mistake. Anything else answers 409.
+that has not started yet - so never a falta, which is always in the past. A
+decider cancels a `pending` or `approved` one at any time, for someone who came
+back early or a mistake. Anything else answers 409.
 
 **Privacy.** A sick day is health data. Only the person and whoever manages the
 company's absences (a `system_admin`, or a `company_admin` of that company) see
 the real `type` and the `note`. Everyone else sees vacation as `vacation`, and
-sick days and leave only as `absent`. A colleague asking for someone else's
+sick days, leave and faltas only as `absent`. A colleague asking for someone else's
 request gets 404, and a colleague asking for someone's summary gets 403.
 
 **Summary.** `GET /users/{id}/absence-summary?year=2026` adds up the working days
 of the approved absences in that year, by type: `{ userId, year, vacation, sick,
-leave }`. A request across New Year counts only the days in that year. There is
+leave, unjustified }`. A request across New Year counts only the days in that year. There is
 no yearly allowance yet: this is a count, not a balance.
 
 ### Calendar
@@ -551,12 +585,14 @@ and a ready-to-show Portuguese `message`. The types today:
 | `review_request.created` | the reviewer | an ad-hoc request is made |
 | `review_request.declined` | whoever requested it | an ad-hoc request is declined |
 | `review.submitted` | whoever requested it | an ad-hoc review is submitted |
-| `user.activated` | the company's active `company_admin`s | an invite is accepted |
-| `absence.requested` | the company's active `company_admin`s | someone asks for an absence |
+| `user.activated` | the company's other active `company_admin`s, or the active `system_admin`s when there is none | an invite is accepted |
+| `absence.requested` | the deciders: the company's other active `company_admin`s, or the active `system_admin`s when there is none | someone asks for vacation or leave |
+| `absence.auto_approved` | the deciders | someone registers a sick day, which is approved at once |
 | `absence.approved` | the person | their request is approved |
 | `absence.rejected` | the person | their request is rejected; carries the `reason` |
-| `absence.cancelled` | the person if an admin cancelled it, or the company's active `company_admin`s if the person did | a request is cancelled |
-| `absence.teammate_away` | managers of the projects where the person is allocated on those days | an absence is approved. `type` is masked to `vacation` or `absent` |
+| `absence.registered` | the person | an admin registers an absence for them: a falta, or another type already approved |
+| `absence.cancelled` | the person if an admin cancelled it, or the deciders if the person did | a request is cancelled |
+| `absence.teammate_away` | managers of the projects where the person is allocated on those days | an absence is approved or registered, while it has not ended yet. `type` is masked to `vacation` or `absent` |
 
 Whoever performed the action is never notified of it.
 
@@ -622,8 +658,8 @@ six or so connections to the API.
 An activation link expires after `SIGNUP_TOKEN_EXPIRATION_DAYS`. Resending is
 the only way back: the account still occupies its `(company, email)` pair, so
 creating it again answers 409. Resending works **only on an `invited` account** -
-re-minting a token for an active one would hand the requester a way in, since
-the activation URL is logged.
+re-minting a token for an active one would reopen a link that sets a new
+password without knowing the old one.
 
 `POST /auth/password/change` is deliberately **not** behind `requireRole`. That
 middleware rejects any account carrying `mustChangePassword` with a 403, which is
@@ -644,8 +680,11 @@ interchangeable, and the confirm step writes only the password: a suspended
 account can reset its password and is still suspended afterwards, so a reset
 grants nothing. `POST /auth/password/reset` always answers 200 with the same
 body, whether the email matched nothing, one account or several - it is not an
-oracle for which addresses exist. An account that never activated has no
+oracle for which addresses exist. The response does not wait for the email to
+be sent, so how long the request takes does not give the account away either. An account that never activated has no
 password to reset and is skipped; that one is recovered by resend-activation.
+A `terminated` account is skipped too: terminating it already revoked its
+tokens, and that is final.
 
 ---
 

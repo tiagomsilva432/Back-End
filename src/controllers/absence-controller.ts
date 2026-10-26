@@ -6,8 +6,9 @@ import type {
     CreateAbsenceRequest,
     ListAbsencesQuery,
     ListMyAbsencesQuery,
+    RegisterAbsenceRequest,
 } from "../dtos/absence/absence-dto.js";
-import { HttpError } from "../dtos/common/errors-dto.js";
+import { HttpError, invalidData } from "../dtos/common/errors-dto.js";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import type { AbsenceRequest } from "../entities/AbsenceRequest.js";
 import type { User } from "../entities/User.js";
@@ -22,7 +23,7 @@ import {
     updateAbsence,
 } from "../repositories/absence-repo.js";
 import { getManagerIdsOfProjectsAllocatedBetween } from "../repositories/allocation-repo.js";
-import { getUserById, getUsersByCompanyId } from "../repositories/user-repo.js";
+import { getUserById } from "../repositories/user-repo.js";
 import { toAbsenceResponse } from "../services/absence-mapper.js";
 import {
     canDecideAbsence,
@@ -31,6 +32,7 @@ import {
     requireDecidableAbsence,
     requireReadableAbsence,
 } from "../services/absence-policy.js";
+import { companyAdminIdsOrSystemAdmins } from "../services/admin-recipients.js";
 import { getHolidaysOf, holidayDates, requireCompany, withWorkingDays } from "../services/company-calendar.js";
 import { countWorkingDays } from "../services/holidays.js";
 import { notifier } from "../services/notifier.js";
@@ -51,10 +53,30 @@ const notificationData = (absence: AbsenceRequest) => ({
     endDate: absence.endDate,
 });
 
-/** Os company_admins ativos da empresa: são eles que aprovam. */
-const companyAdminIds = async (companyId: string): Promise<string[]> =>
-    (await getUsersByCompanyId(companyId, { role: UserRole.CompanyAdmin, status: UserStatus.Active }))
-        .map((admin) => admin.id);
+/**
+ * Quem decide os pedidos desta pessoa: os outros company_admins ativos da
+ * empresa, ou os system_admins quando não há nenhum.
+ */
+const deciderIds = (absence: Pick<AbsenceRequest, "userId" | "companyId">): Promise<string[]> =>
+    companyAdminIdsOrSystemAdmins(absence.companyId, absence.userId);
+
+/**
+ * Os gestores dos projetos da pessoa nesses dias sabem que ela vai faltar,
+ * mas como colegas: uma baixa chega-lhes como "ausente". Uma ausência que já
+ * acabou não é aviso para ninguém.
+ */
+const notifyTeammatesAway = async (absence: AbsenceRequest, actorId: string): Promise<void> => {
+    if (absence.endDate < isoDate()) {
+        return;
+    }
+
+    await notifier.notify("absence.teammate_away", {
+        companyId: absence.companyId,
+        recipientIds: await getManagerIdsOfProjectsAllocatedBetween(absence.userId, absence.startDate, absence.endDate),
+        exclude: [actorId, absence.userId],
+        data: { ...notificationData(absence), type: publicAbsenceType(absence.type) },
+    });
+};
 
 const requirePending = (absence: AbsenceRequest): void => {
     if (absence.status !== AbsenceStatus.Pending) {
@@ -70,53 +92,127 @@ const decide = (absence: AbsenceRequest, actor: User, status: AbsenceStatus, not
     absence.decisionNote = note;
 };
 
+/**
+ * Os dias úteis do intervalo, para a pessoa que o vai ocupar: 400 se só tem
+ * fins de semana e feriados, 409 se toca noutro pedido pendente ou aprovado dela.
+ */
+async function requireFreeWorkingDays(
+    person: Pick<User, "id" | "companyId">,
+    range: { startDate: string; endDate: string },
+    overlapMessage: string,
+): Promise<number> {
+    const company = await requireCompany(person.companyId);
+    const holidays = await getHolidaysOf(company, range.startDate, range.endDate);
+    const workingDays = countWorkingDays(range.startDate, range.endDate, holidayDates(holidays));
+
+    if (workingDays === 0) {
+        throw invalidData([{ field: "endDate", message: "O intervalo só tem fins de semana e feriados" }]);
+    }
+
+    if (await getOverlappingActiveAbsence(person.id, range.startDate, range.endDate)) {
+        throw new HttpError(409, overlapMessage);
+    }
+
+    return workingDays;
+}
+
 export const createAbsence = async (req: Request, res: Response) => {
     const body = req.body as CreateAbsenceRequest;
     const actor: User = getCurrentActor(req);
 
-    const company = await requireCompany(actor.companyId);
-    const holidays = await getHolidaysOf(company, body.startDate, body.endDate);
-    const workingDays = countWorkingDays(body.startDate, body.endDate, holidayDates(holidays));
+    const workingDays = await requireFreeWorkingDays(actor, body, "Já tens um pedido pendente ou aprovado nesses dias");
 
-    if (workingDays === 0) {
-        throw new HttpError(400, "Dados inválidos", "BAD_REQUEST", [
-            { field: "endDate", message: "O intervalo só tem fins de semana e feriados" },
-        ]);
-    }
-
-    if (await getOverlappingActiveAbsence(actor.id, body.startDate, body.endDate)) {
-        throw new HttpError(409, "Já tens um pedido pendente ou aprovado nesses dias");
-    }
+    // Uma baixa não passa por aprovação. Sem decidedBy: ninguém a aprovou,
+    // e muito menos a própria pessoa.
+    const autoApproved = body.type === AbsenceType.Sick;
 
     const created = await saveAbsence(
         absenceRepo.create({
             companyId: actor.companyId,
             userId: actor.id,
             type: body.type,
+            status: autoApproved ? AbsenceStatus.Approved : AbsenceStatus.Pending,
             startDate: body.startDate,
             endDate: body.endDate,
             note: body.note ?? null,
             decidedBy: null,
-            decidedAt: null,
+            decidedAt: autoApproved ? new Date() : null,
             decisionNote: null,
         }),
     );
 
-    await notifier.notify("absence.requested", {
+    await notifier.notify(autoApproved ? "absence.auto_approved" : "absence.requested", {
         companyId: created.companyId,
-        recipientIds: await companyAdminIds(created.companyId),
+        recipientIds: await deciderIds(created),
         exclude: [actor.id],
         data: notificationData(created),
     });
 
+    if (autoApproved) {
+        await notifyTeammatesAway(created, actor.id);
+    }
+
     return new HttpResponse(201, "Pedido criado", undefined, toAbsenceResponse(created, workingDays)).send(res);
+}
+
+/** Um admin regista a ausência de outra pessoa, já aprovada: uma falta, ou a baixa de quem ligou a avisar. */
+export const registerAbsence = async (req: Request, res: Response) => {
+    const body = req.body as RegisterAbsenceRequest;
+    const actor: User = getCurrentActor(req);
+    const id = uuidParam(req.params.id, USER_NOT_FOUND);
+
+    const target = requireUserInReach(actor, await getUserById(id), USER_NOT_FOUND);
+
+    if (!canDecideAbsence(actor, { userId: target.id, companyId: target.companyId })) {
+        throw new HttpError(403, "Uma ausência sua pede-se em POST /absences");
+    }
+
+    if (target.status === UserStatus.Terminated) {
+        throw new HttpError(409, "Esta conta está terminada");
+    }
+
+    const workingDays = await requireFreeWorkingDays(
+        target,
+        body,
+        "Esta pessoa já tem um pedido pendente ou aprovado nesses dias",
+    );
+
+    const created = await saveAbsence(
+        absenceRepo.create({
+            companyId: target.companyId,
+            userId: target.id,
+            type: body.type,
+            status: AbsenceStatus.Approved,
+            startDate: body.startDate,
+            endDate: body.endDate,
+            note: body.note ?? null,
+            decidedBy: actor.id,
+            decidedAt: new Date(),
+            decisionNote: null,
+        }),
+    );
+
+    await notifier.notify("absence.registered", {
+        companyId: created.companyId,
+        recipientIds: [created.userId],
+        exclude: [actor.id],
+        data: notificationData(created),
+    });
+
+    await notifyTeammatesAway(created, actor.id);
+
+    return new HttpResponse(201, "Ausência registada", undefined, toAbsenceResponse(created, workingDays)).send(res);
 }
 
 export const listMyAbsences = async (req: Request, res: Response) => {
     const actor: User = getCurrentActor(req);
     const query = req.validQuery as ListMyAbsencesQuery;
 
-    const absences = await getAbsences({ userId: actor.id, ...(query.status ? { status: query.status } : {}) });
+    const absences = await getAbsences({
+        userId: actor.id,
+        ...(query.status ? { status: query.status } : {}),
+        ...(query.type ? { type: query.type } : {}),
+    });
 
     return new HttpResponse(200, "Pedidos", undefined, await withWorkingDays(absences)).send(res);
 }
@@ -136,6 +232,7 @@ export const listAbsences = async (req: Request, res: Response) => {
         ...(companyId ? { companyId } : {}),
         ...(query.userId ? { userId: query.userId } : {}),
         ...(query.status ? { status: query.status } : {}),
+        ...(query.type ? { type: query.type } : {}),
     });
 
     return new HttpResponse(200, "Pedidos", undefined, await withWorkingDays(absences)).send(res);
@@ -168,14 +265,7 @@ export const approveAbsence = async (req: Request, res: Response) => {
         data: notificationData(saved),
     });
 
-    // Os gestores dos projetos da pessoa nesses dias sabem que ela vai faltar,
-    // mas como colegas: uma baixa chega-lhes como "ausente".
-    await notifier.notify("absence.teammate_away", {
-        companyId: saved.companyId,
-        recipientIds: await getManagerIdsOfProjectsAllocatedBetween(saved.userId, saved.startDate, saved.endDate),
-        exclude: [actor.id, saved.userId],
-        data: { ...notificationData(saved), type: publicAbsenceType(saved.type) },
-    });
+    await notifyTeammatesAway(saved, actor.id);
 
     const [data] = await withWorkingDays([saved]);
 
@@ -230,10 +320,10 @@ export const cancelAbsence = async (req: Request, res: Response) => {
     decide(absence, actor, AbsenceStatus.Cancelled, body?.reason ?? null);
     const saved = await updateAbsence(absence);
 
-    // Vai para o outro lado: a pessoa, se foi um admin; os admins, se foi ela.
+    // Vai para o outro lado: a pessoa, se foi um admin; quem decide, se foi ela.
     await notifier.notify("absence.cancelled", {
         companyId: saved.companyId,
-        recipientIds: byDecider ? [saved.userId] : await companyAdminIds(saved.companyId),
+        recipientIds: byDecider ? [saved.userId] : await deciderIds(saved),
         exclude: [actor.id],
         data: { ...notificationData(saved), reason: saved.decisionNote },
     });
@@ -265,6 +355,7 @@ export const getAbsenceSummary = async (req: Request, res: Response) => {
         [AbsenceType.Vacation]: 0,
         [AbsenceType.Sick]: 0,
         [AbsenceType.Leave]: 0,
+        [AbsenceType.Unjustified]: 0,
     };
 
     for (const absence of await getApprovedAbsencesBetween(target.id, from, to)) {

@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { HttpError } from "../dtos/common/errors-dto.js";
+import { HttpError, invalidData } from "../dtos/common/errors-dto.js";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import type {
     CreateProjectRequest,
@@ -24,7 +24,6 @@ import {
 import { getUserById } from "../repositories/user-repo.js";
 import { requireInReach, resolveCompanyScope } from "../services/company-scope.js";
 import { notifier } from "../services/notifier.js";
-import { UserRole } from "../types/enums.js";
 import { uuidParam } from "../utils/params.js";
 
 const NOT_FOUND = "Projeto não encontrado";
@@ -138,11 +137,7 @@ export const getProject = async (req: Request, res: Response) => {
     const actor: User = getCurrentActor(req);
     const id = uuidParam(req.params.id, NOT_FOUND);
 
-    const project = await getProjectById(id);
-
-    if (!project || (actor.role !== UserRole.SystemAdmin && project.companyId !== actor.companyId)) {
-        throw new HttpError(404, NOT_FOUND);
-    }
+    const project = requireInReach(actor, await getProjectById(id), NOT_FOUND);
 
     return new HttpResponse(200, "Projeto", undefined, toResponse(project)).send(res);
 }
@@ -162,9 +157,7 @@ export const patchProject = async (req: Request, res: Response) => {
 
     // O Zod só vê o patch, por isso as datas comparam-se aqui com as que estão gravadas.
     if (startDate && endDate && endDate < startDate) {
-        throw new HttpError(400, "Dados inválidos", "BAD_REQUEST", [
-            { field: "endDate", message: "A data de fim não pode ser anterior à data de início" },
-        ]);
+        throw invalidData([{ field: "endDate", message: "A data de fim não pode ser anterior à data de início" }]);
     }
 
     if (body.managerId) {

@@ -1,4 +1,4 @@
-import { HttpError } from "../dtos/common/errors-dto.js";
+import { HttpError, invalidData } from "../dtos/common/errors-dto.js";
 import type { User } from "../entities/User.js";
 import { UserRole } from "../types/enums.js";
 
@@ -32,9 +32,7 @@ export function resolveCompanyScope(
     }
 
     if (!companyId) {
-        throw new HttpError(400, "Dados inválidos", "BAD_REQUEST", [
-            { field: "companyId", message: "Obrigatório quando quem cria é um system_admin" },
-        ]);
+        throw invalidData([{ field: "companyId", message: "Obrigatório quando quem cria é um system_admin" }]);
     }
 
     return companyId;

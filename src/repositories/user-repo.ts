@@ -40,13 +40,13 @@ export async function getUserByIdWithProfile(id: string): Promise <User | null> 
     });
 }
 
-/** O diretório da empresa, com o perfil de cada um, numa query. */
 export async function getUserByPasswordResetToken(passwordResetToken: string): Promise <User | null> {
     return await userRepo.findOneBy({
         passwordResetToken
     });
 }
 
+/** O diretório da empresa, com o perfil de cada um, numa query. */
 export async function getUsersByCompanyId(
     companyId: string,
     filters: { role?: UserRole; status?: UserStatus } = {}
@@ -58,6 +58,20 @@ export async function getUsersByCompanyId(
             ...(filters.status ? { status: filters.status } : {})
         },
         relations: { profile: true },
+        order: { email: "ASC" }
+    });
+}
+
+/** De todas as empresas: um system_admin vive numa e age em todas. */
+export async function getUsersByRole(
+    role: UserRole,
+    filters: { status?: UserStatus } = {}
+): Promise <User[]> {
+    return await userRepo.find({
+        where: {
+            role,
+            ...(filters.status ? { status: filters.status } : {})
+        },
         order: { email: "ASC" }
     });
 }

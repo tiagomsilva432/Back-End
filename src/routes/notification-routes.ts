@@ -17,7 +17,7 @@ import {
     streamTicketResponseSchema,
     unreadCountResponseSchema,
 } from "../dtos/notification/notification-dto.js";
-import { errorResponses, jsonResponse } from "../docs/response.js";
+import { errorResponses, jsonResponse, pathId } from "../docs/response.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireRole } from "../middleware/requireRole.js";
 import { requireStreamAuth } from "../middleware/requireStreamAuth.js";
@@ -69,14 +69,6 @@ router.post(
     requireRole(),
     readNotification
 );
-
-const idParam = (description: string) => ({
-    name: "id",
-    in: "path" as const,
-    required: true,
-    schema: { type: "string" as const, format: "uuid" },
-    description,
-});
 
 //Documentação OpenAPI destas rotas
 export const notificationPaths: ZodOpenApiPathsObject = {
@@ -133,7 +125,7 @@ export const notificationPaths: ZodOpenApiPathsObject = {
                 "Só a própria pessoa: a notificação de outra responde 404, igual a uma que não existe. " +
                 "Marcar outra vez não muda a hora da primeira leitura.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id da notificação")],
+            parameters: [pathId("Id da notificação")],
             responses: {
                 "200": jsonResponse(200, "Notificação lida", notificationResponseSchema),
                 "401": jsonResponse(401, "Token em falta ou inválido"),

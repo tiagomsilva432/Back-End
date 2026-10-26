@@ -11,14 +11,6 @@ export async function getReviewRequestById(id: string): Promise<ReviewRequest | 
     });
 }
 
-export async function getReviewRequestByCyclePair(cycleId: string, reviewerId: string, revieweeId: string): Promise<ReviewRequest | null> {
-    return await reviewRequestRepo.findOneBy({
-        cycleId,
-        reviewerId,
-        revieweeId
-    });
-}
-
 export async function getReviewRequestsByCycleId(cycleId: string): Promise<ReviewRequest[]> {
     return await reviewRequestRepo.find({
         where: { cycleId },
@@ -37,13 +29,6 @@ export async function getReviewRequestsByReviewerIdAndStatus(reviewerId: string,
     return await reviewRequestRepo.find({
         where: { reviewerId, status },
         order: { dueDate: "ASC" }
-    });
-}
-
-export async function getReviewRequestsByRevieweeId(revieweeId: string): Promise<ReviewRequest[]> {
-    return await reviewRequestRepo.find({
-        where: { revieweeId },
-        order: { createdAt: "DESC" }
     });
 }
 
@@ -80,11 +65,6 @@ export async function countRequestsByStatus(cycleId: string): Promise<Record<Rev
 
 export async function createReviewRequest(request: ReviewRequest) {
     return await reviewRequestRepo.save(request);
-}
-
-/** Cycle requests are generated in bulk, one per coworker pair. */
-export async function createReviewRequests(requests: ReviewRequest[]) {
-    return await reviewRequestRepo.save(requests);
 }
 
 export async function updateReviewRequest(request: ReviewRequest) {
