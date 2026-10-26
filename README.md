@@ -436,29 +436,35 @@ not write one row per user across every company. Who has read what lives in
 
 ### Absences
 
-Vacation, sick days and other leave. A person asks, a company admin decides
-(a sick day needs no decision), and an approved absence shows up on the
-[calendar](#calendar) so everyone knows who is away.
+Vacation, sick days, other leave, and unjustified absences ("faltas"). A person
+asks, a company admin decides (a sick day needs no decision), and an approved
+absence shows up on the [calendar](#calendar) so everyone knows who is away. An
+admin can also register an absence for someone, such as a falta when they don't
+show up.
 
 | Endpoint | Who |
 | --- | --- |
 | `POST /absences` | any active account - always for themselves |
-| `GET /absences/mine` | any active account - its own requests, in any status; takes `?status=` |
-| `GET /absences` | `system_admin`, `company_admin` - the requests to decide. Own company; a `system_admin` sees every company or the one in `?companyId=`. Takes `?userId=` and `?status=` |
+| `GET /absences/mine` | any active account - its own absences, in any status, including the ones an admin registered; takes `?status=` and `?type=` |
+| `GET /absences` | `system_admin`, `company_admin` - the requests to decide. Own company; a `system_admin` sees every company or the one in `?companyId=`. Takes `?userId=`, `?status=` and `?type=` |
 | `GET /absences/{id}` | the person, or whoever manages that company's absences |
 | `POST /absences/{id}/approve` | a `system_admin`, or a `company_admin` of that company - **never on its own request** |
 | `POST /absences/{id}/reject` | the same; optional `{ reason }` |
 | `POST /absences/{id}/cancel` | the person, or the same deciders; optional `{ reason }` |
+| `POST /users/{id}/absences` | the same deciders - registers an absence for that person, already approved |
 | `GET /users/{id}/absence-summary` | the person, or whoever manages that company's absences; takes `?year=` |
 
 **Requests.** A request is `{ type, startDate, endDate, note? }`, where `type` is
 `vacation`, `sick` or `leave`. It covers whole days, and `endDate` is
 inclusive, so one day has `startDate = endDate`. It spans at most 366 days.
+Nobody asks for an `unjustified` absence: only an admin marks one (see below).
 
 - Vacation and leave are born `pending`, and the deciders are notified.
 - A sick day is born `approved`, with no `decidedBy`: it never waits for
   anyone. The deciders are told, and so are the managers of the person's
   projects on those days, as when an admin approves.
+- The managers are only told while the absence has not ended: telling them
+  someone "will be away" last week is no use to anyone.
 - The deciders are the company's other active `company_admin`s. When there is
   none, because the only `company_admin` asked or the company has none active,
   the active `system_admin`s are notified instead: only they can decide.
@@ -481,19 +487,37 @@ to decide their own gets 403. `decidedBy`, `decidedAt` and `decisionNote` record
 the last decision - approved, rejected or cancelled. An `approved` request with
 no `decidedBy` was approved automatically.
 
+**Registering for someone.** `POST /users/{id}/absences` with `{ type,
+startDate, endDate, note? }` lets a decider record an absence for that person,
+born `approved` with `decidedBy` set to them. `type` can be any of the four:
+
+- `unjustified` - a falta, when someone didn't show up. It can only cover days
+  that have already arrived: a future falta answers 400.
+- anything else, such as the sick day of someone who phoned in. Here vacation
+  may be in the past: the admin may be recording something that already
+  happened.
+
+The same 400 and 409 as a request apply, a `terminated` account answers 409, and
+nobody registers an absence for themselves (403). The person gets
+`absence.registered`, and the managers `absence.teammate_away` if it has not
+ended. The person sees it in `GET /absences/mine` (`?type=unjustified` for just
+the faltas) and in their summary. If it was a mistake, a decider cancels it, and
+the person is notified.
+
 **Cancelling.** The person cancels a `pending` request, or an `approved` one
-that has not started yet. A decider cancels a `pending` or `approved` one at any
-time, for someone who came back early or a mistake. Anything else answers 409.
+that has not started yet - so never a falta, which is always in the past. A
+decider cancels a `pending` or `approved` one at any time, for someone who came
+back early or a mistake. Anything else answers 409.
 
 **Privacy.** A sick day is health data. Only the person and whoever manages the
 company's absences (a `system_admin`, or a `company_admin` of that company) see
 the real `type` and the `note`. Everyone else sees vacation as `vacation`, and
-sick days and leave only as `absent`. A colleague asking for someone else's
+sick days, leave and faltas only as `absent`. A colleague asking for someone else's
 request gets 404, and a colleague asking for someone's summary gets 403.
 
 **Summary.** `GET /users/{id}/absence-summary?year=2026` adds up the working days
 of the approved absences in that year, by type: `{ userId, year, vacation, sick,
-leave }`. A request across New Year counts only the days in that year. There is
+leave, unjustified }`. A request across New Year counts only the days in that year. There is
 no yearly allowance yet: this is a count, not a balance.
 
 ### Calendar
@@ -566,8 +590,9 @@ and a ready-to-show Portuguese `message`. The types today:
 | `absence.auto_approved` | the deciders | someone registers a sick day, which is approved at once |
 | `absence.approved` | the person | their request is approved |
 | `absence.rejected` | the person | their request is rejected; carries the `reason` |
+| `absence.registered` | the person | an admin registers an absence for them: a falta, or another type already approved |
 | `absence.cancelled` | the person if an admin cancelled it, or the deciders if the person did | a request is cancelled |
-| `absence.teammate_away` | managers of the projects where the person is allocated on those days | an absence is approved, or a sick day is registered. `type` is masked to `vacation` or `absent` |
+| `absence.teammate_away` | managers of the projects where the person is allocated on those days | an absence is approved or registered, while it has not ended yet. `type` is masked to `vacation` or `absent` |
 
 Whoever performed the action is never notified of it.
 

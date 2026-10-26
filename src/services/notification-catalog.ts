@@ -35,6 +35,7 @@ const ABSENCE_LABELS: Record<AbsenceType, string> = {
     [AbsenceType.Vacation]: "férias",
     [AbsenceType.Sick]: "baixa",
     [AbsenceType.Leave]: "ausência",
+    [AbsenceType.Unjustified]: "falta injustificada",
 };
 
 const period = (d: { startDate: string; endDate: string }) =>
@@ -77,6 +78,13 @@ export const notificationCatalog = {
     "absence.auto_approved": defineNotification(
         z.object(absence),
         (d) => `Foi registado um pedido de ${ABSENCE_LABELS[d.type]} ${period(d)}, aprovado automaticamente`,
+    ),
+    // Para a pessoa, quando um admin regista uma ausência dela: uma falta, ou outra já aprovada.
+    "absence.registered": defineNotification(
+        z.object(absence),
+        (d) => d.type === AbsenceType.Unjustified
+            ? `Foi-te marcada uma falta injustificada ${period(d)}`
+            : `Foi registado em teu nome um pedido de ${ABSENCE_LABELS[d.type]} ${period(d)}, já aprovado`,
     ),
     // Vai para a pessoa, se foi um admin, ou para quem decide, se foi a pessoa.
     "absence.cancelled": defineNotification(

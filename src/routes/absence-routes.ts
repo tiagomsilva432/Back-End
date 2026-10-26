@@ -8,6 +8,7 @@ import {
     getAbsenceSummary,
     listAbsences,
     listMyAbsences,
+    registerAbsence,
     rejectAbsence,
 } from "../controllers/absence-controller.js";
 import {
@@ -20,6 +21,7 @@ import {
     createAbsenceSchema,
     listAbsencesQuerySchema,
     listMyAbsencesQuerySchema,
+    registerAbsenceSchema,
 } from "../dtos/absence/absence-dto.js";
 import { errorResponses, jsonBody, jsonResponse, pathId } from "../docs/response.js";
 import { requireAuth } from "../middleware/requireAuth.js";
@@ -86,6 +88,15 @@ router.post(
     cancelAbsence
 );
 
+// Quem pode registar por quem (a empresa, nunca o próprio) vê-se no controller.
+router.post(
+    "/users/:id/absences",
+    requireAuth,
+    requireAdmin,
+    validateBody(registerAbsenceSchema),
+    registerAbsence
+);
+
 router.get(
     "/users/:id/absence-summary",
     requireAuth,
@@ -115,12 +126,13 @@ export const absencePaths: ZodOpenApiPathsObject = {
             summary: "Pedir uma ausência",
             description:
                 "Para quem pede, sempre: férias (`vacation`), baixa (`sick`) ou outra ausência (`leave`), em dias " +
-                "inteiros e com o `endDate` incluído. As férias não podem começar no passado; uma baixa ou uma falta " +
+                "inteiros e com o `endDate` incluído. Uma falta injustificada não se pede: marca-a um admin, em " +
+                "`POST /users/{id}/absences`. As férias não podem começar no passado; uma baixa ou outra ausência " +
                 "podem, porque se registam muitas vezes depois. Um intervalo só de fins de semana e feriados é 400, " +
                 "e um que toque noutro pedido pendente ou aprovado da mesma pessoa é 409. Fica `pending`, e quem " +
                 "decide recebe `absence.requested`. Uma baixa não passa por aprovação: fica logo `approved`, sem " +
                 "`decidedBy`; quem decide recebe `absence.auto_approved`, e os gestores dos projetos da pessoa " +
-                "nesses dias `absence.teammate_away`. Quem decide são os outros `company_admin`s ativos da " +
+                "nesses dias `absence.teammate_away`, se ainda não acabou. Quem decide são os outros `company_admin`s ativos da " +
                 "empresa; sem nenhum, os `system_admin`s.",
             security: [{ bearerAuth: [] }],
             requestBody: jsonBody(createAbsenceSchema),
@@ -138,7 +150,8 @@ export const absencePaths: ZodOpenApiPathsObject = {
             summary: "Os pedidos para decidir",
             description:
                 "Para quem aprova: `system_admin` e `company_admin`. Um `company_admin` vê a sua empresa; um " +
-                "`system_admin` vê todas, ou a do `?companyId=`. Com o tipo verdadeiro e a nota.",
+                "`system_admin` vê todas, ou a do `?companyId=`. Com o tipo verdadeiro e a nota. Filtra por " +
+                "`?userId=`, `?status=` e `?type=`.",
             security: [{ bearerAuth: [] }],
             requestParams: { query: listAbsencesQuerySchema },
             responses: {
@@ -154,7 +167,9 @@ export const absencePaths: ZodOpenApiPathsObject = {
         get: {
             tags: ["Ausências"],
             summary: "Os meus pedidos",
-            description: "Todos, em qualquer estado, do que começa mais tarde para o mais cedo.",
+            description:
+                "Todos, em qualquer estado, do que começa mais tarde para o mais cedo: também os que um admin " +
+                "registou, como as faltas. `?type=unjustified` mostra só as faltas.",
             security: [{ bearerAuth: [] }],
             requestParams: { query: listMyAbsencesQuerySchema },
             responses: {
@@ -189,7 +204,7 @@ export const absencePaths: ZodOpenApiPathsObject = {
             description:
                 `${WHO_DECIDES} Só um \`pending\`: outro estado é 409. A pessoa recebe \`absence.approved\`, e os ` +
                 "gestores dos projetos onde ela está alocada nesses dias recebem `absence.teammate_away`, com o " +
-                "tipo tapado como no calendário.",
+                "tipo tapado como no calendário, se a ausência ainda não acabou.",
             security: [{ bearerAuth: [] }],
             parameters: [pathId("Id do pedido")],
             responses: {
@@ -241,6 +256,31 @@ export const absencePaths: ZodOpenApiPathsObject = {
                 "403": jsonResponse(403, "Conta não está ativa"),
                 "404": jsonResponse(404, "Pedido não encontrado"),
                 "409": jsonResponse(409, "Já não está ativo, ou já começou"),
+                ...errorResponses(500),
+            },
+        },
+    },
+    "/users/{id}/absences": {
+        post: {
+            tags: ["Ausências"],
+            summary: "Registar uma ausência de outra pessoa",
+            description:
+                "Um admin regista por alguém uma ausência já aprovada, com `decidedBy` seu: uma falta injustificada " +
+                "(`unjustified`), ou outro tipo, como a baixa de quem ligou a avisar. Uma falta só se marca em dias " +
+                "que já chegaram; as férias, aqui, podem ser no passado. Pode registar um `system_admin`, ou um " +
+                "`company_admin` da empresa da pessoa, nunca para si próprio. Os mesmos 400 e 409 de um pedido, e " +
+                "uma conta terminada é 409. A pessoa recebe `absence.registered`; os gestores dos projetos dela " +
+                "nesses dias recebem `absence.teammate_away`, se a ausência ainda não acabou.",
+            security: [{ bearerAuth: [] }],
+            parameters: [pathId("Id do utilizador")],
+            requestBody: jsonBody(registerAbsenceSchema),
+            responses: {
+                "201": jsonResponse(201, "Ausência registada", absenceResponseSchema),
+                ...errorResponses(400),
+                "401": jsonResponse(401, "Token em falta ou inválido"),
+                "403": jsonResponse(403, "Sem permissões, ou a ausência seria sua"),
+                "404": jsonResponse(404, "Utilizador não encontrado"),
+                "409": jsonResponse(409, "Já há um pedido pendente ou aprovado nesses dias, ou a conta está terminada"),
                 ...errorResponses(500),
             },
         },

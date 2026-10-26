@@ -81,7 +81,7 @@ export const calendarAbsenceSchema = z.object({
         example: AbsenceType.Vacation,
         description:
             "O tipo verdadeiro para a pessoa e para os admins. Para os colegas, `vacation` continua `vacation`, " +
-            "e `sick` e `leave` aparecem como `absent`.",
+            "e `sick`, `leave` e `unjustified` aparecem como `absent`.",
     }),
     status: z.enum([AbsenceStatus.Pending, AbsenceStatus.Approved]).meta({
         example: AbsenceStatus.Approved,

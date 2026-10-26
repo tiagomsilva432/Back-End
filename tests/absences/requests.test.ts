@@ -348,8 +348,8 @@ describe("GET /users/{id}/absence-summary", () => {
         const de2027 = await ler(`/users/${ana.id}/absence-summary?year=2027`, authorization(ana));
 
         expect(de2026.status).toBe(200);
-        expect(de2026.body.data).toEqual({ userId: ana.id, year: 2026, vacation: 4, sick: 4, leave: 0 });
-        expect(de2027.body.data).toEqual({ userId: ana.id, year: 2027, vacation: 5, sick: 0, leave: 0 });
+        expect(de2026.body.data).toEqual({ userId: ana.id, year: 2026, vacation: 4, sick: 4, leave: 0, unjustified: 0 });
+        expect(de2027.body.data).toEqual({ userId: ana.id, year: 2027, vacation: 5, sick: 0, leave: 0, unjustified: 0 });
     });
 
     it("um colega recebe 403, e alguém de fora 404", async () => {

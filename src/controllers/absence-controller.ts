@@ -6,6 +6,7 @@ import type {
     CreateAbsenceRequest,
     ListAbsencesQuery,
     ListMyAbsencesQuery,
+    RegisterAbsenceRequest,
 } from "../dtos/absence/absence-dto.js";
 import { HttpError, invalidData } from "../dtos/common/errors-dto.js";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
@@ -36,7 +37,7 @@ import { getHolidaysOf, holidayDates, requireCompany, withWorkingDays } from "..
 import { countWorkingDays } from "../services/holidays.js";
 import { notifier } from "../services/notifier.js";
 import { requireUserInReach } from "../services/user-scope.js";
-import { AbsenceStatus, AbsenceType, UserRole } from "../types/enums.js";
+import { AbsenceStatus, AbsenceType, UserRole, UserStatus } from "../types/enums.js";
 import { isoDate } from "../utils/dates.js";
 import { uuidParam } from "../utils/params.js";
 
@@ -61,9 +62,14 @@ const deciderIds = (absence: Pick<AbsenceRequest, "userId" | "companyId">): Prom
 
 /**
  * Os gestores dos projetos da pessoa nesses dias sabem que ela vai faltar,
- * mas como colegas: uma baixa chega-lhes como "ausente".
+ * mas como colegas: uma baixa chega-lhes como "ausente". Uma ausência que já
+ * acabou não é aviso para ninguém.
  */
 const notifyTeammatesAway = async (absence: AbsenceRequest, actorId: string): Promise<void> => {
+    if (absence.endDate < isoDate()) {
+        return;
+    }
+
     await notifier.notify("absence.teammate_away", {
         companyId: absence.companyId,
         recipientIds: await getManagerIdsOfProjectsAllocatedBetween(absence.userId, absence.startDate, absence.endDate),
@@ -86,21 +92,35 @@ const decide = (absence: AbsenceRequest, actor: User, status: AbsenceStatus, not
     absence.decisionNote = note;
 };
 
-export const createAbsence = async (req: Request, res: Response) => {
-    const body = req.body as CreateAbsenceRequest;
-    const actor: User = getCurrentActor(req);
-
-    const company = await requireCompany(actor.companyId);
-    const holidays = await getHolidaysOf(company, body.startDate, body.endDate);
-    const workingDays = countWorkingDays(body.startDate, body.endDate, holidayDates(holidays));
+/**
+ * Os dias úteis do intervalo, para a pessoa que o vai ocupar: 400 se só tem
+ * fins de semana e feriados, 409 se toca noutro pedido pendente ou aprovado dela.
+ */
+async function requireFreeWorkingDays(
+    person: Pick<User, "id" | "companyId">,
+    range: { startDate: string; endDate: string },
+    overlapMessage: string,
+): Promise<number> {
+    const company = await requireCompany(person.companyId);
+    const holidays = await getHolidaysOf(company, range.startDate, range.endDate);
+    const workingDays = countWorkingDays(range.startDate, range.endDate, holidayDates(holidays));
 
     if (workingDays === 0) {
         throw invalidData([{ field: "endDate", message: "O intervalo só tem fins de semana e feriados" }]);
     }
 
-    if (await getOverlappingActiveAbsence(actor.id, body.startDate, body.endDate)) {
-        throw new HttpError(409, "Já tens um pedido pendente ou aprovado nesses dias");
+    if (await getOverlappingActiveAbsence(person.id, range.startDate, range.endDate)) {
+        throw new HttpError(409, overlapMessage);
     }
+
+    return workingDays;
+}
+
+export const createAbsence = async (req: Request, res: Response) => {
+    const body = req.body as CreateAbsenceRequest;
+    const actor: User = getCurrentActor(req);
+
+    const workingDays = await requireFreeWorkingDays(actor, body, "Já tens um pedido pendente ou aprovado nesses dias");
 
     // Uma baixa não passa por aprovação. Sem decidedBy: ninguém a aprovou,
     // e muito menos a própria pessoa.
@@ -135,11 +155,64 @@ export const createAbsence = async (req: Request, res: Response) => {
     return new HttpResponse(201, "Pedido criado", undefined, toAbsenceResponse(created, workingDays)).send(res);
 }
 
+/** Um admin regista a ausência de outra pessoa, já aprovada: uma falta, ou a baixa de quem ligou a avisar. */
+export const registerAbsence = async (req: Request, res: Response) => {
+    const body = req.body as RegisterAbsenceRequest;
+    const actor: User = getCurrentActor(req);
+    const id = uuidParam(req.params.id, USER_NOT_FOUND);
+
+    const target = requireUserInReach(actor, await getUserById(id), USER_NOT_FOUND);
+
+    if (!canDecideAbsence(actor, { userId: target.id, companyId: target.companyId })) {
+        throw new HttpError(403, "Uma ausência sua pede-se em POST /absences");
+    }
+
+    if (target.status === UserStatus.Terminated) {
+        throw new HttpError(409, "Esta conta está terminada");
+    }
+
+    const workingDays = await requireFreeWorkingDays(
+        target,
+        body,
+        "Esta pessoa já tem um pedido pendente ou aprovado nesses dias",
+    );
+
+    const created = await saveAbsence(
+        absenceRepo.create({
+            companyId: target.companyId,
+            userId: target.id,
+            type: body.type,
+            status: AbsenceStatus.Approved,
+            startDate: body.startDate,
+            endDate: body.endDate,
+            note: body.note ?? null,
+            decidedBy: actor.id,
+            decidedAt: new Date(),
+            decisionNote: null,
+        }),
+    );
+
+    await notifier.notify("absence.registered", {
+        companyId: created.companyId,
+        recipientIds: [created.userId],
+        exclude: [actor.id],
+        data: notificationData(created),
+    });
+
+    await notifyTeammatesAway(created, actor.id);
+
+    return new HttpResponse(201, "Ausência registada", undefined, toAbsenceResponse(created, workingDays)).send(res);
+}
+
 export const listMyAbsences = async (req: Request, res: Response) => {
     const actor: User = getCurrentActor(req);
     const query = req.validQuery as ListMyAbsencesQuery;
 
-    const absences = await getAbsences({ userId: actor.id, ...(query.status ? { status: query.status } : {}) });
+    const absences = await getAbsences({
+        userId: actor.id,
+        ...(query.status ? { status: query.status } : {}),
+        ...(query.type ? { type: query.type } : {}),
+    });
 
     return new HttpResponse(200, "Pedidos", undefined, await withWorkingDays(absences)).send(res);
 }
@@ -159,6 +232,7 @@ export const listAbsences = async (req: Request, res: Response) => {
         ...(companyId ? { companyId } : {}),
         ...(query.userId ? { userId: query.userId } : {}),
         ...(query.status ? { status: query.status } : {}),
+        ...(query.type ? { type: query.type } : {}),
     });
 
     return new HttpResponse(200, "Pedidos", undefined, await withWorkingDays(absences)).send(res);
@@ -281,6 +355,7 @@ export const getAbsenceSummary = async (req: Request, res: Response) => {
         [AbsenceType.Vacation]: 0,
         [AbsenceType.Sick]: 0,
         [AbsenceType.Leave]: 0,
+        [AbsenceType.Unjustified]: 0,
     };
 
     for (const absence of await getApprovedAbsencesBetween(target.id, from, to)) {
