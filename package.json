@@ -17,6 +17,8 @@
     "docker:rebuild": "docker compose up -d --build --renew-anon-volumes api",
     "typeorm": "node --import tsx ./node_modules/typeorm/cli.js -d src/data-source.ts",
     "admin:create": "node --import tsx src/scripts/create-system-admin.ts",
+    "admin:create:prod": "node dist/scripts/create-system-admin.js",
+    "db:migrate:prod": "node ./node_modules/typeorm/cli.js -d dist/data-source.js migration:run",
     "db:migrate": "npm run typeorm -- migration:run",
     "db:revert": "npm run typeorm -- migration:revert",
     "db:generate": "node --import tsx ./node_modules/typeorm/cli.js migration:generate -d src/data-source.ts",
