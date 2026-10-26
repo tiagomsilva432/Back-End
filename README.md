@@ -1,7 +1,8 @@
 # Back-End
 
 ERP backend for a software company: users, projects, allocations, salaries,
-skills and peer salary reviews.
+skills, peer salary reviews, announcements, and a calendar of absences and
+holidays.
 
 Express 5 + TypeORM + PostgreSQL, written in TypeScript (ESM).
 
@@ -430,6 +431,95 @@ answers 403. Announcements are not notifications: a system announcement does
 not write one row per user across every company. Who has read what lives in
 `announcement_reads`.
 
+### Absences
+
+Vacation, sick days and other leave. A person asks, a company admin decides, and
+an approved absence shows up on the [calendar](#calendar) so everyone knows who
+is away.
+
+| Endpoint | Who |
+| --- | --- |
+| `POST /absences` | any active account - always for themselves |
+| `GET /absences/mine` | any active account - its own requests, in any status; takes `?status=` |
+| `GET /absences` | `system_admin`, `company_admin` - the requests to decide. Own company; a `system_admin` sees every company or the one in `?companyId=`. Takes `?userId=` and `?status=` |
+| `GET /absences/{id}` | the person, or whoever manages that company's absences |
+| `POST /absences/{id}/approve` | a `system_admin`, or a `company_admin` of that company - **never on its own request** |
+| `POST /absences/{id}/reject` | the same; optional `{ reason }` |
+| `POST /absences/{id}/cancel` | the person, or the same deciders; optional `{ reason }` |
+| `GET /users/{id}/absence-summary` | the person, or whoever manages that company's absences; takes `?year=` |
+
+**Requests.** A request is `{ type, startDate, endDate, note? }`, where `type` is
+`vacation`, `sick` or `leave`. It covers whole days, and `endDate` is
+inclusive, so one day has `startDate = endDate`. It spans at most 366 days. It is
+born `pending`, and the company's active `company_admin`s are notified.
+
+- Vacation cannot start in the past. A sick day or leave can, because it is
+  often registered afterwards.
+- A range with no working day (only weekend and holidays) answers 400.
+- A range that touches another `pending` or `approved` request of the same
+  person answers 409. Rejected and cancelled ones do not count.
+- There is no `PATCH`: cancel it and ask again.
+
+Every request comes back with `workingDays`: the weekdays in the range that are
+not a national or company holiday. It is worked out on every read, so adding a
+company holiday changes it at once for every request that covers that day.
+
+**Deciding.** Only a `pending` request is approved or rejected; anything else
+answers 409. Nobody decides their own request: a `company_admin`'s request is
+decided by another `company_admin` of the same company, or by a `system_admin`.
+An employee trying to decide a colleague's request gets 404, and anyone trying
+to decide their own gets 403. `decidedBy`, `decidedAt` and `decisionNote` record
+the last decision - approved, rejected or cancelled.
+
+**Cancelling.** The person cancels a `pending` request, or an `approved` one
+that has not started yet. A decider cancels a `pending` or `approved` one at any
+time, for someone who came back early or a mistake. Anything else answers 409.
+
+**Privacy.** A sick day is health data. Only the person and whoever manages the
+company's absences (a `system_admin`, or a `company_admin` of that company) see
+the real `type` and the `note`. Everyone else sees vacation as `vacation`, and
+sick days and leave only as `absent`. A colleague asking for someone else's
+request gets 404, and a colleague asking for someone's summary gets 403.
+
+**Summary.** `GET /users/{id}/absence-summary?year=2026` adds up the working days
+of the approved absences in that year, by type: `{ userId, year, vacation, sick,
+leave }`. A request across New Year counts only the days in that year. There is
+no yearly allowance yet: this is a count, not a balance.
+
+### Calendar
+
+| Endpoint | Who | What |
+| --- | --- | --- |
+| `GET /calendar?from=&to=` | any active account | own company; a `system_admin` passes `?companyId=` |
+| `GET /projects/{id}/calendar?from=&to=` | any active account | own company - the project's people only |
+| `GET /holidays?year=` | any active account | own company; a `system_admin` passes `?companyId=`. `year` defaults to this year |
+| `POST /holidays` | `system_admin` (naming `companyId`), `company_admin` | own company |
+| `DELETE /holidays/{id}` | the same | own company |
+
+A calendar answers `{ companyId, from, to, holidays, absences }` for a range of
+at most 366 days, both ends included.
+
+- `holidays` lists the national ones and the company's own, by date. Each one
+  has a `kind` (`national` or `company`) and an `id`, which only company
+  holidays have.
+- `absences` lists the ones that touch the range, as `{ id, userId, type,
+  status, startDate, endDate }`. There is never a note, and `type` is masked as
+  described in [Absences](#absences). Everyone sees `approved` ones. A person
+  also sees their own `pending` ones, and the admins see every `pending` one.
+  Terminated accounts are left out. Names are not included: the client resolves
+  `userId` against `GET /users`.
+
+The project calendar keeps only the absences of people allocated to the project
+on at least one day of the range, plus the project's manager.
+
+**Holidays.** National holidays are not stored. They are worked out from the
+company's `country`, and only Portugal (`PT`) is known: the thirteen mandatory
+days of the Código do Trabalho, with Good Friday, Easter and Corpus Christi
+worked out from Easter each year. Everything else is a company holiday added by
+an admin, such as the municipal holiday, Carnival or a closure on the 24th. A
+company in another country has only its own. Adding a date that is already a
+national holiday, or that the company already has, answers 409.
+
 ### Notifications
 
 A personal inbox. Every notification is **a row first**: it is stored whether or
@@ -462,6 +552,11 @@ and a ready-to-show Portuguese `message`. The types today:
 | `review_request.declined` | whoever requested it | an ad-hoc request is declined |
 | `review.submitted` | whoever requested it | an ad-hoc review is submitted |
 | `user.activated` | the company's active `company_admin`s | an invite is accepted |
+| `absence.requested` | the company's active `company_admin`s | someone asks for an absence |
+| `absence.approved` | the person | their request is approved |
+| `absence.rejected` | the person | their request is rejected; carries the `reason` |
+| `absence.cancelled` | the person if an admin cancelled it, or the company's active `company_admin`s if the person did | a request is cancelled |
+| `absence.teammate_away` | managers of the projects where the person is allocated on those days | an absence is approved. `type` is masked to `vacation` or `absent` |
 
 Whoever performed the action is never notified of it.
 
