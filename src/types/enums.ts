@@ -60,4 +60,19 @@ export enum AnnouncementSeverity {
 }
 export const isAnnouncementSeverity = guard(AnnouncementSeverity);
 
+export enum AbsenceType {
+    Vacation = "vacation",
+    Sick = "sick",
+    Leave = "leave",
+}
+export const isAbsenceType = guard(AbsenceType);
+
+export enum AbsenceStatus {
+    Pending = "pending",
+    Approved = "approved",
+    Rejected = "rejected",
+    Cancelled = "cancelled",
+}
+export const isAbsenceStatus = guard(AbsenceStatus);
+
 export const ENUM_COLUMN_LENGTH = 20;

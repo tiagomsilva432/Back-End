@@ -1,5 +1,7 @@
 import { hash } from "bcrypt";
+import { AbsenceRequest } from "../../src/entities/AbsenceRequest.js";
 import { Company } from "../../src/entities/Company.js";
+import { CompanyHoliday } from "../../src/entities/CompanyHoliday.js";
 import { Allocation } from "../../src/entities/Allocation.js";
 import { Announcement } from "../../src/entities/Announcement.js";
 import { Notification } from "../../src/entities/Notification.js";
@@ -13,6 +15,8 @@ import { Salary } from "../../src/entities/Salary.js";
 import { Skill } from "../../src/entities/Skill.js";
 import { User } from "../../src/entities/User.js";
 import {
+    AbsenceStatus,
+    AbsenceType,
     AnnouncementScope,
     AnnouncementSeverity,
     ProjectStatus,
@@ -315,6 +319,56 @@ export async function criarNotificacao(
             type: opcoes.type ?? "project.manager_assigned",
             data: opcoes.data ?? { projectId: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42", projectName: `Projeto ${proximo()}` },
             readAt: opcoes.readAt ?? null,
+        }),
+    );
+}
+
+interface OpcoesAusencia {
+    type?: AbsenceType;
+    status?: AbsenceStatus;
+    startDate?: string;
+    endDate?: string;
+    note?: string | null;
+    decidedBy?: string | null;
+}
+
+/** Férias pendentes por omissão, numa semana de dezembro sem feriados. */
+export async function criarAusencia(
+    user: Pick<User, "id" | "companyId">,
+    opcoes: OpcoesAusencia = {},
+): Promise<AbsenceRequest> {
+    const repo = manager().getRepository(AbsenceRequest);
+    const decidedBy = opcoes.decidedBy ?? null;
+
+    return repo.save(
+        repo.create({
+            companyId: user.companyId,
+            userId: user.id,
+            type: opcoes.type ?? AbsenceType.Vacation,
+            status: opcoes.status ?? AbsenceStatus.Pending,
+            startDate: opcoes.startDate ?? "2026-12-14",
+            endDate: opcoes.endDate ?? "2026-12-18",
+            note: opcoes.note ?? null,
+            decidedBy,
+            decidedAt: decidedBy ? new Date() : null,
+            decisionNote: null,
+        }),
+    );
+}
+
+export async function criarFeriado(
+    companyId: string,
+    createdBy: string,
+    opcoes: { date?: string; name?: string } = {},
+): Promise<CompanyHoliday> {
+    const repo = manager().getRepository(CompanyHoliday);
+
+    return repo.save(
+        repo.create({
+            companyId,
+            createdBy,
+            date: opcoes.date ?? "2026-06-13",
+            name: opcoes.name ?? `Feriado ${proximo()}`,
         }),
     );
 }

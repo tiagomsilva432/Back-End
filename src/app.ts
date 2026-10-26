@@ -15,6 +15,8 @@ import salaryRouter from "./routes/salary-routes.js"
 import reviewRouter from "./routes/review-routes.js"
 import announcementRouter from "./routes/announcement-routes.js"
 import notificationRouter from "./routes/notification-routes.js"
+import absenceRouter from "./routes/absence-routes.js"
+import calendarRouter from "./routes/calendar-routes.js"
 
 export const app = express();
 //Middlewares globais
@@ -37,6 +39,8 @@ app.use(salaryRouter);
 app.use(reviewRouter);
 app.use(announcementRouter);
 app.use(notificationRouter);
+app.use(absenceRouter);
+app.use(calendarRouter);
 
 //Rota não encontrada
 app.use((_req: Request, res: Response) => {
