@@ -3,13 +3,6 @@
 //Importar Mensagens Default
 import { getDefaults } from "../../utils/httpStatusDefaults.js";
 
-export interface ApiError {
-  status: number;
-  message: string;
-  code: string;
-  details?: unknown;
-}
-
 export class HttpError extends Error {
   constructor(
     public readonly status: number,

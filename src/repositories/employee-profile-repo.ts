@@ -9,13 +9,6 @@ export async function getEmployeeProfileByUserId(userId: string): Promise<Employ
     });
 }
 
-export async function getEmployeeProfilesByCompanyId(companyId: string): Promise<EmployeeProfile[]> {
-    return await employeeProfileRepo.find({
-        where: { user: { companyId } },
-        order: { firstName: "ASC", lastName: "ASC" }
-    });
-}
-
 export async function createEmployeeProfile(profile: EmployeeProfile) {
     return await employeeProfileRepo.save(profile);
 }

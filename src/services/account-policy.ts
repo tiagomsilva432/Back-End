@@ -14,8 +14,6 @@ const CREATABLE_ROLES: Record<UserRole, readonly UserRole[]> = {
     [UserRole.Employee]: [],
 };
 
-export const rolesCreatableBy = (actor: UserRole): readonly UserRole[] => CREATABLE_ROLES[actor];
-
 export const canCreateRole = (actor: UserRole, target: UserRole): boolean =>
     CREATABLE_ROLES[actor].includes(target);
 

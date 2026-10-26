@@ -40,13 +40,13 @@ export async function getUserByIdWithProfile(id: string): Promise <User | null> 
     });
 }
 
-/** O diretório da empresa, com o perfil de cada um, numa query. */
 export async function getUserByPasswordResetToken(passwordResetToken: string): Promise <User | null> {
     return await userRepo.findOneBy({
         passwordResetToken
     });
 }
 
+/** O diretório da empresa, com o perfil de cada um, numa query. */
 export async function getUsersByCompanyId(
     companyId: string,
     filters: { role?: UserRole; status?: UserStatus } = {}

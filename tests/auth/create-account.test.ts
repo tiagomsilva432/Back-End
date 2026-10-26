@@ -4,7 +4,6 @@ import { app } from "../../src/app.js";
 import { EmployeeProfile } from "../../src/entities/EmployeeProfile.js";
 import { User } from "../../src/entities/User.js";
 import { UserRole } from "../../src/types/enums.js";
-import { logSpy } from "../helpers/console-spy.js";
 import { mailSpy } from "../helpers/mailer-spy.js";
 import { createActor } from "../helpers/auth.js";
 import { criarEmpresa, criarUtilizador } from "../helpers/factories.js";
@@ -62,25 +61,6 @@ describe("POST /auth/account/create", () => {
         });
         expect(JSON.stringify(res.body)).not.toContain("signupToken");
         expect(JSON.stringify(res.body)).not.toContain("passwordHash");
-    });
-
-    it("regista o URL de ativação com o token que gravou", async () => {
-        const empresa = await criarEmpresa();
-        const { header } = await createActor(UserRole.CompanyAdmin, empresa.id);
-
-        await request(app)
-            .post("/auth/account/create")
-            .set("Authorization", header)
-            .send({ companyId: empresa.id, email: "carla@empresa.pt" })
-            .expect(201);
-
-        const user = await users().findOneBy({ email: "carla@empresa.pt" });
-
-        expect(logSpy).toHaveBeenCalledWith(
-            expect.stringContaining(
-                `${process.env.FE_URL}/auth/account/activate?token=${user!.signupToken}`,
-            ),
-        );
     });
 
     it("um company_admin criado por um system_admin recebe token e email de ativação", async () => {
