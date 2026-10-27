@@ -2,6 +2,7 @@ import { z } from "zod";
 import { AbsenceStatus, AbsenceType } from "../../types/enums.js";
 import { daysBetween, isoDate } from "../../utils/dates.js";
 import { yearSchema } from "../common/fields-dto.js";
+import { fileListResponseSchema } from "../file/file-dto.js";
 
 const idSchema = z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" });
 
@@ -129,6 +130,11 @@ export const absenceResponseSchema = z.object({
     }),
     decidedAt: z.iso.datetime().nullable(),
     decisionNote: z.string().nullable(),
+    documents: fileListResponseSchema.meta({
+        description:
+            "As justificações (um atestado, uma declaração), do mais antigo para o mais recente, até 5. Como a " +
+            "nota, só a pessoa e os admins as veem: o calendário nunca as mostra.",
+    }),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
 }).meta({ id: "Absence", description: "Um pedido de ausência, com tudo: só a pessoa e os admins o veem assim" });

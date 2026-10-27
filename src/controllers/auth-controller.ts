@@ -73,7 +73,6 @@ export const createAccount = async (req: Request, res: Response) => {
                 phone: null,
                 address: null,
                 birthDate: null,
-                avatarUrl: null,
             }),
         )
         : null;
@@ -85,7 +84,7 @@ export const createAccount = async (req: Request, res: Response) => {
         role: created.role,
         status: created.status,
         // Só aparece quando o convite trouxe nome.
-        ...(profile ? { profile: toProfileResponse(profile) } : {}),
+        ...(profile ? { profile: toProfileResponse(profile, null) } : {}),
     };
 
     return new HttpResponse(201, "Conta criada", undefined, data).send(res);

@@ -7,6 +7,7 @@ import type {
     ListExpensesQuery,
     PatchExpenseRequest,
 } from "../dtos/expense/expense-dto.js";
+import type { FileResponse } from "../dtos/file/file-dto.js";
 import type { Expense } from "../entities/Expense.js";
 import type { Project } from "../entities/Project.js";
 import type { User } from "../entities/User.js";
@@ -24,14 +25,17 @@ import { notifyBudgetCrossings } from "../services/budget-alerts.js";
 import { requireCompany } from "../services/company-calendar.js";
 import { requireInReach, resolveCompanyScope } from "../services/company-scope.js";
 import { canManageProjectExpenses, requireManageableExpense } from "../services/expense-policy.js";
-import { UserRole } from "../types/enums.js";
+import { fileHandlers } from "../services/files/file-handlers.js";
+import { FILE_KINDS } from "../services/files/file-kinds.js";
+import { filesFor, removeFilesOf } from "../services/files/files.js";
+import { FileKind, UserRole } from "../types/enums.js";
 import { toCents } from "../utils/money.js";
 import { uuidParam } from "../utils/params.js";
 
 const NOT_FOUND = "Despesa não encontrada";
 const PROJECT_NOT_FOUND = "Projeto não encontrado";
 
-const toResponse = (expense: Expense): ExpenseResponse => ({
+const toResponse = (expense: Expense, receipts: FileResponse[]): ExpenseResponse => ({
     id: expense.id,
     companyId: expense.companyId,
     projectId: expense.projectId,
@@ -41,9 +45,14 @@ const toResponse = (expense: Expense): ExpenseResponse => ({
     category: expense.category,
     incurredOn: expense.incurredOn,
     createdBy: expense.createdBy,
+    receipts,
     createdAt: expense.createdAt.toISOString(),
     updatedAt: expense.updatedAt.toISOString(),
 });
+
+/** Os recibos de uma só despesa. */
+const receiptsOf = async (expense: Expense): Promise<FileResponse[]> =>
+    (await filesFor(FileKind.ExpenseReceipt, [expense.id])).get(expense.id) ?? [];
 
 /** O projeto de uma despesa de projeto: é o managerId dele que decide se um employee a gere. */
 const projectOf = async (expense: Expense): Promise<Project | null> =>
@@ -100,7 +109,8 @@ export const createExpense = async (req: Request, res: Response) => {
         await notifyBudgetCrossings(actor, project, { expensesDelta: toCents(created.amount) });
     }
 
-    return new HttpResponse(201, "Despesa registada", undefined, toResponse(created)).send(res);
+    // Os recibos vêm depois, em POST /expenses/{id}/receipts.
+    return new HttpResponse(201, "Despesa registada", undefined, toResponse(created, [])).send(res);
 }
 
 /**
@@ -136,7 +146,14 @@ export const listExpenses = async (req: Request, res: Response) => {
         expenses = await getExpenses({ ...filters, companyId, overhead: query.overhead });
     }
 
-    return new HttpResponse(200, "Despesas", undefined, expenses.map(toResponse)).send(res);
+    const receipts = await filesFor(FileKind.ExpenseReceipt, expenses.map((expense) => expense.id));
+
+    return new HttpResponse(
+        200,
+        "Despesas",
+        undefined,
+        expenses.map((expense) => toResponse(expense, receipts.get(expense.id) ?? [])),
+    ).send(res);
 }
 
 export const getExpense = async (req: Request, res: Response) => {
@@ -145,7 +162,7 @@ export const getExpense = async (req: Request, res: Response) => {
 
     const { expense } = await requireExpense(actor, id);
 
-    return new HttpResponse(200, "Despesa", undefined, toResponse(expense)).send(res);
+    return new HttpResponse(200, "Despesa", undefined, toResponse(expense, await receiptsOf(expense))).send(res);
 }
 
 export const patchExpense = async (req: Request, res: Response) => {
@@ -184,7 +201,7 @@ export const patchExpense = async (req: Request, res: Response) => {
         await notifyBudgetCrossings(actor, project, { expensesDelta: delta });
     }
 
-    return new HttpResponse(200, "Despesa atualizada", undefined, toResponse(saved)).send(res);
+    return new HttpResponse(200, "Despesa atualizada", undefined, toResponse(saved, await receiptsOf(saved))).send(res);
 }
 
 /** Para corrigir um erro de registo. Não avisa ninguém: o gasto só desce. */
@@ -195,6 +212,21 @@ export const removeExpense = async (req: Request, res: Response) => {
     const { expense } = await requireExpense(actor, id);
 
     await deleteExpense(expense.id);
+    // Depois da despesa: um recibo que fique para trás apanha-o o files:sweep.
+    await removeFilesOf(FileKind.ExpenseReceipt, expense.id);
 
     return new HttpResponse(200, "Despesa apagada").send(res);
 }
+
+/** Quem gere a despesa gere os recibos dela: as mesmas regras, os mesmos 404 e 403. */
+const receipts = fileHandlers(FILE_KINDS[FileKind.ExpenseReceipt], {
+    requireOwner: async (actor, req) => {
+        const { expense } = await requireExpense(actor, uuidParam(req.params.id, NOT_FOUND));
+
+        return { companyId: expense.companyId, ownerId: expense.id, owner: expense };
+    },
+    messages: { uploaded: "Recibo anexado", removed: "Recibo apagado", notFound: "Recibo não encontrado" },
+});
+
+export const uploadReceipt = receipts.upload;
+export const removeReceipt = receipts.remove;

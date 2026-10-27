@@ -89,3 +89,14 @@ export enum ExpenseCategory {
 export const isExpenseCategory = guard(ExpenseCategory);
 
 export const ENUM_COLUMN_LENGTH = 20;
+
+/**
+ * O que um ficheiro é, e por isso de quem é: o dono de um avatar é um user, o
+ * de um recibo uma despesa. As regras de cada um estão em services/files/file-kinds.ts.
+ */
+export enum FileKind {
+    Avatar = "avatar",
+    ExpenseReceipt = "expense_receipt",
+    AbsenceDocument = "absence_document",
+}
+export const isFileKind = guard(FileKind);

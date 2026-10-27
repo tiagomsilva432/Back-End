@@ -10,7 +10,6 @@ export const upsertEmployeeProfileSchema = z.object({
     address: z.string().trim().min(1).optional().meta({ example: "Rua das Flores 12, Lisboa" }),
     birthDate: z.iso.date().optional().meta({ example: "1995-04-02" }),
     jobTitle: z.string().trim().min(1).max(100).optional().meta({ example: "Backend Developer" }),
-    avatarUrl: z.url().max(2048).optional().meta({ example: "https://exemplo.pt/avatar.png" }),
 })
     .refine((p) => !p.birthDate || p.birthDate < p.hireDate, {
         message: "A data de nascimento tem de ser anterior à data de admissão",
@@ -28,7 +27,11 @@ export const employeeProfileResponseSchema = z.object({
     birthDate: z.string().nullable().meta({ example: "1995-04-02" }),
     hireDate: z.string().meta({ example: "2026-01-15" }),
     jobTitle: z.string().nullable().meta({ example: "Backend Developer" }),
-    avatarUrl: z.string().nullable(),
+    avatarUrl: z.url().nullable().meta({
+        description:
+            "O link do avatar enviado em `PUT /users/{id}/avatar`, ou null. Expira como o de qualquer ficheiro: " +
+            "pede-se o perfil outra vez em vez de o guardar.",
+    }),
 }).meta({ id: "EmployeeProfile", description: "O perfil de um colaborador" });
 
 export type UpsertEmployeeProfileRequest = z.infer<typeof upsertEmployeeProfileSchema>;

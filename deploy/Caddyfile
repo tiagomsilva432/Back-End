@@ -8,7 +8,11 @@
 	}
 
 	# The API, without the /api prefix. Server-Sent Events are flushed as they arrive.
+	# The biggest upload is 10 MB; the API checks each kind's limit itself.
 	handle_path /api/* {
+		request_body {
+			max_size 15MB
+		}
 		reverse_proxy api:3000
 	}
 
@@ -21,6 +25,10 @@
 	handle {
 		root * /srv
 		encode zstd gzip
+		# Built files change name on every build; index.html is checked on every visit.
+		@page not path /assets/*
+		header @page Cache-Control no-cache
+		header /assets/* Cache-Control "public, max-age=31536000, immutable"
 		try_files {path} /index.html
 		file_server
 	}

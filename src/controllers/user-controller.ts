@@ -19,9 +19,11 @@ import {
 import { canAdministerAccount } from "../services/account-policy.js";
 import { resolveCompanyScope } from "../services/company-scope.js";
 import { realtime } from "../services/realtime.js";
-import { toProfileResponse, toUserResponse } from "../services/user-mapper.js";
+import { FILE_KINDS } from "../services/files/file-kinds.js";
+import { fileHandlers } from "../services/files/file-handlers.js";
+import { avatarUrlsOf, toProfileResponse, toUserResponse } from "../services/user-mapper.js";
 import { requireCanManageUser, requireUserInReach } from "../services/user-scope.js";
-import { UserStatus } from "../types/enums.js";
+import { FileKind, UserStatus } from "../types/enums.js";
 import { uuidParam } from "../utils/params.js";
 
 const NOT_FOUND = "Utilizador não encontrado";
@@ -39,7 +41,9 @@ export const listUsers = async (req: Request, res: Response) => {
         ...(query.status ? { status: query.status } : {}),
     });
 
-    return new HttpResponse(200, "Utilizadores", undefined, users.map(toUserResponse)).send(res);
+    const avatars = await avatarUrlsOf(users.map((user) => user.id));
+
+    return new HttpResponse(200, "Utilizadores", undefined, users.map((user) => toUserResponse(user, avatars))).send(res);
 }
 
 export const getUser = async (req: Request, res: Response) => {
@@ -48,7 +52,7 @@ export const getUser = async (req: Request, res: Response) => {
 
     const user = requireUserInReach(actor, await getUserByIdWithProfile(id), NOT_FOUND);
 
-    return new HttpResponse(200, "Utilizador", undefined, toUserResponse(user)).send(res);
+    return new HttpResponse(200, "Utilizador", undefined, toUserResponse(user, await avatarUrlsOf([user.id]))).send(res);
 }
 
 export const getUserProfile = async (req: Request, res: Response) => {
@@ -64,7 +68,9 @@ export const getUserProfile = async (req: Request, res: Response) => {
         throw new HttpError(404, PROFILE_NOT_FOUND);
     }
 
-    return new HttpResponse(200, "Perfil", undefined, toProfileResponse(profile)).send(res);
+    const avatars = await avatarUrlsOf([id]);
+
+    return new HttpResponse(200, "Perfil", undefined, toProfileResponse(profile, avatars.get(id) ?? null)).send(res);
 }
 
 export const upsertUserProfile = async (req: Request, res: Response) => {
@@ -89,7 +95,6 @@ export const upsertUserProfile = async (req: Request, res: Response) => {
             address: body.address ?? null,
             birthDate: body.birthDate ?? null,
             jobTitle: body.jobTitle ?? null,
-            avatarUrl: body.avatarUrl ?? null,
         }),
     );
 
@@ -97,9 +102,27 @@ export const upsertUserProfile = async (req: Request, res: Response) => {
         existing ? 200 : 201,
         existing ? "Perfil atualizado" : "Perfil criado",
         undefined,
-        toProfileResponse(saved),
+        // O avatar não vem no PUT: tem rota própria, e um PUT sem ele não o apaga.
+        toProfileResponse(saved, (await avatarUrlsOf([id])).get(id) ?? null),
     ).send(res);
 }
+
+/** As regras do PUT do perfil: a própria pessoa, ou quem administra a conta dela. */
+const avatar = fileHandlers(FILE_KINDS[FileKind.Avatar], {
+    requireOwner: async (actor, req) => {
+        const id = uuidParam(req.params.id, NOT_FOUND);
+        const target = requireUserInReach(actor, await getUserById(id), NOT_FOUND);
+
+        requireCanManageUser(actor, target, CANNOT_MANAGE);
+
+        return { companyId: target.companyId, ownerId: target.id, owner: target };
+    },
+    messages: { uploaded: "Avatar atualizado", removed: "Avatar apagado", notFound: "Este utilizador não tem avatar" },
+});
+
+/** Substitui o que houver: um avatar por pessoa. */
+export const uploadAvatar = avatar.upload;
+export const removeAvatar = avatar.remove;
 
 /**
  * As transições permitidas. Uma conta convidada só sai para terminada: o link de
@@ -151,5 +174,10 @@ export const patchUserStatus = async (req: Request, res: Response) => {
         }
     }
 
-    return new HttpResponse(200, "Estado da conta atualizado", undefined, toUserResponse(target)).send(res);
+    return new HttpResponse(
+        200,
+        "Estado da conta atualizado",
+        undefined,
+        toUserResponse(target, await avatarUrlsOf([target.id])),
+    ).send(res);
 }

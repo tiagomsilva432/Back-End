@@ -98,6 +98,11 @@ export const notificationCatalog = {
             ? `Alguém da tua equipa vai estar de férias ${period(d)}`
             : `Alguém da tua equipa vai estar ausente ${period(d)}`,
     ),
+    // Para quem decide: a pessoa juntou uma justificação a um pedido que ainda espera por eles.
+    "absence.document_added": defineNotification(
+        z.object(absence),
+        (d) => `Foi junto um documento ao pedido de ${ABSENCE_LABELS[d.type]} ${period(d)} para aprovar`,
+    ),
     "allocation.created": defineNotification(
         z.object({
             ...allocation,

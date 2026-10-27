@@ -10,6 +10,8 @@ import {
     listMyAbsences,
     registerAbsence,
     rejectAbsence,
+    removeAbsenceDocument,
+    uploadAbsenceDocument,
 } from "../controllers/absence-controller.js";
 import {
     absenceDecisionBodySchema,
@@ -23,11 +25,15 @@ import {
     listMyAbsencesQuerySchema,
     registerAbsenceSchema,
 } from "../dtos/absence/absence-dto.js";
-import { errorResponses, jsonBody, jsonResponse, pathId } from "../docs/response.js";
+import { fileResponseSchema } from "../dtos/file/file-dto.js";
+import { errorResponses, fileBody, jsonBody, jsonResponse, pathId } from "../docs/response.js";
+import { acceptFile } from "../middleware/acceptFile.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireAdmin, requireRole } from "../middleware/requireRole.js";
 import { validateBody } from "../middleware/validateBody.js";
 import { validateQuery } from "../middleware/validateQuery.js";
+import { FILE_KINDS } from "../services/files/file-kinds.js";
+import { FileKind } from "../types/enums.js";
 
 const router = Router();
 
@@ -86,6 +92,22 @@ router.post(
     requireRole(),
     validateBody(absenceDecisionSchema),
     cancelAbsence
+);
+
+// A pessoa ou quem decide: vê-se no controller, pelo pedido.
+router.post(
+    "/absences/:id/documents",
+    requireAuth,
+    requireRole(),
+    acceptFile(FILE_KINDS[FileKind.AbsenceDocument]),
+    uploadAbsenceDocument
+);
+
+router.delete(
+    "/absences/:id/documents/:fileId",
+    requireAuth,
+    requireRole(),
+    removeAbsenceDocument
 );
 
 // Quem pode registar por quem (a empresa, nunca o próprio) vê-se no controller.
@@ -256,6 +278,49 @@ export const absencePaths: ZodOpenApiPathsObject = {
                 "403": jsonResponse(403, "Conta não está ativa"),
                 "404": jsonResponse(404, "Pedido não encontrado"),
                 "409": jsonResponse(409, "Já não está ativo, ou já começou"),
+                ...errorResponses(500),
+            },
+        },
+    },
+    "/absences/{id}/documents": {
+        post: {
+            tags: ["Ausências"],
+            summary: "Juntar um documento a um pedido",
+            description:
+                "Uma justificação: um atestado, uma declaração. Junta-a a pessoa, ou quem decide, enquanto o pedido " +
+                "está `pending` ou `approved` (outro estado é 409); para os outros o pedido é 404. JPEG, PNG, WebP " +
+                "ou PDF até 10 MB, em `multipart/form-data` no campo `file`; até 5 por pedido, e o mesmo ficheiro " +
+                "duas vezes é 409. Uma fotografia é endireitada e perde os metadados (o GPS sai). Aparece em " +
+                "`documents`, que só a pessoa e os admins veem. Se a pessoa o juntar a um pedido `pending`, quem " +
+                "decide recebe `absence.document_added`.",
+            security: [{ bearerAuth: [] }],
+            parameters: [pathId("Id do pedido")],
+            requestBody: fileBody("O documento: JPEG, PNG, WebP ou PDF, até 10 MB"),
+            responses: {
+                "201": jsonResponse(201, "Documento anexado", fileResponseSchema),
+                ...errorResponses(400),
+                "401": jsonResponse(401, "Token em falta ou inválido"),
+                "403": jsonResponse(403, "Conta não está ativa"),
+                "404": jsonResponse(404, "Pedido não encontrado"),
+                "409": jsonResponse(409, "O pedido já não está ativo, já tem 5 documentos, ou este já está anexado"),
+                "413": jsonResponse(413, "O ficheiro tem mais de 10 MB"),
+                ...errorResponses(500),
+            },
+        },
+    },
+    "/absences/{id}/documents/{fileId}": {
+        delete: {
+            tags: ["Ausências"],
+            summary: "Tirar um documento de um pedido",
+            description: "As mesmas regras de juntar. O documento de outro pedido é 404. Não avisa ninguém.",
+            security: [{ bearerAuth: [] }],
+            parameters: [pathId("Id do pedido"), pathId("Id do documento", "fileId")],
+            responses: {
+                "200": jsonResponse(200, "Documento apagado"),
+                "401": jsonResponse(401, "Token em falta ou inválido"),
+                "403": jsonResponse(403, "Conta não está ativa"),
+                "404": jsonResponse(404, "Pedido ou documento não encontrado"),
+                "409": jsonResponse(409, "O pedido já não está ativo"),
                 ...errorResponses(500),
             },
         },

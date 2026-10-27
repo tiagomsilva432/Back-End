@@ -1,12 +1,17 @@
 import type { AbsenceResponse } from "../dtos/absence/absence-dto.js";
 import type { CalendarAbsence, CompanyHolidayResponse } from "../dtos/calendar/calendar-dto.js";
 import type { AbsenceRequest } from "../entities/AbsenceRequest.js";
+import type { FileResponse } from "../dtos/file/file-dto.js";
 import type { CompanyHoliday } from "../entities/CompanyHoliday.js";
 import type { User } from "../entities/User.js";
 import { AbsenceStatus } from "../types/enums.js";
 import { canSeeAbsenceDetails, publicAbsenceType } from "./absence-policy.js";
 
-export const toAbsenceResponse = (absence: AbsenceRequest, workingDays: number): AbsenceResponse => ({
+export const toAbsenceResponse = (
+    absence: AbsenceRequest,
+    workingDays: number,
+    documents: FileResponse[],
+): AbsenceResponse => ({
     id: absence.id,
     companyId: absence.companyId,
     userId: absence.userId,
@@ -19,6 +24,7 @@ export const toAbsenceResponse = (absence: AbsenceRequest, workingDays: number):
     decidedBy: absence.decidedBy,
     decidedAt: absence.decidedAt ? absence.decidedAt.toISOString() : null,
     decisionNote: absence.decisionNote,
+    documents,
     createdAt: absence.createdAt.toISOString(),
     updatedAt: absence.updatedAt.toISOString(),
 });

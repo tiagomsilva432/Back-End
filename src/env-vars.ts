@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { SignOptions } from "jsonwebtoken";
 
 const numberEnv = (name: string, fallback: number): number => {
@@ -46,6 +47,14 @@ export const jwtSecret = (): string => {
 export const jwtExpiresIn = (): NonNullable<SignOptions["expiresIn"]> => {
     return (process.env.JWT_EXPIRES_IN ?? "1d") as NonNullable<SignOptions["expiresIn"]>;
 };
+//Ficheiros
+/** A raiz dos uploads. Relativa ao diretório onde a API corre: /app/uploads no contentor. */
+export const uploadsDir = (): string => path.resolve(process.env.UPLOADS_DIR || "uploads");
+/**
+ * Quanto tempo vale um link de um ficheiro, no mínimo: vale entre isto e o
+ * dobro, porque a expiração é arredondada para o link não mudar a cada pedido.
+ */
+export const fileUrlTtlSeconds = (): number => numberEnv("FILE_URL_TTL_MINUTES", 60) * 60;
 //Email
 export const smtpHost = (): string | undefined => process.env.SMTP_HOST || undefined;
 export const smtpPort = (): number => numberEnv("SMTP_PORT", 587);

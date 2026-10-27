@@ -84,7 +84,6 @@ interface OpcoesPerfil {
     birthDate?: string | null;
     hireDate?: string;
     jobTitle?: string | null;
-    avatarUrl?: string | null;
 }
 
 export async function criarPerfil(userId: string, opcoes: OpcoesPerfil = {}): Promise<EmployeeProfile> {
@@ -101,7 +100,6 @@ export async function criarPerfil(userId: string, opcoes: OpcoesPerfil = {}): Pr
             birthDate: opcoes.birthDate ?? null,
             hireDate: opcoes.hireDate ?? "2024-01-15",
             jobTitle: opcoes.jobTitle ?? null,
-            avatarUrl: opcoes.avatarUrl ?? null,
         }),
     );
 }
