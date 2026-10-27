@@ -57,6 +57,9 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    # Avatars, receipts and absence documents. deploy/backup.sh archives it.
+    volumes:
+      - uploads:/app/uploads
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
@@ -88,5 +91,6 @@ services:
 
 volumes:
   db_data:
+  uploads:
   caddy_data:
   caddy_config:

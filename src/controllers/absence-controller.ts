@@ -29,15 +29,18 @@ import {
     canDecideAbsence,
     canSeeAbsenceDetails,
     publicAbsenceType,
+    requireAttachableAbsence,
     requireDecidableAbsence,
     requireReadableAbsence,
 } from "../services/absence-policy.js";
 import { companyAdminIdsOrSystemAdmins } from "../services/admin-recipients.js";
 import { getHolidaysOf, holidayDates, requireCompany, withWorkingDays } from "../services/company-calendar.js";
+import { fileHandlers } from "../services/files/file-handlers.js";
+import { FILE_KINDS } from "../services/files/file-kinds.js";
 import { countWorkingDays } from "../services/holidays.js";
 import { notifier } from "../services/notifier.js";
 import { requireUserInReach } from "../services/user-scope.js";
-import { AbsenceStatus, AbsenceType, UserRole, UserStatus } from "../types/enums.js";
+import { AbsenceStatus, AbsenceType, FileKind, UserRole, UserStatus } from "../types/enums.js";
 import { isoDate } from "../utils/dates.js";
 import { uuidParam } from "../utils/params.js";
 
@@ -152,7 +155,7 @@ export const createAbsence = async (req: Request, res: Response) => {
         await notifyTeammatesAway(created, actor.id);
     }
 
-    return new HttpResponse(201, "Pedido criado", undefined, toAbsenceResponse(created, workingDays)).send(res);
+    return new HttpResponse(201, "Pedido criado", undefined, toAbsenceResponse(created, workingDays, [])).send(res);
 }
 
 /** Um admin regista a ausência de outra pessoa, já aprovada: uma falta, ou a baixa de quem ligou a avisar. */
@@ -201,7 +204,7 @@ export const registerAbsence = async (req: Request, res: Response) => {
 
     await notifyTeammatesAway(created, actor.id);
 
-    return new HttpResponse(201, "Ausência registada", undefined, toAbsenceResponse(created, workingDays)).send(res);
+    return new HttpResponse(201, "Ausência registada", undefined, toAbsenceResponse(created, workingDays, [])).send(res);
 }
 
 export const listMyAbsences = async (req: Request, res: Response) => {
@@ -332,6 +335,41 @@ export const cancelAbsence = async (req: Request, res: Response) => {
 
     return new HttpResponse(200, "Pedido cancelado", undefined, data).send(res);
 }
+
+/**
+ * As justificações de um pedido: um atestado, uma declaração. Juntam-nas a
+ * pessoa ou quem decide, enquanto o pedido está ativo. Como a nota, ninguém
+ * mais as vê: para os outros, o pedido é 404.
+ */
+const documents = fileHandlers(FILE_KINDS[FileKind.AbsenceDocument], {
+    requireOwner: async (actor, req) => {
+        const absence = requireAttachableAbsence(
+            actor,
+            await getAbsenceById(uuidParam(req.params.id, NOT_FOUND)),
+            NOT_FOUND,
+        );
+
+        return { companyId: absence.companyId, ownerId: absence.id, owner: absence };
+    },
+    // Um pedido por decidir que ganha uma justificação volta a merecer um olhar.
+    // Se foi um admin a juntá-la, já é um de quem decide: não há a quem avisar.
+    afterUpload: async (actor, absence) => {
+        if (absence.status !== AbsenceStatus.Pending || actor.id !== absence.userId) {
+            return;
+        }
+
+        await notifier.notify("absence.document_added", {
+            companyId: absence.companyId,
+            recipientIds: await deciderIds(absence),
+            exclude: [actor.id],
+            data: notificationData(absence),
+        });
+    },
+    messages: { uploaded: "Documento anexado", removed: "Documento apagado", notFound: "Documento não encontrado" },
+});
+
+export const uploadAbsenceDocument = documents.upload;
+export const removeAbsenceDocument = documents.remove;
 
 /** Os dias úteis de ausências aprovadas num ano. Os pedidos que passam a passagem de ano contam só a parte de dentro. */
 export const getAbsenceSummary = async (req: Request, res: Response) => {

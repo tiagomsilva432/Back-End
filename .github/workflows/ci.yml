@@ -86,6 +86,12 @@ jobs:
       - name: Production image builds
         run: docker build -f Dockerfile.prod -t back-end:prod .
 
+      # sharp ships native libvips binaries, picked by platform at npm install.
+      # This runner is linux/amd64 with glibc, like the production server, so
+      # if the image processes a photo here, it will there too.
+      - name: sharp works in the production image
+        run: docker run --rm back-end:prod node dist/scripts/check-sharp.js
+
 
       - name: Smoke test the compiled build
         env:

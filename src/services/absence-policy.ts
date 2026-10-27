@@ -1,7 +1,7 @@
 import { HttpError } from "../dtos/common/errors-dto.js";
 import type { AbsenceRequest } from "../entities/AbsenceRequest.js";
 import type { User } from "../entities/User.js";
-import { AbsenceType, UserRole } from "../types/enums.js";
+import { AbsenceStatus, AbsenceType, UserRole } from "../types/enums.js";
 
 type Actor = Pick<User, "id" | "role" | "companyId">;
 type Owned = Pick<AbsenceRequest, "userId" | "companyId">;
@@ -55,6 +55,25 @@ export function requireDecidableAbsence(
 
     if (!canDecideAbsence(actor, readable)) {
         throw new HttpError(403, "Ninguém aprova nem recusa um pedido seu");
+    }
+
+    return readable;
+}
+
+/**
+ * Quem junta ou tira um documento: quem vê o pedido (a pessoa, ou quem gere as
+ * ausências da empresa), enquanto ele está ativo. Um recusado ou cancelado já
+ * não se justifica: 409, como as outras ações sobre um pedido que acabou.
+ */
+export function requireAttachableAbsence(
+    actor: Actor,
+    absence: AbsenceRequest | null,
+    notFoundMessage: string,
+): AbsenceRequest {
+    const readable = requireReadableAbsence(actor, absence, notFoundMessage);
+
+    if (readable.status !== AbsenceStatus.Pending && readable.status !== AbsenceStatus.Approved) {
+        throw new HttpError(409, `Este pedido já não está ativo: está ${readable.status}`);
     }
 
     return readable;

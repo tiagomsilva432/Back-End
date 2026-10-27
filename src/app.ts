@@ -19,6 +19,7 @@ import absenceRouter from "./routes/absence-routes.js"
 import calendarRouter from "./routes/calendar-routes.js"
 import expenseRouter from "./routes/expense-routes.js"
 import financeRouter from "./routes/finance-routes.js"
+import fileRouter from "./routes/file-routes.js"
 
 export const app = express();
 //Middlewares globais
@@ -43,6 +44,7 @@ app.use(absenceRouter);
 app.use(calendarRouter);
 app.use(expenseRouter);
 app.use(financeRouter);
+app.use(fileRouter);
 
 //Rota não encontrada
 app.use((_req: Request, res: Response) => {

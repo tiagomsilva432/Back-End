@@ -8,7 +8,11 @@
 	}
 
 	# The API, without the /api prefix. Server-Sent Events are flushed as they arrive.
+	# The biggest upload is 10 MB; the API checks each kind's limit itself.
 	handle_path /api/* {
+		request_body {
+			max_size 15MB
+		}
 		reverse_proxy api:3000
 	}
 

@@ -14,6 +14,7 @@ import { absencePaths } from "../routes/absence-routes.js";
 import { calendarPaths } from "../routes/calendar-routes.js";
 import { expensePaths } from "../routes/expense-routes.js";
 import { financePaths } from "../routes/finance-routes.js";
+import { filePaths } from "../routes/file-routes.js";
 import { apiPublicUrl } from "../env-vars.js";
 import { docsPaths } from "./docs-paths.js";
 
@@ -46,6 +47,8 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
         { name: "Calendário", description: "Feriados e ausências, da empresa ou de um projeto" },
         { name: "Despesas", description: "O que se gasta num projeto, ou na própria empresa" },
         { name: "Finanças", description: "O painel da empresa, e o orçamento de cada projeto" },
+        { name: "Ficheiros", description: "Os links dos avatares, dos recibos e dos documentos das ausências" },
+        { name: "Ficheiros", description: "Os links dos avatares, recibos e documentos" },
     ],
     paths: {
         ...healthPaths,
@@ -64,6 +67,7 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
         ...calendarPaths,
         ...expensePaths,
         ...financePaths,
+        ...filePaths,
     },
     // Os schemas entram sozinhos: cada um com .meta({ id }) é registado ao ser usado.
     components: {

@@ -293,16 +293,6 @@ describe("PUT /users/:id/profile", () => {
             { firstName: "a".repeat(101), lastName: "Mendes", hireDate: "2026-01-15" },
             "firstName",
         ],
-        [
-            "avatarUrl que não é url",
-            {
-                firstName: "Carla",
-                lastName: "Mendes",
-                hireDate: "2026-01-15",
-                avatarUrl: "nao-e-url",
-            },
-            "avatarUrl",
-        ],
     ])("devolve 400 com %s", async (_titulo, corpo, field) => {
         const { user: empregado, header } = await createActor(UserRole.Employee);
 

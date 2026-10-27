@@ -13,3 +13,6 @@ dist
 
 *.log
 npm-debug.log*
+
+# Local uploads stay local: the image starts with an empty uploads/.
+uploads
