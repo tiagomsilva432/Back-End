@@ -15,6 +15,9 @@ import { calendarPaths } from "../routes/calendar-routes.js";
 import { expensePaths } from "../routes/expense-routes.js";
 import { financePaths } from "../routes/finance-routes.js";
 import { filePaths } from "../routes/file-routes.js";
+import { projectResourcePaths } from "../routes/project-resource-routes.js";
+import { projectMessagePaths } from "../routes/project-message-routes.js";
+import { projectTaskPaths } from "../routes/project-task-routes.js";
 import { apiPublicUrl } from "../env-vars.js";
 import { docsPaths } from "./docs-paths.js";
 
@@ -36,6 +39,9 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
         { name: "Auth", description: "Autenticação e gestão de contas" },
         { name: "Empresas", description: "Gestão de empresas" },
         { name: "Projetos", description: "Gestão de projetos" },
+        { name: "Recursos", description: "Links, notas e ficheiros úteis de um projeto, para quem está nele" },
+        { name: "Chat", description: "As mensagens de um projeto, e o que falta ler" },
+        { name: "Tarefas", description: "O quadro de cada projeto: tarefas, anexos e comentários" },
         { name: "Utilizadores", description: "Diretório de pessoas e perfis" },
         { name: "Alocações", description: "Quem trabalha em quê" },
         { name: "Competências", description: "O catálogo de competências e quem as tem" },
@@ -68,6 +74,9 @@ export const openApiDocument: ReturnType<typeof createDocument> = createDocument
         ...expensePaths,
         ...financePaths,
         ...filePaths,
+        ...projectResourcePaths,
+        ...projectMessagePaths,
+        ...projectTaskPaths,
     },
     // Os schemas entram sozinhos: cada um com .meta({ id }) é registado ao ser usado.
     components: {

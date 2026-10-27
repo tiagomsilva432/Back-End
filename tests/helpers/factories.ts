@@ -9,6 +9,10 @@ import { Notification } from "../../src/entities/Notification.js";
 import { EmployeeProfile } from "../../src/entities/EmployeeProfile.js";
 import { EmployeeSkill } from "../../src/entities/EmployeeSkill.js";
 import { Project } from "../../src/entities/Project.js";
+import { ProjectMessage } from "../../src/entities/ProjectMessage.js";
+import { ProjectResource } from "../../src/entities/ProjectResource.js";
+import { ProjectTask } from "../../src/entities/ProjectTask.js";
+import { ProjectTaskComment } from "../../src/entities/ProjectTaskComment.js";
 import { Review } from "../../src/entities/Review.js";
 import { ReviewCycle } from "../../src/entities/ReviewCycle.js";
 import { ReviewRequest } from "../../src/entities/ReviewRequest.js";
@@ -24,6 +28,8 @@ import {
     ProjectStatus,
     ReviewRequestStatus,
     SkillCategory,
+    TaskPriority,
+    TaskStatus,
     UserRole,
     UserStatus,
 } from "../../src/types/enums.js";
@@ -402,6 +408,91 @@ export async function criarDespesa(
             category: opcoes.category ?? ExpenseCategory.Software,
             incurredOn: opcoes.incurredOn ?? "2025-06-15",
             createdBy,
+        }),
+    );
+}
+
+interface OpcoesRecurso {
+    title?: string;
+    url?: string | null;
+    note?: string | null;
+}
+
+/** Um link para o repositório por omissão. */
+export async function criarRecurso(
+    projectId: string,
+    createdBy: string,
+    opcoes: OpcoesRecurso = {},
+): Promise<ProjectResource> {
+    const repo = manager().getRepository(ProjectResource);
+
+    return repo.save(
+        repo.create({
+            projectId,
+            createdBy,
+            title: opcoes.title ?? `Recurso ${proximo()}`,
+            url: opcoes.url === undefined ? "https://github.com/empresa/projeto" : opcoes.url,
+            note: opcoes.note ?? null,
+        }),
+    );
+}
+
+/** Uma mensagem no chat de um projeto. O id é uuidv7: cada uma é mais recente do que a anterior. */
+export async function criarMensagem(projectId: string, authorId: string, body?: string): Promise<ProjectMessage> {
+    const repo = manager().getRepository(ProjectMessage);
+
+    return repo.save(
+        repo.create({
+            projectId,
+            authorId,
+            body: body ?? `Mensagem ${proximo()}`,
+        }),
+    );
+}
+
+interface OpcoesTarefa {
+    title?: string;
+    status?: TaskStatus;
+    position?: number;
+    assigneeId?: string | null;
+    priority?: TaskPriority;
+    labels?: string[];
+}
+
+/**
+ * Uma tarefa em todo por omissão. A posição vem de um contador, por isso as
+ * que se criam a seguir ficam por baixo, pela ordem em que foram criadas.
+ */
+export async function criarTarefa(projectId: string, createdBy: string, opcoes: OpcoesTarefa = {}): Promise<ProjectTask> {
+    const repo = manager().getRepository(ProjectTask);
+    const n = proximo();
+    const status = opcoes.status ?? TaskStatus.Todo;
+
+    return repo.save(
+        repo.create({
+            projectId,
+            createdBy,
+            title: opcoes.title ?? `Tarefa ${n}`,
+            description: null,
+            status,
+            position: opcoes.position ?? n,
+            assigneeId: opcoes.assigneeId ?? null,
+            dueDate: null,
+            priority: opcoes.priority ?? TaskPriority.Medium,
+            labels: opcoes.labels ?? [],
+            completedAt: status === TaskStatus.Done ? new Date() : null,
+        }),
+    );
+}
+
+export async function criarComentario(taskId: string, authorId: string, body?: string): Promise<ProjectTaskComment> {
+    const repo = manager().getRepository(ProjectTaskComment);
+
+    return repo.save(
+        repo.create({
+            taskId,
+            authorId,
+            body: body ?? `Comentário ${proximo()}`,
         }),
     );
 }

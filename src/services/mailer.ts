@@ -2,12 +2,15 @@ import nodemailer, { type Transporter } from "nodemailer";
 import {
     mailAllowCompanyFrom,
     mailFrom,
+    passwordResetExpDate,
+    signupTokenExpDate,
     smtpHost,
     smtpPassword,
     smtpPort,
     smtpUser,
 } from "../env-vars.js";
 import type { Company } from "../entities/Company.js";
+import { logoAttachment, renderEmail, type EmailContent } from "./email-template.js";
 
 let transporter: Transporter | null = null;
 
@@ -51,49 +54,57 @@ export function buildEnvelope(company: Sender) {
     };
 }
 
-async function send(company: Sender, to: string, subject: string, text: string): Promise<void> {
+/** Cada email vai em HTML (com o logótipo embutido) e em texto simples, para quem não mostra HTML. */
+async function send(company: Sender, to: string, subject: string, content: Omit<EmailContent, "companyName">): Promise<void> {
     const { from, replyTo } = buildEnvelope(company);
     const transport = getTransporter();
+    const { html, text } = renderEmail({ ...content, companyName: company.name });
 
     if (!transport) {
-        console.log(`[mailer] SMTP por configurar. Email para ${to} não enviado:\n${text}`);
+        console.log(`[mailer] SMTP por configurar. Email para ${to} não enviado:
+${text}`);
         return;
     }
 
-    await transport.sendMail({ from, replyTo, to, subject, text });
+    await transport.sendMail({ from, replyTo, to, subject, text, html, attachments: [logoAttachment()] });
     console.log(`[mailer] Email "${subject}" enviado para ${to}`);
 }
 
+const dias = (ms: number): string => {
+    const n = Math.round(ms / 86_400_000);
+    return n === 1 ? "1 dia" : `${n} dias`;
+};
+const horas = (ms: number): string => {
+    const n = Math.round(ms / 3_600_000);
+    return n === 1 ? "1 hora" : `${n} horas`;
+};
+
 async function sendActivationEmail(company: Sender, to: string, activationUrl: string): Promise<void> {
-    await send(
-        company,
-        to,
-        `ERP "Os Silvas" - Ativação de conta na empresa ${company.name}`,
-        [
-            `Foi criada uma conta para ti no sistema da empresa ${company.name}.`,
-            "",
-            "Define a tua password aqui:",
-            activationUrl,
-            "",
-            "Se não estavas à espera deste email, ignora-o.",
-        ].join("\n"),
-    );
+    await send(company, to, `Ative a sua conta no ERP da ${company.name}`, {
+        preheader: `Foi criada uma conta para si no ERP da ${company.name}. Defina a sua password para começar.`,
+        title: `Boas-vindas ao ERP da ${company.name}`,
+        paragraphs: [
+            `Foi criada uma conta para si no ERP da ${company.name}, onde vai encontrar os seus projetos, ausências, avaliações e avisos da equipa.`,
+            "Para começar, ative a conta e defina a sua password.",
+        ],
+        button: { label: "Ativar a minha conta", url: activationUrl },
+        note: `Por segurança, este link é válido durante ${dias(signupTokenExpDate())} e só pode ser usado uma vez.`,
+        footnote: `Recebeu este email porque foi criada uma conta com este endereço no ERP da ${company.name}. Se não estava à espera dele, pode ignorá-lo.`,
+    });
 }
 
 async function sendPasswordResetEmail(company: Sender, to: string, resetUrl: string): Promise<void> {
-    await send(
-        company,
-        to,
-        `ERP "Os Silvas" - Redefinição de password na empresa ${company.name}`,
-        [
-            `Foi pedida a redefinição da password da tua conta na empresa ${company.name}.`,
-            "",
-            "Define uma password nova aqui:",
-            resetUrl,
-            "",
-            "Se não foste tu, ignora este email: a password atual continua válida.",
-        ].join("\n"),
-    );
+    await send(company, to, `Redefinição da sua password · ERP Os Silvas (${company.name})`, {
+        preheader: "Recebemos um pedido para redefinir a password da sua conta.",
+        title: "Redefinir a sua password",
+        paragraphs: [
+            `Recebemos um pedido para redefinir a password da sua conta no ERP da ${company.name}.`,
+            "Carregue no botão para escolher uma password nova.",
+        ],
+        button: { label: "Definir nova password", url: resetUrl },
+        note: `Por segurança, este link é válido durante ${horas(passwordResetExpDate())} e só pode ser usado uma vez.`,
+        footnote: "Se não foi você que fez este pedido, ignore este email: a sua password atual continua válida.",
+    });
 }
 
 /** Objeto e não exports soltos: é o que permite o jest.spyOn nos testes. */

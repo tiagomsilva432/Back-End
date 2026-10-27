@@ -20,6 +20,9 @@ import calendarRouter from "./routes/calendar-routes.js"
 import expenseRouter from "./routes/expense-routes.js"
 import financeRouter from "./routes/finance-routes.js"
 import fileRouter from "./routes/file-routes.js"
+import projectResourceRouter from "./routes/project-resource-routes.js"
+import projectMessageRouter from "./routes/project-message-routes.js"
+import projectTaskRouter from "./routes/project-task-routes.js"
 
 export const app = express();
 //Middlewares globais
@@ -45,6 +48,9 @@ app.use(calendarRouter);
 app.use(expenseRouter);
 app.use(financeRouter);
 app.use(fileRouter);
+app.use(projectResourceRouter);
+app.use(projectMessageRouter);
+app.use(projectTaskRouter);
 
 //Rota não encontrada
 app.use((_req: Request, res: Response) => {
