@@ -16,6 +16,9 @@ import { AbsenceRequest } from "./AbsenceRequest.js";
 import { CompanyHoliday } from "./CompanyHoliday.js";
 import { Expense } from "./Expense.js";
 import { StoredFile } from "./StoredFile.js";
+import { ProjectResource } from "./ProjectResource.js";
+import { ProjectMessage } from "./ProjectMessage.js";
+import { ProjectMessageRead } from "./ProjectMessageRead.js";
 
 export {
     Company,
@@ -36,6 +39,9 @@ export {
     CompanyHoliday,
     Expense,
     StoredFile,
+    ProjectResource,
+    ProjectMessage,
+    ProjectMessageRead,
 };
 
 /** Feeds DataSource.entities - keep every new entity registered here. */
@@ -58,4 +64,7 @@ export const entities = [
     CompanyHoliday,
     Expense,
     StoredFile,
+    ProjectResource,
+    ProjectMessage,
+    ProjectMessageRead,
 ];

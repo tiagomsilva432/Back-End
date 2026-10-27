@@ -60,4 +60,15 @@ export const FILE_KINDS: Record<FileKind, FileKindSpec> = {
         image: "photo",
         flagDuplicates: false,
     },
+    [FileKind.ProjectResourceFile]: {
+        kind: FileKind.ProjectResourceFile,
+        label: "recurso",
+        maxBytes: 10 * MB,
+        types: PAPERS,
+        // Um recurso é uma coisa: um novo substitui o que lá está.
+        maxPerOwner: 1,
+        ownerTable: "project_resources",
+        image: "photo",
+        flagDuplicates: false,
+    },
 };

@@ -161,6 +161,8 @@ export const notificationPaths: ZodOpenApiPathsObject = {
                 "- `ready` `{ unread }`: ligado. O cliente lê `GET /notifications/mine` para acertar o que perdeu.\n" +
                 "- `notification`: uma notificação nova, com a forma de `Notification`.\n" +
                 "- `announcement`: `{ action: \"created\" | \"updated\", announcement }` ou `{ action: \"deleted\", id }`.\n" +
+                "- `project_message`: o chat de um projeto, `{ action: \"created\" | \"updated\", message }` ou " +
+                "`{ action: \"deleted\", projectId, id }`.\n" +
                 "- `close` `{ reason }`: logo antes de fechar. `token_expired` (volta a fazer login), " +
                 "`account_inactive` (a conta deixou de estar ativa), `server_shutdown` (volta a ligar daqui a pouco) " +
                 "ou `too_many_connections` (mais de 5 abertas: esta era a mais antiga, não volta a ligar).\n\n" +

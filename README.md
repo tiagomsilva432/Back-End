@@ -565,6 +565,65 @@ answers 403. Announcements are not notifications: a system announcement does
 not write one row per user across every company. Who has read what lives in
 `announcement_reads`.
 
+### Project resources
+
+Useful things for the people on a project: a link (the repository, the test
+server), a note, a file, or any mix of them under one `title`.
+
+Resources and the [project chat](#project-chat) belong to the project's
+**members**: anyone with an allocation that has not ended yet, the project's
+manager, a `company_admin` of its company, or a `system_admin`. Anyone else in
+the company answers 403; another company answers 404, as everywhere.
+
+| Endpoint | Who |
+| --- | --- |
+| `GET /projects/{id}/resources` | members; oldest first, each with its `file` or `null` |
+| `POST /projects/{id}/resources` | members; only `title` is required |
+| `PATCH /projects/{id}/resources/{resourceId}` | an admin or the manager, for any resource; another member, only for the ones they added. Merges like the other `PATCH`es: `null` clears `url` or `note` |
+| `DELETE /projects/{id}/resources/{resourceId}` | the same; deletes its file too |
+| `PUT /projects/{id}/resources/{resourceId}/file` | the same; uploads [the file](#files), replacing the old one |
+| `DELETE /projects/{id}/resources/{resourceId}/file` | the same; 404 when there is none |
+
+`url` takes `http` and `https` only - a `javascript:` link in an `href` would
+run in the browser of whoever clicked it. `url`, `note` and the file are all
+optional, because the file is uploaded after the resource exists: the form
+should ask for at least one of them, the API does not. A member whose
+allocation ends loses access, including to the resources they added.
+
+### Project chat
+
+A message board per project, for its [members](#project-resources). Messages
+are plain text of up to 2000 characters, and carry only the `authorId`: names
+and avatars come from `GET /users`.
+
+| Endpoint | What it is |
+| --- | --- |
+| `GET /projects/{id}/messages` | newest first, in pages: `?limit=` (1-100, default 30), `?before=` with the previous page's `nextBefore`. Also returns `lastReadMessageId` |
+| `POST /projects/{id}/messages` | post one: `{ body }` |
+| `PATCH /projects/{id}/messages/{messageId}` | the author only, not even an admin; sets `editedAt` |
+| `DELETE /projects/{id}/messages/{messageId}` | the author, the manager or an admin; deleted for good |
+| `POST /projects/{id}/messages/read` | marks the chat read up to the newest message; returns `{ lastReadMessageId }` |
+| `GET /projects/messages/unread` | `{ total, projects: [{ projectId, unread }] }`, for the badges |
+
+**Unread.** Each person has one marker per project, in `project_message_reads`:
+the id of the last message they read. Message ids are uuidv7, which sort by
+time, so "unread" is every message from someone else with a greater id - or all
+of them, before the first read. Reading a page does not move the marker; the
+client calls `.../read` while the chat is on screen. Posting moves the author's
+marker to their own message. `lastReadMessageId` in the page is where to draw a
+"new messages" divider.
+
+`GET /projects/messages/unread` covers the projects the caller is allocated to
+or manages, and lists only those with something unread. An admin who is not on
+a project can read and post in its chat, but it does not count there - for a
+`company_admin` that would be every project in the company.
+
+**Live.** Posting, editing and deleting push `event: project_message` through
+the [notification stream](#notifications) to the members, the manager and the
+company's active `company_admin`s - the author included, for their other tabs.
+A `system_admin` reads and posts, but gets no live push. Chat messages are not
+notifications: they would flood the inbox, and the unread badge does that job.
+
 ### Absences
 
 Vacation, sick days, other leave, and unjustified absences ("faltas"). A person
@@ -757,6 +816,7 @@ async function connect() {
   es.addEventListener("ready", () => syncInbox());   // GET /notifications/mine
   es.addEventListener("notification", (e) => addToBell(JSON.parse(e.data)));
   es.addEventListener("announcement", (e) => updateBanners(JSON.parse(e.data)));
+  es.addEventListener("project_message", (e) => updateChat(JSON.parse(e.data)));
   es.addEventListener("close", (e) => {
     es.close();
     if (JSON.parse(e.data).reason === "server_shutdown") setTimeout(connect, 3000);
@@ -770,6 +830,7 @@ async function connect() {
 | `ready` | `{ unread }`: connected. Re-sync the inbox over REST |
 | `notification` | one notification, shaped like the REST ones |
 | `announcement` | `{ action: "created" \| "updated", announcement }`, or `{ action: "deleted", id }` |
+| `project_message` | a [project chat](#project-chat) change: `{ action: "created" \| "updated", message }`, or `{ action: "deleted", projectId, id }` |
 | `close` | `{ reason }`, right before the server ends the stream |
 
 The `close` reasons are `token_expired` (the JWT behind the ticket ran out: log
@@ -790,7 +851,8 @@ six or so connections to the API.
 
 ### Files
 
-Avatars, expense receipts and absence documents go through one system. Each is
+Avatars, expense receipts, absence documents and project resource files go
+through one system. Each is
 uploaded on the resource it belongs to, as `multipart/form-data` with the file in
 a field called `file`:
 
@@ -805,10 +867,11 @@ await api.post(`/expenses/${id}/receipts`, form); // with the Bearer, as always
 | `avatar` | `PUT /users/{id}/avatar` | JPEG, PNG, WebP | 5 MB | 1, replaced by the next |
 | `expense_receipt` | `POST /expenses/{id}/receipts` | JPEG, PNG, WebP, PDF | 10 MB | 5 |
 | `absence_document` | `POST /absences/{id}/documents` | JPEG, PNG, WebP, PDF | 10 MB | 5 |
+| `resource_file` | `PUT /projects/{id}/resources/{resourceId}/file` | JPEG, PNG, WebP, PDF | 10 MB | 1, replaced by the next |
 
 Whoever may change the resource may add and delete its files, with the same 404
 and 403 as the resource's other routes. The resource then comes back with its
-files (`avatarUrl`, `receipts`, `documents`), each shaped as `{ id, kind, name,
+files (`avatarUrl`, `receipts`, `documents`, `file`), each shaped as `{ id, kind, name,
 mimeType, size, url, uploadedBy, createdAt, duplicateOwnerIds }`.
 
 - **The type is read from the bytes**, never from the extension or the

@@ -98,5 +98,6 @@ export enum FileKind {
     Avatar = "avatar",
     ExpenseReceipt = "expense_receipt",
     AbsenceDocument = "absence_document",
+    ProjectResourceFile = "resource_file",
 }
 export const isFileKind = guard(FileKind);
