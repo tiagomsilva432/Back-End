@@ -170,6 +170,15 @@ export async function getManagerIdsOfProjectsAllocatedBetween(
     return rows.map((row) => row.managerId);
 }
 
+/** As alocações de todos os projetos de uma empresa, de sempre: o custo em pessoas de cada um. */
+export async function getAllocationsByCompanyId(companyId: string): Promise<Allocation[]> {
+    return await allocationRepo
+        .createQueryBuilder("a")
+        .innerJoin("a.project", "p")
+        .where("p.companyId = :companyId", { companyId })
+        .getMany();
+}
+
 export async function createAllocation(allocation: Allocation) {
     return await allocationRepo.save(allocation);
 }

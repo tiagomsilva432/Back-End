@@ -14,6 +14,7 @@ import { AnnouncementRead } from "./AnnouncementRead.js";
 import { Notification } from "./Notification.js";
 import { AbsenceRequest } from "./AbsenceRequest.js";
 import { CompanyHoliday } from "./CompanyHoliday.js";
+import { Expense } from "./Expense.js";
 
 export {
     Company,
@@ -32,6 +33,7 @@ export {
     Notification,
     AbsenceRequest,
     CompanyHoliday,
+    Expense,
 };
 
 /** Feeds DataSource.entities - keep every new entity registered here. */
@@ -52,4 +54,5 @@ export const entities = [
     Notification,
     AbsenceRequest,
     CompanyHoliday,
+    Expense,
 ];

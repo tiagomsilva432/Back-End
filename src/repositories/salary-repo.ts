@@ -1,4 +1,4 @@
-import { IsNull, LessThanOrEqual, MoreThan } from "typeorm";
+import { In, IsNull, LessThanOrEqual, MoreThan } from "typeorm";
 import { AppDataSource } from "../data-source.js";
 import { Salary } from "../entities/Salary.js";
 
@@ -19,6 +19,30 @@ export async function getSalaryInForce(userId: string, date: string): Promise<Sa
             { userId, effectiveFrom: LessThanOrEqual(date), effectiveTo: MoreThan(date) },
         ],
         order: { effectiveFrom: "DESC" }
+    });
+}
+
+/**
+ * Os salários de toda a gente de uma empresa, de sempre. Também os de quem já
+ * saiu, mesmo com a conta apagada: foram pagos, e contam no que se gastou.
+ */
+export async function getSalariesByCompanyId(companyId: string): Promise<Salary[]> {
+    return await salaryRepo
+        .createQueryBuilder("s")
+        // Antes do join: o TypeORM só deixa de filtrar os apagados nos joins feitos depois.
+        .withDeleted()
+        .innerJoin("s.user", "u")
+        .where("u.companyId = :companyId", { companyId })
+        .getMany();
+}
+
+export async function getSalariesByUserIds(userIds: string[]): Promise<Salary[]> {
+    if (userIds.length === 0) {
+        return [];
+    }
+
+    return await salaryRepo.find({
+        where: { userId: In(userIds) }
     });
 }
 

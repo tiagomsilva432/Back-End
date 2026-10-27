@@ -22,6 +22,7 @@ import {
     updateProject,
 } from "../repositories/project-repo.js";
 import { getUserById } from "../repositories/user-repo.js";
+import { notifyBudgetCrossings } from "../services/budget-alerts.js";
 import { requireInReach, resolveCompanyScope } from "../services/company-scope.js";
 import { notifier } from "../services/notifier.js";
 import { uuidParam } from "../utils/params.js";
@@ -151,6 +152,7 @@ export const patchProject = async (req: Request, res: Response) => {
 
     // O save devolve o mesmo objeto, por isso o "antes" guarda-se já.
     const previous = { managerId: project.managerId, status: project.status };
+    const previousBudget = project.budget;
 
     const startDate = body.startDate === undefined ? project.startDate : body.startDate;
     const endDate = body.endDate === undefined ? project.endDate : body.endDate;
@@ -200,6 +202,11 @@ export const patchProject = async (req: Request, res: Response) => {
     const saved = await updateProject(project);
 
     await notifyProjectChanges(actor, saved, previous);
+
+    // Baixar o orçamento pode pôr o que já se gastou acima dos 80% ou dos 100%.
+    if (saved.budget !== previousBudget) {
+        await notifyBudgetCrossings(actor, saved, { previousBudget });
+    }
 
     return new HttpResponse(200, "Projeto atualizado", undefined, toResponse(saved)).send(res);
 }

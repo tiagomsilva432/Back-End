@@ -15,6 +15,18 @@ export const flag = (description: string) =>
     z.enum(["true", "false"]).optional().transform((v) => v === "true")
         .meta({ example: "true", description });
 
+/**
+ * Uma lista na query string, separada por vírgulas: "a,b". Ausente ou vazia, não
+ * filtra. Repetir o parâmetro (?a=1&a=2) não serve: chega um array, e é 400.
+ */
+export const csvList = <T extends z.ZodType<unknown, string>>(item: T) =>
+    z.string().optional()
+        .transform((value) => {
+            const parts = value?.split(",").map((part) => part.trim()).filter(Boolean) ?? [];
+            return parts.length > 0 ? parts : undefined;
+        })
+        .pipe(z.array(item).optional());
+
 const currentYear = () => Number(isoDate().slice(0, 4));
 
 export const yearSchema = z.coerce.number().int().min(2000).max(2100).default(currentYear)
