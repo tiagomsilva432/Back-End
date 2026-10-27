@@ -25,6 +25,8 @@ interface FileHandlerOptions<O> {
     requireOwner: (actor: User, req: Request) => Promise<FileOwner<O>>;
     /** Depois de gravado, com await antes de responder: notificações e afins. */
     afterUpload?: (actor: User, owner: O, file: StoredFile) => Promise<void>;
+    /** O mesmo, depois de apagar. */
+    afterRemove?: (actor: User, owner: O) => Promise<void>;
     messages: { uploaded: string; removed: string; notFound: string };
 }
 
@@ -52,7 +54,7 @@ export function fileHandlers<O>(spec: FileKindSpec, options: FileHandlerOptions<
 
     const remove = async (req: Request, res: Response) => {
         const actor: User = getCurrentActor(req);
-        const { ownerId } = await options.requireOwner(actor, req);
+        const { ownerId, owner } = await options.requireOwner(actor, req);
 
         const files = req.params.fileId === undefined
             ? await getFilesOfOwner(spec.kind, ownerId)
@@ -67,6 +69,8 @@ export function fileHandlers<O>(spec: FileKindSpec, options: FileHandlerOptions<
         for (const file of files) {
             await removeFile(file);
         }
+
+        await options.afterRemove?.(actor, owner);
 
         return new HttpResponse(200, options.messages.removed).send(res);
     };
