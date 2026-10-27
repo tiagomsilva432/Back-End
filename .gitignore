@@ -143,3 +143,6 @@ vite.config.ts.timestamp-*
 
 # Production database dumps (deploy/backup.sh) stay on the server
 backups/
+
+# Uploaded files (avatars, receipts, absence documents): never in git
+uploads/

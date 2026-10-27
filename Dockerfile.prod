@@ -23,6 +23,10 @@ RUN npm install --omit=dev && npm cache clean --force
 
 COPY --from=build /app/dist ./dist
 
+# The uploads volume mounts here. A new named volume copies this directory's
+# owner, so the API (running as node) can write to it.
+RUN mkdir -p uploads && chown node:node uploads
+
 USER node
 EXPOSE 3000
 CMD ["node", "dist/server.js"]

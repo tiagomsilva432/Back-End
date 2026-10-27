@@ -91,7 +91,7 @@ npm run dev
 
 ## The API
 
-Besides the auth routes (login, activation, password reset), four routes need
+Besides the auth routes (login, activation, password reset), five routes need
 no token, and the first one is where to start:
 
 | Endpoint | What it is |
@@ -100,6 +100,7 @@ no token, and the first one is where to start:
 | `GET /docs.json` | the same thing as an OpenAPI 3.1 document |
 | `GET /health` | the server is up |
 | `GET /health/db` | the server can reach the database; 503 if it cannot |
+| `GET /files/{id}` | an uploaded file, through the signed `url` a resource handed out (see [Files](#files)) |
 
 `/docs` is the reference: every endpoint below is documented there with its
 request body, its responses and its permission rules, and it cannot drift
@@ -221,11 +222,17 @@ Writing a profile is narrower than reading one:
 | Endpoint | Who |
 | --- | --- |
 | `PUT /users/{id}/profile` | the person themselves, a `company_admin` over its own company, or a `system_admin` |
+| `PUT /users/{id}/avatar` | the same - uploads the avatar ([a file](#files)), replacing the old one |
+| `DELETE /users/{id}/avatar` | the same; 404 when there is none |
 
 An `employee` editing a colleague gets 403 - the id is already visible in the
 directory, so there is nothing left to hide. It is a `PUT`, so it replaces: an
 optional field left out of the body is cleared to `null`. It answers 201 when it
 creates the profile and 200 when it updates one.
+
+The avatar is not part of that body, so a profile `PUT` never clears it. It is a
+JPEG, PNG or WebP of up to 5 MB, stored as a 512 px WebP square, and every
+profile carries it as `avatarUrl` (a signed link) or `null`.
 
 Anything outside the caller's reach answers **404, not 403** - a 403 would
 confirm the id exists. The same applies to an id that is not a uuid.
@@ -356,6 +363,8 @@ the [finance dashboard](#finance-dashboard) adds them up on their own.
 | `GET /expenses/{id}` | whoever could have logged it |
 | `PATCH /expenses/{id}` | the same |
 | `DELETE /expenses/{id}` | the same |
+| `POST /expenses/{id}/receipts` | the same - attaches a receipt ([a file](#files)) |
+| `DELETE /expenses/{id}/receipts/{fileId}` | the same |
 
 An expense is `{ projectId?, title, description?, amount, category, incurredOn? }`.
 
@@ -377,6 +386,14 @@ There is no approval step: an expense counts as soon as it is logged, and
 The manager is the one `employee` who can do any of this, and only on their own
 projects. A colleague asking for an expense of their company gets 403; one from
 another company answers 404.
+
+**Receipts.** Up to five per expense: JPEG, PNG, WebP or PDF of up to 10 MB,
+sent after the expense exists. Every expense comes back with its `receipts`.
+The same file twice on one expense answers 409. The same file on **another**
+expense of the company is accepted but flagged: its `duplicateOwnerIds` lists
+those expenses, on the upload's 201 and on every read, so a receipt claimed
+twice is visible to whoever reviews the spending. Deleting an expense deletes
+its receipts.
 
 ### Finance dashboard
 
@@ -565,6 +582,8 @@ show up.
 | `POST /absences/{id}/approve` | a `system_admin`, or a `company_admin` of that company - **never on its own request** |
 | `POST /absences/{id}/reject` | the same; optional `{ reason }` |
 | `POST /absences/{id}/cancel` | the person, or the same deciders; optional `{ reason }` |
+| `POST /absences/{id}/documents` | the person, or whoever manages that company's absences - attaches a justification ([a file](#files)) |
+| `DELETE /absences/{id}/documents/{fileId}` | the same |
 | `POST /users/{id}/absences` | the same deciders - registers an absence for that person, already approved |
 | `GET /users/{id}/absence-summary` | the person, or whoever manages that company's absences; takes `?year=` |
 
@@ -628,6 +647,13 @@ company's absences (a `system_admin`, or a `company_admin` of that company) see
 the real `type` and the `note`. Everyone else sees vacation as `vacation`, and
 sick days, leave and faltas only as `absent`. A colleague asking for someone else's
 request gets 404, and a colleague asking for someone's summary gets 403.
+
+**Documents.** A sick note or any other justification: up to five per request,
+JPEG, PNG, WebP or PDF of up to 10 MB, while the request is `pending` or
+`approved` (anything else answers 409). They come back in `documents`, which
+like the `note` only the person and the admins ever see - the calendar never
+shows them. When the person adds one to a `pending` request, the deciders get
+`absence.document_added`; an admin adding one notifies nobody.
 
 **Summary.** `GET /users/{id}/absence-summary?year=2026` adds up the working days
 of the approved absences in that year, by type: `{ userId, year, vacation, sick,
@@ -708,6 +734,7 @@ and a ready-to-show Portuguese `message`. The types today:
 | `absence.registered` | the person | an admin registers an absence for them: a falta, or another type already approved |
 | `absence.cancelled` | the person if an admin cancelled it, or the deciders if the person did | a request is cancelled |
 | `absence.teammate_away` | managers of the projects where the person is allocated on those days | an absence is approved or registered, while it has not ended yet. `type` is masked to `vacation` or `absent` |
+| `absence.document_added` | the deciders | the person attaches a document to a request still `pending` |
 
 Whoever performed the action is never notified of it.
 
@@ -760,6 +787,65 @@ log masks `ticket=` in the URLs it prints.
 with **one** API process; several would need a shared channel such as Postgres
 `LISTEN/NOTIFY`. Over HTTP/1.1, each tab's stream takes one of the browser's
 six or so connections to the API.
+
+### Files
+
+Avatars, expense receipts and absence documents go through one system. Each is
+uploaded on the resource it belongs to, as `multipart/form-data` with the file in
+a field called `file`:
+
+```js
+const form = new FormData();
+form.append("file", input.files[0]);
+await api.post(`/expenses/${id}/receipts`, form); // with the Bearer, as always
+```
+
+| Kind | Upload | Types | Size | How many |
+| --- | --- | --- | --- | --- |
+| `avatar` | `PUT /users/{id}/avatar` | JPEG, PNG, WebP | 5 MB | 1, replaced by the next |
+| `expense_receipt` | `POST /expenses/{id}/receipts` | JPEG, PNG, WebP, PDF | 10 MB | 5 |
+| `absence_document` | `POST /absences/{id}/documents` | JPEG, PNG, WebP, PDF | 10 MB | 5 |
+
+Whoever may change the resource may add and delete its files, with the same 404
+and 403 as the resource's other routes. The resource then comes back with its
+files (`avatarUrl`, `receipts`, `documents`), each shaped as `{ id, kind, name,
+mimeType, size, url, uploadedBy, createdAt, duplicateOwnerIds }`.
+
+- **The type is read from the bytes**, never from the extension or the
+  browser's `Content-Type`. Anything else, SVG included, answers 400. Too big
+  answers 413.
+- **Images are rewritten** with [sharp](https://sharp.pixelplumbing.com):
+  turned upright, stripped of all metadata (a phone photo carries the GPS of
+  where it was taken), and scaled down: avatars to a 512 px WebP square, other
+  photos to at most 2560 px. PDFs are kept as sent.
+- **Names.** On disk a file is `uploads/{companyId}/{kind}/{id}.{ext}`: the
+  category is the folder and the name is only the id, so a user's name or a
+  diagnosis never ends up in the filesystem or the backups. The name it was
+  sent with is kept for display (`name`). A download gets a name built from the
+  kind and the date, such as `recibo_2026-10-27_a1b2c3d4.pdf`.
+- **`url` needs no token**, so it works in an `<img src>` or an `<a href>`: it is
+  signed, and it is only handed out in a response that already passed the
+  resource's checks. It expires after one to two hours
+  (`FILE_URL_TTL_MINUTES`, default 60), so read it from the resource each time
+  rather than storing it. The link stays the same for a while, so the browser
+  can cache it. Add `&download=1` to download instead of opening.
+- **`sha256`** of each file, as sent, is stored. It rejects the same file twice
+  on one resource (409), and flags a receipt that is also on another expense.
+
+**Adding a kind** takes: a value in `FileKind` (`src/types/enums.ts`), its rules
+in `src/services/files/file-kinds.ts`, `fileHandlers()` in the owner's
+controller with a `requireOwner` that applies the owner's own checks, the two
+routes with `acceptFile()`, and `filesFor()` where the owner is turned into a
+response. No migration: the `files` table serves every kind.
+
+**Cleaning up.** Deleting an owner through the API deletes its files. An owner
+deleted by a database cascade (a company, a project and its expenses) leaves its
+files behind; `npm run files:sweep` deletes those, and any file on disk with no
+row that is more than an hour old. `deploy/backup.sh` runs it before every
+backup.
+
+Files live in `UPLOADS_DIR` (default `uploads/`, git-ignored), which in
+production is the `uploads` Docker volume.
 
 ### Recovering an account
 
@@ -817,6 +903,7 @@ tokens, and that is final.
 | `npm run db:revert` | roll back the most recent migration |
 | `npm run db:generate -- src/migrations/SomeName` | diff entities against the DB and write a migration |
 | `npm run db:check` | fail if the entities and the migrations disagree |
+| `npm run files:sweep` | delete files whose owner is gone, and leftovers on disk (see [Files](#files)) |
 | `npm run test:types` | type-check `src/` and `tests/` without running anything |
 
 Read what `db:generate` writes before running it: it does not drop tables whose
@@ -832,7 +919,8 @@ pushing.
 
 One server, four containers: `db`, `migrate` (runs the migrations and exits),
 `api`, and `web` (Caddy: HTTPS, the built frontend, and `/api` proxied to the
-API). Both repositories must be cloned side by side:
+API). Uploaded files live in the `uploads` volume, mounted on `api`. Both
+repositories must be cloned side by side:
 
 ```
 /srv/erp/Back-End
@@ -868,11 +956,25 @@ Create the first `system_admin`:
 docker compose --env-file .env.prod -f compose.prod.yaml exec -e ADMIN_PASSWORD='<password>' api npm run admin:create:prod -- --email=<email>
 ```
 
+Check that image processing works on this server. sharp ships native binaries,
+and this is where a wrong platform would show:
+
+```bash
+docker compose --env-file .env.prod -f compose.prod.yaml exec api node dist/scripts/check-sharp.js
+```
+
+It should print `sharp ... em linux-x64: OK`. CI runs the same check inside the
+production image on every push.
+
 Schedule the daily backup (`crontab -e`):
 
 ```
 0 3 * * * /bin/sh /srv/erp/Back-End/deploy/backup.sh
 ```
+
+It runs `files:sweep`, then writes `backups/erp-<date>.dump` (the database) and
+`backups/uploads-<date>.tar.gz` (the files), keeping 7 days of each. The two go
+together: a dump without its uploads has receipts that 404.
 
 ### Updates
 
@@ -927,6 +1029,9 @@ own `postgres:18-alpine` on a random port and throws it away at the end.
   what was pushed. The `afterEach` closes every stream and clears the tickets.
 - Controllers `await` `notifier.notify(...)` before answering, so a test can read
   the notification rows right after the request returns.
+- Uploads go to a temporary `UPLOADS_DIR` that the `afterEach` empties: the
+  rollback undoes the rows, not the disk. `tests/helpers/files.ts` has small
+  valid PNG, JPEG and PDF buffers to send with supertest's `.attach()`.
 
 Every test runs inside a transaction that is rolled back, so no test can see
 another's writes and no cleanup code is needed. `jest.config.mjs` documents the

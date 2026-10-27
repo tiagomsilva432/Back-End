@@ -4,7 +4,9 @@ import type { AbsenceRequest } from "../entities/AbsenceRequest.js";
 import type { Company } from "../entities/Company.js";
 import { getCompanyById } from "../repositories/company-repo.js";
 import { getCompanyHolidaysBetween } from "../repositories/company-holiday-repo.js";
+import { FileKind } from "../types/enums.js";
 import { toAbsenceResponse } from "./absence-mapper.js";
+import { filesFor } from "./files/files.js";
 import { countWorkingDays, type Holiday, holidaysBetween } from "./holidays.js";
 
 type CompanyRef = Pick<Company, "id" | "country">;
@@ -30,6 +32,9 @@ export const holidayDates = (holidays: Holiday[]): Set<string> => new Set(holida
  * Os pedidos com os dias úteis de cada um, contados contra os feriados da
  * empresa de cada pedido. Os feriados leem-se uma vez por empresa, para o
  * intervalo que cobre todos os pedidos dela.
+ *
+ * Também com os documentos de cada um, numa query: é a resposta inteira, que
+ * só a pessoa e os admins veem. O calendário usa o toCalendarAbsence.
  */
 export async function withWorkingDays(absences: AbsenceRequest[]): Promise<AbsenceResponse[]> {
     const ranges = new Map<string, { from: string; to: string }>();
@@ -49,8 +54,11 @@ export async function withWorkingDays(absences: AbsenceRequest[]): Promise<Absen
         dates.set(companyId, holidayDates(await getHolidaysOf(await requireCompany(companyId), from, to)));
     }
 
+    const documents = await filesFor(FileKind.AbsenceDocument, absences.map((absence) => absence.id));
+
     return absences.map((absence) => toAbsenceResponse(
         absence,
         countWorkingDays(absence.startDate, absence.endDate, dates.get(absence.companyId) ?? new Set()),
+        documents.get(absence.id) ?? [],
     ));
 }

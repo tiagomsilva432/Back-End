@@ -24,6 +24,24 @@ export const jsonBody = (schema: z.ZodType): ZodOpenApiRequestBodyObject => ({
     content: { "application/json": { schema } },
 });
 
+/**
+ * Corpo multipart com um só ficheiro, no campo `file`: o que o acceptFile lê.
+ * Escrito à mão porque o Zod não tem um tipo para bytes; o `format: binary`
+ * é o que faz a página da documentação mostrar o seletor de ficheiros.
+ */
+export const fileBody = (description: string): ZodOpenApiRequestBodyObject => ({
+    required: true,
+    content: {
+        "multipart/form-data": {
+            schema: {
+                type: "object",
+                required: ["file"],
+                properties: { file: { type: "string", format: "binary", description } },
+            },
+        },
+    },
+});
+
 /** Um id no caminho, como o `{id}` de `/users/{id}`. */
 export const pathId = (description: string, name = "id") => ({
     name,

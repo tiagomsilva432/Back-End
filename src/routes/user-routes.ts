@@ -5,6 +5,8 @@ import {
     getUserProfile,
     listUsers,
     patchUserStatus,
+    removeAvatar,
+    uploadAvatar,
     upsertUserProfile,
 } from "../controllers/user-controller.js";
 import {
@@ -17,7 +19,11 @@ import {
     userListResponseSchema,
     userResponseSchema,
 } from "../dtos/user/user-dto.js";
-import { errorResponses, jsonBody, jsonResponse, pathId } from "../docs/response.js";
+import { fileResponseSchema } from "../dtos/file/file-dto.js";
+import { errorResponses, fileBody, jsonBody, jsonResponse, pathId } from "../docs/response.js";
+import { acceptFile } from "../middleware/acceptFile.js";
+import { FILE_KINDS } from "../services/files/file-kinds.js";
+import { FileKind } from "../types/enums.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireAdmin, requireRole } from "../middleware/requireRole.js";
 import { validateBody } from "../middleware/validateBody.js";
@@ -55,6 +61,22 @@ router.put(
     requireRole(),
     validateBody(upsertEmployeeProfileSchema),
     upsertUserProfile
+);
+
+// Bare requireRole(), como o PUT do perfil: o controller decide pelo alvo.
+router.put(
+    "/users/:id/avatar",
+    requireAuth,
+    requireRole(),
+    acceptFile(FILE_KINDS[FileKind.Avatar]),
+    uploadAvatar
+);
+
+router.delete(
+    "/users/:id/avatar",
+    requireAuth,
+    requireRole(),
+    removeAvatar
 );
 
 router.patch(
@@ -130,7 +152,8 @@ export const userPaths: ZodOpenApiPathsObject = {
             description:
                 "Escrever é mais estreito do que ler: a própria pessoa, um `company_admin` sobre " +
                 "a sua empresa, ou um `system_admin`. Um `employee` a editar um colega recebe 403. " +
-                "O PUT substitui: um campo opcional omitido fica a `null`. " +
+                "O PUT substitui: um campo opcional omitido fica a `null`. O avatar não entra aqui: tem a sua " +
+                "rota, `PUT /users/{id}/avatar`, e um PUT do perfil nunca lhe toca. " +
                 "Responde 201 quando cria o perfil e 200 quando o atualiza.",
             security: [{ bearerAuth: [] }],
             parameters: [idParam],
@@ -142,6 +165,43 @@ export const userPaths: ZodOpenApiPathsObject = {
                 "401": jsonResponse(401, "Token em falta ou inválido"),
                 "403": jsonResponse(403, "Sem permissões para alterar este perfil"),
                 "404": jsonResponse(404, "Utilizador não encontrado"),
+                ...errorResponses(500),
+            },
+        },
+    },
+    "/users/{id}/avatar": {
+        put: {
+            tags: ["Utilizadores"],
+            summary: "Enviar o avatar de um utilizador",
+            description:
+                "Quem pode alterar o perfil: a própria pessoa, um `company_admin` sobre a sua empresa, ou um " +
+                "`system_admin`. JPEG, PNG ou WebP até 5 MB, em `multipart/form-data` no campo `file`. Fica um " +
+                "quadrado de 512 px em WebP, sem metadados (o GPS de uma fotografia sai). Substitui o anterior. " +
+                "O `url` devolvido é o mesmo que passa a vir em `profile.avatarUrl`.",
+            security: [{ bearerAuth: [] }],
+            parameters: [idParam],
+            requestBody: fileBody("A imagem: JPEG, PNG ou WebP, até 5 MB"),
+            responses: {
+                "201": jsonResponse(201, "Avatar atualizado", fileResponseSchema),
+                ...errorResponses(400),
+                "401": jsonResponse(401, "Token em falta ou inválido"),
+                "403": jsonResponse(403, "Sem permissões para alterar este perfil"),
+                "404": jsonResponse(404, "Utilizador não encontrado"),
+                "413": jsonResponse(413, "O ficheiro tem mais de 5 MB"),
+                ...errorResponses(500),
+            },
+        },
+        delete: {
+            tags: ["Utilizadores"],
+            summary: "Apagar o avatar de um utilizador",
+            description: "As mesmas regras do envio. Sem avatar, é 404.",
+            security: [{ bearerAuth: [] }],
+            parameters: [idParam],
+            responses: {
+                "200": jsonResponse(200, "Avatar apagado"),
+                "401": jsonResponse(401, "Token em falta ou inválido"),
+                "403": jsonResponse(403, "Sem permissões para alterar este perfil"),
+                "404": jsonResponse(404, "Utilizador não encontrado, ou sem avatar"),
                 ...errorResponses(500),
             },
         },

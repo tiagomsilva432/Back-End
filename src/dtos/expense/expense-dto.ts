@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ExpenseCategory } from "../../types/enums.js";
 import { isoDate } from "../../utils/dates.js";
 import { companyIdSchema, decimalString, flag } from "../common/fields-dto.js";
+import { fileListResponseSchema } from "../file/file-dto.js";
 
 const idSchema = z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" });
 
@@ -96,6 +97,11 @@ export const expenseResponseSchema = z.object({
     category: z.enum(ExpenseCategory).meta({ example: ExpenseCategory.Software }),
     incurredOn: z.iso.date().meta({ example: "2026-10-20" }),
     createdBy: z.uuid().meta({ description: "Quem a registou." }),
+    receipts: fileListResponseSchema.meta({
+        description:
+            "Os recibos, do mais antigo para o mais recente, até 5. Um recibo que também está noutra despesa da " +
+            "empresa traz o id dela em `duplicateOwnerIds`.",
+    }),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
 }).meta({ id: "Expense", description: "Uma despesa" });
