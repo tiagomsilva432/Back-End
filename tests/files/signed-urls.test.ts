@@ -26,7 +26,8 @@ describe("links assinados", () => {
 
         expect(checkSignature(randomUUID(), exp, sig)).toBe("invalid");
         expect(checkSignature(id, String(Number(exp) + 3600), sig)).toBe("invalid");
-        expect(checkSignature(id, exp, `${sig.slice(0, -1)}A`)).toBe("invalid");
+        // O último carácter só tem 16 valores possíveis: trocar por "A" falhava quando já era "A".
+        expect(checkSignature(id, exp, `${sig.slice(0, -1)}${sig.endsWith("A") ? "E" : "A"}`)).toBe("invalid");
         expect(checkSignature(id, exp, undefined)).toBe("invalid");
         expect(checkSignature(id, "amanhã", sig)).toBe("invalid");
     });
