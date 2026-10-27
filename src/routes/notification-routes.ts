@@ -163,6 +163,10 @@ export const notificationPaths: ZodOpenApiPathsObject = {
                 "- `announcement`: `{ action: \"created\" | \"updated\", announcement }` ou `{ action: \"deleted\", id }`.\n" +
                 "- `project_message`: o chat de um projeto, `{ action: \"created\" | \"updated\", message }` ou " +
                 "`{ action: \"deleted\", projectId, id }`.\n" +
+                "- `project_task`: o quadro de um projeto, `{ action: \"created\" | \"updated\", task }`, " +
+                "`{ action: \"moved\", task, order }` ou `{ action: \"deleted\", projectId, id }`.\n" +
+                "- `project_task_comment`: `{ action: \"created\" | \"updated\", projectId, comment }` ou " +
+                "`{ action: \"deleted\", projectId, taskId, id }`.\n" +
                 "- `close` `{ reason }`: logo antes de fechar. `token_expired` (volta a fazer login), " +
                 "`account_inactive` (a conta deixou de estar ativa), `server_shutdown` (volta a ligar daqui a pouco) " +
                 "ou `too_many_connections` (mais de 5 abertas: esta era a mais antiga, não volta a ligar).\n\n" +

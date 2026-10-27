@@ -624,6 +624,61 @@ company's active `company_admin`s - the author included, for their other tabs.
 A `system_admin` reads and posts, but gets no live push. Chat messages are not
 notifications: they would flood the inbox, and the unread badge does that job.
 
+### Project board
+
+A kanban board per project, for its [members](#project-resources). The columns
+are fixed and the same everywhere: `todo`, `in_progress`, `review`, `done`.
+Each card has a `title`, an optional `description`, one `assigneeId`, a
+`dueDate`, a `priority` (`low`, `medium` - the default -, `high` or
+`critical`), `labels`, up to five attachments and a comment thread.
+
+| Endpoint | Who | What |
+| --- | --- | --- |
+| `GET /projects/{id}/tasks` | members | the four columns, each top to bottom, every card with its `attachments` and `commentCount`. Takes `?assigneeId=`, `?label=` and `?priority=` |
+| `GET /projects/{id}/tasks/labels` | members | the labels in use, sorted, for autocomplete |
+| `POST /projects/{id}/tasks` | members | a card at the bottom of `todo` or `in_progress` - never straight into `review` or `done` |
+| `GET /projects/{id}/tasks/{taskId}` | members | one card |
+| `PATCH /projects/{id}/tasks/{taskId}` | members | the card's content; merges like the other `PATCH`es, and `labels` replaces the list. Never the column or the position |
+| `POST /projects/{id}/tasks/{taskId}/move` | see below | `{ status, position }` → `{ task, order }` |
+| `DELETE /projects/{id}/tasks/{taskId}` | the creator, the manager or an admin | with its attachments and comments |
+| `POST /projects/{id}/tasks/{taskId}/attachments` | members | [a file](#files), up to five |
+| `DELETE /projects/{id}/tasks/{taskId}/attachments/{fileId}` | members | |
+| `GET /projects/{id}/tasks/{taskId}/comments` | members | all of them, oldest first |
+| `POST /projects/{id}/tasks/{taskId}/comments` | members | `{ body }`, plain text up to 2000 characters |
+| `PATCH /projects/{id}/tasks/{taskId}/comments/{commentId}` | the author only | sets `editedAt` |
+| `DELETE /projects/{id}/tasks/{taskId}/comments/{commentId}` | the author, the manager or an admin | |
+
+The assignee has to be on the project - allocated, the manager or a
+`company_admin` - and active; anyone else, an unknown id included, answers 400
+on `assigneeId`. Labels are trimmed and lowercased, 1-30 characters, at most
+ten, without repeats.
+
+**Moving.** `position` is where the card lands in the destination column,
+counting from 0 at the top; past the end, it goes last. The board is locked
+while a move or a create runs, so two people dragging at once never scramble
+the order, and both affected columns are renumbered. The answer's `order`
+gives each of them top to bottom, ready to apply. Who may move what:
+
+| Move | Who |
+| --- | --- |
+| between `todo`, `in_progress` and `review`, or within one of them | the assignee, the manager or an admin. A card without an assignee, any member |
+| `review` → `done`: the approval | the manager or an admin |
+| `todo` or `in_progress` → `done` | nobody: 400, it has to go through review |
+| out of `done`, or within it | the manager or an admin |
+
+"The manager or an admin" is the project's manager, a `company_admin` of its
+company or a `system_admin`. A manager may approve their own card.
+`completedAt` is set on the way into `done` and cleared on the way out. The
+rules live in `src/services/task-workflow.ts`.
+
+**Notifications and live.** Being assigned a card sends `task.assigned`;
+moving one into `review` tells the project's manager (`task.review_requested`);
+taking one out of `review` tells the assignee whether it was approved
+(`task.reviewed`); a comment tells the assignee and the card's creator
+(`task.commented`). Every change goes through the
+[notification stream](#notifications) to the same people as the chat, as
+`event: project_task` or `event: project_task_comment`.
+
 ### Absences
 
 Vacation, sick days, other leave, and unjustified absences ("faltas"). A person
@@ -794,6 +849,10 @@ and a ready-to-show Portuguese `message`. The types today:
 | `absence.cancelled` | the person if an admin cancelled it, or the deciders if the person did | a request is cancelled |
 | `absence.teammate_away` | managers of the projects where the person is allocated on those days | an absence is approved or registered, while it has not ended yet. `type` is masked to `vacation` or `absent` |
 | `absence.document_added` | the deciders | the person attaches a document to a request still `pending` |
+| `task.assigned` | the new assignee | a [board](#project-board) card is created with, or changed to, an assignee |
+| `task.review_requested` | the project's manager | a card moves into `review` |
+| `task.reviewed` | the assignee | a card moves out of `review`; carries `approved`, true when it went to `done` |
+| `task.commented` | the assignee and the card's creator | someone comments on a card |
 
 Whoever performed the action is never notified of it.
 
@@ -817,6 +876,8 @@ async function connect() {
   es.addEventListener("notification", (e) => addToBell(JSON.parse(e.data)));
   es.addEventListener("announcement", (e) => updateBanners(JSON.parse(e.data)));
   es.addEventListener("project_message", (e) => updateChat(JSON.parse(e.data)));
+  es.addEventListener("project_task", (e) => updateBoard(JSON.parse(e.data)));
+  es.addEventListener("project_task_comment", (e) => updateComments(JSON.parse(e.data)));
   es.addEventListener("close", (e) => {
     es.close();
     if (JSON.parse(e.data).reason === "server_shutdown") setTimeout(connect, 3000);
@@ -831,6 +892,8 @@ async function connect() {
 | `notification` | one notification, shaped like the REST ones |
 | `announcement` | `{ action: "created" \| "updated", announcement }`, or `{ action: "deleted", id }` |
 | `project_message` | a [project chat](#project-chat) change: `{ action: "created" \| "updated", message }`, or `{ action: "deleted", projectId, id }` |
+| `project_task` | a [board](#project-board) card: `{ action: "created" \| "updated", task }`, `{ action: "moved", task, order }`, or `{ action: "deleted", projectId, id }` |
+| `project_task_comment` | a card comment: `{ action: "created" \| "updated", projectId, comment }`, or `{ action: "deleted", projectId, taskId, id }` |
 | `close` | `{ reason }`, right before the server ends the stream |
 
 The `close` reasons are `token_expired` (the JWT behind the ticket ran out: log
@@ -851,8 +914,8 @@ six or so connections to the API.
 
 ### Files
 
-Avatars, expense receipts, absence documents and project resource files go
-through one system. Each is
+Avatars, expense receipts, absence documents, project resource files and task
+attachments go through one system. Each is
 uploaded on the resource it belongs to, as `multipart/form-data` with the file in
 a field called `file`:
 
@@ -868,10 +931,11 @@ await api.post(`/expenses/${id}/receipts`, form); // with the Bearer, as always
 | `expense_receipt` | `POST /expenses/{id}/receipts` | JPEG, PNG, WebP, PDF | 10 MB | 5 |
 | `absence_document` | `POST /absences/{id}/documents` | JPEG, PNG, WebP, PDF | 10 MB | 5 |
 | `resource_file` | `PUT /projects/{id}/resources/{resourceId}/file` | JPEG, PNG, WebP, PDF | 10 MB | 1, replaced by the next |
+| `task_attachment` | `POST /projects/{id}/tasks/{taskId}/attachments` | JPEG, PNG, WebP, PDF | 10 MB | 5 |
 
 Whoever may change the resource may add and delete its files, with the same 404
 and 403 as the resource's other routes. The resource then comes back with its
-files (`avatarUrl`, `receipts`, `documents`, `file`), each shaped as `{ id, kind, name,
+files (`avatarUrl`, `receipts`, `documents`, `file`, `attachments`), each shaped as `{ id, kind, name,
 mimeType, size, url, uploadedBy, createdAt, duplicateOwnerIds }`.
 
 - **The type is read from the bytes**, never from the extension or the

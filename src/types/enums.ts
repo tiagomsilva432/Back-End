@@ -88,6 +88,26 @@ export enum ExpenseCategory {
 }
 export const isExpenseCategory = guard(ExpenseCategory);
 
+/**
+ * As colunas do quadro de um projeto, iguais em todos. Só se chega a `done`
+ * a partir de `review` (ver services/task-workflow.ts).
+ */
+export enum TaskStatus {
+    Todo = "todo",
+    InProgress = "in_progress",
+    Review = "review",
+    Done = "done",
+}
+export const isTaskStatus = guard(TaskStatus);
+
+export enum TaskPriority {
+    Low = "low",
+    Medium = "medium",
+    High = "high",
+    Critical = "critical",
+}
+export const isTaskPriority = guard(TaskPriority);
+
 export const ENUM_COLUMN_LENGTH = 20;
 
 /**
@@ -99,5 +119,6 @@ export enum FileKind {
     ExpenseReceipt = "expense_receipt",
     AbsenceDocument = "absence_document",
     ProjectResourceFile = "resource_file",
+    TaskAttachment = "task_attachment",
 }
 export const isFileKind = guard(FileKind);

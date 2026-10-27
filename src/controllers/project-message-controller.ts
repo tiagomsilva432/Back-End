@@ -13,7 +13,7 @@ import type { Project } from "../entities/Project.js";
 import type { ProjectMessage } from "../entities/ProjectMessage.js";
 import type { User } from "../entities/User.js";
 import { getCurrentActor } from "../middleware/requireRole.js";
-import { getInvolvedProjectIdsByUserId, getInvolvedUserIdsByProjectId } from "../repositories/allocation-repo.js";
+import { getInvolvedProjectIdsByUserId } from "../repositories/allocation-repo.js";
 import { getLastReadMessageId, markProjectMessagesRead } from "../repositories/project-message-read-repo.js";
 import {
     countUnreadProjectMessages,
@@ -26,11 +26,9 @@ import {
     updateProjectMessage,
 } from "../repositories/project-message-repo.js";
 import { getProjectById, getProjectsByManagerId } from "../repositories/project-repo.js";
-import { getUsersByCompanyId } from "../repositories/user-repo.js";
 import { requireInReach } from "../services/company-scope.js";
-import { canManageProject, requireProjectMember } from "../services/project-access.js";
+import { canManageProject, projectAudienceIds, requireProjectMember } from "../services/project-access.js";
 import { realtime } from "../services/realtime.js";
-import { UserRole, UserStatus } from "../types/enums.js";
 import { uuidParam } from "../utils/params.js";
 
 const NOT_FOUND = "Mensagem não encontrada";
@@ -67,18 +65,11 @@ async function requireMessage(project: Project, req: Request): Promise<ProjectMe
 }
 
 /**
- * Manda a mudança a quem pode ter o chat aberto: quem está no projeto, o
- * gestor, e os company_admins da empresa. Quem escreveu também recebe, para os
- * outros separadores dele. Um system_admin lê e escreve, mas não recebe em direto.
+ * Manda a mudança a quem pode ter o chat aberto. Quem escreveu também recebe,
+ * para os outros separadores dele.
  */
 async function push(project: Project, payload: unknown): Promise<void> {
-    const involved = await getInvolvedUserIdsByProjectId(project.id);
-    const admins = await getUsersByCompanyId(project.companyId, {
-        role: UserRole.CompanyAdmin,
-        status: UserStatus.Active,
-    });
-
-    realtime.sendToUsers([...involved, project.managerId, ...admins.map((admin) => admin.id)], EVENT, payload);
+    realtime.sendToUsers(await projectAudienceIds(project), EVENT, payload);
 }
 
 export const listProjectMessages = async (req: Request, res: Response) => {

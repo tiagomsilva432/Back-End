@@ -71,4 +71,14 @@ export const FILE_KINDS: Record<FileKind, FileKindSpec> = {
         image: "photo",
         flagDuplicates: false,
     },
+    [FileKind.TaskAttachment]: {
+        kind: FileKind.TaskAttachment,
+        label: "anexo",
+        maxBytes: 10 * MB,
+        types: PAPERS,
+        maxPerOwner: 5,
+        ownerTable: "project_tasks",
+        image: "photo",
+        flagDuplicates: false,
+    },
 };

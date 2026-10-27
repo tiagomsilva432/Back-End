@@ -19,6 +19,8 @@ import { StoredFile } from "./StoredFile.js";
 import { ProjectResource } from "./ProjectResource.js";
 import { ProjectMessage } from "./ProjectMessage.js";
 import { ProjectMessageRead } from "./ProjectMessageRead.js";
+import { ProjectTask } from "./ProjectTask.js";
+import { ProjectTaskComment } from "./ProjectTaskComment.js";
 
 export {
     Company,
@@ -42,6 +44,8 @@ export {
     ProjectResource,
     ProjectMessage,
     ProjectMessageRead,
+    ProjectTask,
+    ProjectTaskComment,
 };
 
 /** Feeds DataSource.entities - keep every new entity registered here. */
@@ -67,4 +71,6 @@ export const entities = [
     ProjectResource,
     ProjectMessage,
     ProjectMessageRead,
+    ProjectTask,
+    ProjectTaskComment,
 ];

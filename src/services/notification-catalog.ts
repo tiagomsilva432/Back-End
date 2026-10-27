@@ -53,6 +53,12 @@ const allocation = {
     ...project,
 };
 
+const task = {
+    taskId: z.uuid(),
+    taskTitle: z.string(),
+    ...project,
+};
+
 const absence = {
     absenceId: z.uuid(),
     userId: z.uuid(),
@@ -141,6 +147,25 @@ export const notificationCatalog = {
     "project.status_changed": defineNotification(
         z.object({ ...project, from: z.enum(ProjectStatus), to: z.enum(ProjectStatus) }),
         (d) => `O projeto ${d.projectName} passou de ${STATUS_LABELS[d.from]} a ${STATUS_LABELS[d.to]}`,
+    ),
+    "task.assigned": defineNotification(
+        z.object(task),
+        (d) => `Tens uma nova tarefa no projeto ${d.projectName}: ${d.taskTitle}`,
+    ),
+    "task.commented": defineNotification(
+        z.object(task),
+        (d) => `Novo comentário na tarefa ${d.taskTitle} (${d.projectName})`,
+    ),
+    // Para o gestor do projeto: é ele quem aprova o que está em revisão.
+    "task.review_requested": defineNotification(
+        z.object(task),
+        (d) => `A tarefa ${d.taskTitle} (${d.projectName}) está à espera de revisão`,
+    ),
+    "task.reviewed": defineNotification(
+        z.object({ ...task, approved: z.boolean() }),
+        (d) => d.approved
+            ? `A tua tarefa ${d.taskTitle} (${d.projectName}) foi aprovada`
+            : `A tua tarefa ${d.taskTitle} (${d.projectName}) voltou da revisão`,
     ),
     "review_cycle.opened": defineNotification(
         z.object({ cycleId: z.uuid(), cycleName: z.string(), deadline: z.string().nullable() }),
