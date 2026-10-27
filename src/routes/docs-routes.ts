@@ -19,7 +19,7 @@ router.get("/docs", (_req: Request, res: Response) => {
   </head>
   <body>
     <div id="app"></div>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1"></script>
     <script>
       Scalar.createApiReference('#app', { url: '/docs.json' });
     </script>

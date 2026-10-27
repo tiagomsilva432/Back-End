@@ -134,6 +134,51 @@ export async function getInvolvedProjectIdsByUserId(userId: string): Promise<str
     return [...new Set(allocations.map((a) => a.projectId))];
 }
 
+/**
+ * Quem esteve alocado a um projeto em algum dia de [from, to]: o calendário do
+ * projeto. Não é o mesmo que os envolvidos, que olham só para hoje.
+ */
+export async function getUserIdsAllocatedBetween(projectId: string, from: string, to: string): Promise<string[]> {
+    const allocations = await allocationRepo.find({
+        select: { userId: true },
+        where: [
+            { projectId, startDate: LessThanOrEqual(to), endDate: IsNull() },
+            { projectId, startDate: LessThanOrEqual(to), endDate: MoreThanOrEqual(from) }
+        ]
+    });
+
+    return [...new Set(allocations.map((a) => a.userId))];
+}
+
+/** Os gestores dos projetos em que uma pessoa está alocada em algum dia de [from, to]. */
+export async function getManagerIdsOfProjectsAllocatedBetween(
+    userId: string,
+    from: string,
+    to: string,
+): Promise<string[]> {
+    const rows = await allocationRepo
+        .createQueryBuilder("a")
+        .innerJoin("a.project", "p")
+        .select("p.managerId", "managerId")
+        .distinct(true)
+        .where("a.userId = :userId", { userId })
+        .andWhere("p.managerId IS NOT NULL")
+        .andWhere("a.startDate <= :to", { to })
+        .andWhere("COALESCE(a.endDate, 'infinity'::date) >= :from", { from })
+        .getRawMany<{ managerId: string }>();
+
+    return rows.map((row) => row.managerId);
+}
+
+/** As alocações de todos os projetos de uma empresa, de sempre: o custo em pessoas de cada um. */
+export async function getAllocationsByCompanyId(companyId: string): Promise<Allocation[]> {
+    return await allocationRepo
+        .createQueryBuilder("a")
+        .innerJoin("a.project", "p")
+        .where("p.companyId = :companyId", { companyId })
+        .getMany();
+}
+
 export async function createAllocation(allocation: Allocation) {
     return await allocationRepo.save(allocation);
 }

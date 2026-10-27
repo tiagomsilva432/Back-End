@@ -12,6 +12,9 @@ import { Review } from "./Review.js";
 import { Announcement } from "./Announcement.js";
 import { AnnouncementRead } from "./AnnouncementRead.js";
 import { Notification } from "./Notification.js";
+import { AbsenceRequest } from "./AbsenceRequest.js";
+import { CompanyHoliday } from "./CompanyHoliday.js";
+import { Expense } from "./Expense.js";
 
 export {
     Company,
@@ -28,6 +31,9 @@ export {
     Announcement,
     AnnouncementRead,
     Notification,
+    AbsenceRequest,
+    CompanyHoliday,
+    Expense,
 };
 
 /** Feeds DataSource.entities - keep every new entity registered here. */
@@ -46,4 +52,7 @@ export const entities = [
     Announcement,
     AnnouncementRead,
     Notification,
+    AbsenceRequest,
+    CompanyHoliday,
+    Expense,
 ];

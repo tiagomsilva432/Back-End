@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isoDate } from "../../utils/dates.js";
+import { flag } from "../common/fields-dto.js";
 
 const percentSchema = z.int().min(1).max(100).meta({
     example: 60,
@@ -44,8 +45,7 @@ export const patchAllocationSchema = z.object({
 
 //Schema QUERY listAllocations
 export const listAllocationsQuerySchema = z.object({
-    open: z.enum(["true", "false"]).optional().transform((v) => v === "true")
-        .meta({ example: "true", description: "Só as alocações abertas." }),
+    open: flag("Só as alocações abertas."),
 }).meta({ id: "ListAllocationsQuery", description: "Filtros das alocações" });
 
 //Como uma alocação é devolvida

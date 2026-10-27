@@ -1,12 +1,7 @@
 import { z } from "zod";
 import { ReviewRequestStatus } from "../../types/enums.js";
 import { isoDate, monthsAgo } from "../../utils/dates.js";
-
-const companyIdSchema = z.uuid().meta({
-    example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42",
-    description:
-        "Só o system_admin o indica. Um company_admin usa sempre a sua própria empresa; um valor diferente é recusado com 403.",
-});
+import { companyIdSchema, flag } from "../common/fields-dto.js";
 
 // Validado contra hoje no pedido, e não na definição do schema: o dia muda.
 const notInThePast = (field: string) => (value: string | undefined, ctx: z.RefinementCtx) => {
@@ -43,8 +38,7 @@ export const createReviewCycleSchema = z.object({
 //Schema QUERY listReviewCycles
 export const listReviewCyclesQuerySchema = z.object({
     companyId: companyIdSchema.optional(),
-    open: z.enum(["true", "false"]).optional().transform((v) => v === "true")
-        .meta({ example: "true", description: "Só os ciclos ainda abertos." }),
+    open: flag("Só os ciclos ainda abertos."),
 }).meta({ id: "ListReviewCyclesQuery", description: "Filtros dos ciclos de avaliação" });
 
 //Schema REQUEST createReviewRequest (ad-hoc)

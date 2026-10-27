@@ -60,4 +60,32 @@ export enum AnnouncementSeverity {
 }
 export const isAnnouncementSeverity = guard(AnnouncementSeverity);
 
+export enum AbsenceType {
+    Vacation = "vacation",
+    Sick = "sick",
+    Leave = "leave",
+    /** Uma falta injustificada: só um admin a marca, nunca a própria pessoa. */
+    Unjustified = "unjustified",
+}
+export const isAbsenceType = guard(AbsenceType);
+
+export enum AbsenceStatus {
+    Pending = "pending",
+    Approved = "approved",
+    Rejected = "rejected",
+    Cancelled = "cancelled",
+}
+export const isAbsenceStatus = guard(AbsenceStatus);
+
+/** Em que se gastou: é por aqui que o painel de finanças agrupa e filtra. */
+export enum ExpenseCategory {
+    Software = "software",
+    Hardware = "hardware",
+    Travel = "travel",
+    Services = "services",
+    Office = "office",
+    Other = "other",
+}
+export const isExpenseCategory = guard(ExpenseCategory);
+
 export const ENUM_COLUMN_LENGTH = 20;

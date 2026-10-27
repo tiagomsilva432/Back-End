@@ -4,7 +4,7 @@ import { employeeProfileResponseSchema } from "../user/employee-profile-dto.js";
 
 /** Shared with the bootstrap CLI so both enforce the same rules. */
 export const passwordSchema = z.string()
-    .min(8, { message: "Passord tem de ter pelo menos 8 caracteres!" })
+    .min(8, { message: "Password tem de ter pelo menos 8 caracteres!" })
     .regex(/[a-z]/, { message: "Password tem de ter pelo menos uma letra minúscula!" })
     .regex(/[A-Z]/, { message: "Password tem de ter pelo menos uma letra maiúscula!" })
     .regex(/[0-9]/, { message: "Password tem de conter pelo menos um número!" })

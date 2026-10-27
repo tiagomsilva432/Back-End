@@ -11,11 +11,10 @@ import {
     salaryListResponseSchema,
     salaryResponseSchema,
 } from "../dtos/salary/salary-dto.js";
-import { errorResponses, jsonBody, jsonResponse } from "../docs/response.js";
+import { errorResponses, jsonBody, jsonResponse, pathId } from "../docs/response.js";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { requireRole } from "../middleware/requireRole.js";
+import { requireAdmin, requireRole } from "../middleware/requireRole.js";
 import { validateBody } from "../middleware/validateBody.js";
-import { UserRole } from "../types/enums.js";
 
 const router = Router();
 
@@ -37,7 +36,7 @@ router.get(
 router.post(
     "/users/:id/salaries",
     requireAuth,
-    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    requireAdmin,
     validateBody(createSalarySchema),
     createUserSalary
 );
@@ -45,17 +44,11 @@ router.post(
 router.delete(
     "/users/:id/salaries/:salaryId",
     requireAuth,
-    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    requireAdmin,
     removeUserSalary
 );
 
-const idParam = {
-    name: "id",
-    in: "path" as const,
-    required: true,
-    schema: { type: "string" as const, format: "uuid" },
-    description: "Id do utilizador",
-};
+const idParam = pathId("Id do utilizador");
 
 const readers =
     "Só a própria pessoa, ou quem administra a conta dela: um `company_admin` sobre os seus " +
@@ -127,13 +120,7 @@ export const salaryPaths: ZodOpenApiPathsObject = {
                 "histórico ficava um buraco - e o anterior volta a ficar aberto. " +
                 "As mesmas permissões do POST.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam, {
-                name: "salaryId",
-                in: "path" as const,
-                required: true,
-                schema: { type: "string" as const, format: "uuid" },
-                description: "Id do salário",
-            }],
+            parameters: [idParam, pathId("Id do salário", "salaryId")],
             responses: {
                 "200": jsonResponse(200, "Salário apagado"),
                 "401": jsonResponse(401, "Token em falta ou inválido"),

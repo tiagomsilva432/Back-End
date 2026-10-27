@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { ZodOpenApiPathsObject } from "zod-openapi";
 import { validateBody } from "../middleware/validateBody.js";
 import { activateAccountSchema, createAccountResponseSchema, createAccountSchema } from "../dtos/auth/account-dto.js";
-import { jsonBody, jsonResponse, errorResponses } from "../docs/response.js";
+import { jsonBody, jsonResponse, errorResponses, pathId } from "../docs/response.js";
 import { meResponseSchema } from "../dtos/auth/me-dto.js";
 import { loginConflictResponseSchema, loginResponseSchema } from "../dtos/auth/login-dto.js";
 import { activateUserWithToken, changePassword, confirmPasswordReset, createAccount, getCurrentUser, loginWithEmailAndPassword, requestPasswordReset, resendActivation } from "../controllers/auth-controller.js";
@@ -13,8 +13,7 @@ import {
     requestPasswordResetSchema,
 } from "../dtos/auth/password-dto.js";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { requireRole } from "../middleware/requireRole.js";
-import { UserRole } from "../types/enums.js";
+import { requireAdmin } from "../middleware/requireRole.js";
 
 const router = Router();
 
@@ -22,7 +21,7 @@ const router = Router();
 router.post(
     "/auth/account/create",
     requireAuth,
-    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    requireAdmin,
     validateBody(createAccountSchema),
     createAccount
 );
@@ -48,7 +47,7 @@ router.get(
 router.post(
     "/auth/account/:id/resend-activation",
     requireAuth,
-    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    requireAdmin,
     resendActivation
 );
 
@@ -141,17 +140,11 @@ export const authPaths: ZodOpenApiPathsObject = {
                 "Cunha um token novo e reenvia o link. É o caminho de recuperação de um convite " +
                 "cujo token expirou: sem isto a conta ficava presa, a ocupar o email, sem password. " +
                 "Só funciona numa conta `invited` - numa conta já ativa responde 409, porque " +
-                "recunhar o token daria a quem o pede uma forma de entrar na conta. " +
+                "recunhar o token reabria um link que define uma password nova sem saber a antiga. " +
                 "Quem reenvia tem de poder administrar a conta: um `company_admin` sobre os seus " +
                 "`employee`, um `system_admin` sobre qualquer uma.",
             security: [{ bearerAuth: [] }],
-            parameters: [{
-                name: "id",
-                in: "path" as const,
-                required: true,
-                schema: { type: "string" as const, format: "uuid" },
-                description: "Id da conta a reconvidar",
-            }],
+            parameters: [pathId("Id da conta a reconvidar")],
             responses: {
                 "200": jsonResponse(200, "Ativação reenviada"),
                 "401": jsonResponse(401, "Token em falta ou inválido"),

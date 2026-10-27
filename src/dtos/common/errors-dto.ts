@@ -3,13 +3,6 @@
 //Importar Mensagens Default
 import { getDefaults } from "../../utils/httpStatusDefaults.js";
 
-export interface ApiError {
-  status: number;
-  message: string;
-  code: string;
-  details?: unknown;
-}
-
 export class HttpError extends Error {
   constructor(
     public readonly status: number,
@@ -25,3 +18,16 @@ export class HttpError extends Error {
     this.details = details;
   }
 }
+
+export interface FieldError {
+  field: string;
+  message: string;
+}
+
+/** O 400 de dados inválidos: um { field, message } por campo, que é o que um formulário lê. */
+export const invalidData = (errors: FieldError[]): HttpError =>
+  new HttpError(400, "Dados inválidos", "BAD_REQUEST", errors);
+
+/** Os erros de um parse do Zod, campo a campo. */
+export const fieldErrorsOf = (issues: ReadonlyArray<{ path: PropertyKey[]; message: string }>): FieldError[] =>
+  issues.map((issue) => ({ field: issue.path.map(String).join("."), message: issue.message }));

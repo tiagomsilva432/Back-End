@@ -286,8 +286,9 @@ describe("avaliações", () => {
 });
 
 describe("contas", () => {
-    it("ativar uma conta notifica os company_admin ativos da empresa", async () => {
+    it("ativar uma conta notifica os company_admin ativos da empresa, e não os system_admins", async () => {
         const { user: admin } = await createActor(UserRole.CompanyAdmin);
+        const { user: sysadmin } = await createActor(UserRole.SystemAdmin);
         const suspenso = await criarUtilizador({
             companyId: admin.companyId,
             role: UserRole.CompanyAdmin,
@@ -311,6 +312,36 @@ describe("contas", () => {
         }]);
         expect(await recebidas(suspenso.id)).toEqual([]);
         expect(await recebidas(convidado.id)).toEqual([]);
+        expect(await recebidas(sysadmin.id)).toEqual([]);
+    });
+
+    it("o primeiro company_admin a ativar a conta avisa os system_admins ativos", async () => {
+        const { user: sysadmin } = await createActor(UserRole.SystemAdmin);
+        const suspenso = await criarUtilizador({
+            companyId: sysadmin.companyId,
+            role: UserRole.SystemAdmin,
+            status: UserStatus.Suspended,
+            password: "Password1!",
+        });
+        const signupToken = randomUUID();
+        const gestora = await criarUtilizador({
+            role: UserRole.CompanyAdmin,
+            email: "gestora@empresa.pt",
+            signupToken,
+            signupTokenExpiresAt: new Date(Date.now() + 60_000),
+        });
+
+        const res = await request(app).post("/auth/account/activate").send({ signupToken, password: "Password1!" });
+
+        expect(res.status).toBe(200);
+        expect(await recebidas(sysadmin.id)).toEqual([{
+            type: "user.activated",
+            data: { userId: gestora.id, email: "gestora@empresa.pt" },
+        }]);
+        // A empresa onde aconteceu, e não a do system_admin.
+        expect((await notificacoes().findOneByOrFail({ recipientId: sysadmin.id })).companyId).toBe(gestora.companyId);
+        expect(await recebidas(suspenso.id)).toEqual([]);
+        expect(await recebidas(gestora.id)).toEqual([]);
     });
 
     it("suspender uma conta corta-lhe o stream em direto", async () => {

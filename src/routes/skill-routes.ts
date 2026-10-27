@@ -21,9 +21,9 @@ import {
     skillResponseSchema,
     upsertEmployeeSkillSchema,
 } from "../dtos/skill/skill-dto.js";
-import { errorResponses, jsonBody, jsonResponse } from "../docs/response.js";
+import { errorResponses, jsonBody, jsonResponse, pathId } from "../docs/response.js";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { requireRole } from "../middleware/requireRole.js";
+import { requireAdmin, requireRole } from "../middleware/requireRole.js";
 import { validateBody } from "../middleware/validateBody.js";
 import { validateQuery } from "../middleware/validateQuery.js";
 import { UserRole } from "../types/enums.js";
@@ -74,7 +74,7 @@ router.get(
 router.put(
     "/users/:id/skills/:skillId",
     requireAuth,
-    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    requireAdmin,
     validateBody(upsertEmployeeSkillSchema),
     upsertUserSkill
 );
@@ -82,25 +82,11 @@ router.put(
 router.delete(
     "/users/:id/skills/:skillId",
     requireAuth,
-    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    requireAdmin,
     removeUserSkill
 );
 
-const idParam = (description: string) => ({
-    name: "id",
-    in: "path" as const,
-    required: true,
-    schema: { type: "string" as const, format: "uuid" },
-    description,
-});
-
-const skillIdParam = {
-    name: "skillId",
-    in: "path" as const,
-    required: true,
-    schema: { type: "string" as const, format: "uuid" },
-    description: "Id da competência",
-};
+const skillIdParam = pathId("Id da competência", "skillId");
 
 //Documentação OpenAPI destas rotas
 export const skillPaths: ZodOpenApiPathsObject = {
@@ -145,7 +131,7 @@ export const skillPaths: ZodOpenApiPathsObject = {
                 "Exclusivo do `system_admin`. Um PATCH junta: um campo omitido fica como está. " +
                 "A alteração vê-se em todas as pessoas que têm a competência.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id da competência")],
+            parameters: [pathId("Id da competência")],
             requestBody: jsonBody(patchSkillSchema),
             responses: {
                 "200": jsonResponse(200, "Competência atualizada", skillResponseSchema),
@@ -166,7 +152,7 @@ export const skillPaths: ZodOpenApiPathsObject = {
                 "Só as pessoas da empresa de quem pergunta; um `system_admin` indica o `companyId`. " +
                 "Ordenado da maior proficiência para a menor.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id da competência")],
+            parameters: [pathId("Id da competência")],
             requestParams: { query: listSkillUsersQuerySchema },
             responses: {
                 "200": jsonResponse(200, "Pessoas com esta competência", skillHolderListResponseSchema),
@@ -186,7 +172,7 @@ export const skillPaths: ZodOpenApiPathsObject = {
                 "Qualquer conta ativa da empresa da pessoa. " +
                 "Um utilizador de outra empresa devolve 404, não 403.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do utilizador")],
+            parameters: [pathId("Id do utilizador")],
             responses: {
                 "200": jsonResponse(200, "Competências", employeeSkillListResponseSchema),
                 "401": jsonResponse(401, "Token em falta ou inválido"),
@@ -207,7 +193,7 @@ export const skillPaths: ZodOpenApiPathsObject = {
                 "O PUT substitui: um campo omitido fica a `null`, e o corpo pode ser `{}`. " +
                 "Responde 201 quando atribui e 200 quando altera.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do utilizador"), skillIdParam],
+            parameters: [pathId("Id do utilizador"), skillIdParam],
             requestBody: jsonBody(upsertEmployeeSkillSchema),
             responses: {
                 "200": jsonResponse(200, "Competência atualizada", employeeSkillResponseSchema),
@@ -224,7 +210,7 @@ export const skillPaths: ZodOpenApiPathsObject = {
             summary: "Tirar uma competência a uma pessoa",
             description: "As mesmas permissões do PUT. A competência continua no catálogo.",
             security: [{ bearerAuth: [] }],
-            parameters: [idParam("Id do utilizador"), skillIdParam],
+            parameters: [pathId("Id do utilizador"), skillIdParam],
             responses: {
                 "200": jsonResponse(200, "Competência removida"),
                 "401": jsonResponse(401, "Token em falta ou inválido"),

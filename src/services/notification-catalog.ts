@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { ProjectStatus } from "../types/enums.js";
+import { AbsenceType, ProjectStatus } from "../types/enums.js";
+import { ABSENT } from "./absence-policy.js";
 
 /**
  * Todas as notificações que existem. Acrescentar uma é uma entrada aqui e uma
@@ -30,6 +31,18 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
 
 const until = (date: string | null) => (date ? ` até ${date}` : "");
 
+const ABSENCE_LABELS: Record<AbsenceType, string> = {
+    [AbsenceType.Vacation]: "férias",
+    [AbsenceType.Sick]: "baixa",
+    [AbsenceType.Leave]: "ausência",
+    [AbsenceType.Unjustified]: "falta injustificada",
+};
+
+const period = (d: { startDate: string; endDate: string }) =>
+    d.startDate === d.endDate ? `a ${d.startDate}` : `de ${d.startDate} a ${d.endDate}`;
+
+const because = (reason: string | null) => (reason ? `: ${reason}` : "");
+
 const project = {
     projectId: z.uuid(),
     projectName: z.string(),
@@ -40,7 +53,51 @@ const allocation = {
     ...project,
 };
 
+const absence = {
+    absenceId: z.uuid(),
+    userId: z.uuid(),
+    type: z.enum(AbsenceType),
+    startDate: z.string(),
+    endDate: z.string(),
+};
+
 export const notificationCatalog = {
+    "absence.requested": defineNotification(
+        z.object(absence),
+        (d) => `Há um pedido de ${ABSENCE_LABELS[d.type]} ${period(d)} para aprovar`,
+    ),
+    "absence.approved": defineNotification(
+        z.object(absence),
+        (d) => `O teu pedido de ${ABSENCE_LABELS[d.type]} ${period(d)} foi aprovado`,
+    ),
+    "absence.rejected": defineNotification(
+        z.object({ ...absence, reason: z.string().nullable() }),
+        (d) => `O teu pedido de ${ABSENCE_LABELS[d.type]} ${period(d)} foi recusado${because(d.reason)}`,
+    ),
+    // Uma baixa não espera por ninguém: quem decide fica só a saber.
+    "absence.auto_approved": defineNotification(
+        z.object(absence),
+        (d) => `Foi registado um pedido de ${ABSENCE_LABELS[d.type]} ${period(d)}, aprovado automaticamente`,
+    ),
+    // Para a pessoa, quando um admin regista uma ausência dela: uma falta, ou outra já aprovada.
+    "absence.registered": defineNotification(
+        z.object(absence),
+        (d) => d.type === AbsenceType.Unjustified
+            ? `Foi-te marcada uma falta injustificada ${period(d)}`
+            : `Foi registado em teu nome um pedido de ${ABSENCE_LABELS[d.type]} ${period(d)}, já aprovado`,
+    ),
+    // Vai para a pessoa, se foi um admin, ou para quem decide, se foi a pessoa.
+    "absence.cancelled": defineNotification(
+        z.object({ ...absence, reason: z.string().nullable() }),
+        (d) => `O pedido de ${ABSENCE_LABELS[d.type]} ${period(d)} foi cancelado${because(d.reason)}`,
+    ),
+    // Para os gestores de projeto, que são colegas: o tipo já vem tapado.
+    "absence.teammate_away": defineNotification(
+        z.object({ ...absence, type: z.enum([AbsenceType.Vacation, ABSENT]) }),
+        (d) => d.type === AbsenceType.Vacation
+            ? `Alguém da tua equipa vai estar de férias ${period(d)}`
+            : `Alguém da tua equipa vai estar ausente ${period(d)}`,
+    ),
     "allocation.created": defineNotification(
         z.object({
             ...allocation,
@@ -64,6 +121,13 @@ export const notificationCatalog = {
     "allocation.ended": defineNotification(
         z.object({ ...allocation, endDate: z.string() }),
         (d) => `A tua alocação no projeto ${d.projectName} foi fechada (fim a ${d.endDate})`,
+    ),
+    // Os admins contam com o custo em pessoas; o gestor só com as despesas.
+    "project.budget_threshold": defineNotification(
+        z.object({ ...project, threshold: z.union([z.literal(80), z.literal(100)]) }),
+        (d) => d.threshold === 100
+            ? `O projeto ${d.projectName} esgotou o orçamento`
+            : `O projeto ${d.projectName} já gastou ${d.threshold}% do orçamento`,
     ),
     "project.manager_assigned": defineNotification(
         z.object(project),

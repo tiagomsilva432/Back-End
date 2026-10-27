@@ -1,7 +1,8 @@
 # Back-End
 
 ERP backend for a software company: users, projects, allocations, salaries,
-skills and peer salary reviews.
+skills, peer salary reviews, announcements, a calendar of absences and
+holidays, and project expenses with a finance dashboard.
 
 Express 5 + TypeORM + PostgreSQL, written in TypeScript (ESM).
 
@@ -9,7 +10,7 @@ Express 5 + TypeORM + PostgreSQL, written in TypeScript (ESM).
 
 ## Requirements
 
-- **Node.js 20+** (developed on 24)
+- **Node.js 20.11+** (developed on 24) - `import.meta.dirname` needs it
 - **PostgreSQL 18+** - every primary key defaults to `uuidv7()`, which is built in from 18
 - **Docker**, running, for the test suite
 
@@ -28,7 +29,8 @@ cp .env.example .env
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `PORT` | `3000` | HTTP port |
-| `BASE_URL` | `http://localhost` | used only for the startup log |
+| `BASE_URL` | `http://localhost` | used for the startup log and, without `API_PUBLIC_URL`, the docs' server |
+| `API_PUBLIC_URL` | `BASE_URL:PORT` | where a browser reaches the API, for the "Try it" requests in `/docs`. Production sets it to `PUBLIC_URL/api` |
 | `FE_URL` | `http://localhost:5173` | base of the frontend, used to build the activation link |
 | `DB_HOST` / `DB_PORT` | `localhost` / `5432` | |
 | `DB_USER` / `DB_PASSWORD` | `postgres` / `postgres` | |
@@ -89,7 +91,8 @@ npm run dev
 
 ## The API
 
-Four routes need no token, and the first one is where to start:
+Besides the auth routes (login, activation, password reset), four routes need
+no token, and the first one is where to start:
 
 | Endpoint | What it is |
 | --- | --- |
@@ -183,7 +186,8 @@ lists them, sorted by name:
 The client shows a picker and repeats the login with the chosen `companyId`.
 Listing the companies leaks nothing: you only reach the 409 by having already
 proved the password against every account in it, and a wrong password gets the
-same uniform 401 as an unknown email.
+same uniform 401 as an unknown email. It takes the same time too: an email with
+no password to check still pays for one bcrypt compare, against a dummy hash.
 
 One token carries one company. There is no switching - working in two companies
 means logging in twice.
@@ -339,6 +343,120 @@ on its first day.
 reopens the previous one, if that is the one it had closed. Deleting from the
 middle of the history would leave a gap, so it answers 409.
 
+### Expenses
+
+Money spent on a project, or by the company itself (rent, licences, equipment)
+when there is no project. Salaries are not expenses: they stay in `salaries`, and
+the [finance dashboard](#finance-dashboard) adds them up on their own.
+
+| Endpoint | Who |
+| --- | --- |
+| `POST /expenses` | on a project: `system_admin`, a `company_admin` of its company, or the project's manager (`managerId`). Without a project: the two admins only |
+| `GET /expenses` | admins list their company (a `system_admin` passes `?companyId=`); a manager who is not an admin must pass the `?projectId=` of a project they manage. Takes `?category=`, `?from=`, `?to=` and `?overhead=true` |
+| `GET /expenses/{id}` | whoever could have logged it |
+| `PATCH /expenses/{id}` | the same |
+| `DELETE /expenses/{id}` | the same |
+
+An expense is `{ projectId?, title, description?, amount, category, incurredOn? }`.
+
+- `category` is one of `software`, `hardware`, `travel`, `services`, `office`
+  or `other`. It is a fixed list so the dashboard can group and filter by it.
+- `incurredOn` is the day the money was spent, which is what the charts plot. It
+  defaults to today and cannot be in the future.
+- `amount` is greater than zero with at most two decimals, and comes back as a
+  string, like every other amount.
+- A project expense takes its company from the project, so sending `companyId`
+  with it answers 400. A company expense takes the caller's company, or the
+  `companyId` a `system_admin` names.
+
+There is no approval step: an expense counts as soon as it is logged, and
+`createdBy` records who logged it. `PATCH` merges like the others, an explicit
+`null` clears the description, and an expense never moves to another project.
+`DELETE` is for correcting a mistake and notifies nobody.
+
+The manager is the one `employee` who can do any of this, and only on their own
+projects. A colleague asking for an expense of their company gets 403; one from
+another company answers 404.
+
+### Finance dashboard
+
+| Endpoint | Who |
+| --- | --- |
+| `GET /finance/overview` | `system_admin` (naming `?companyId=`), `company_admin` - own company |
+| `GET /projects/{id}/finance` | the same admins, or the project's manager |
+
+**Overview.** `GET /finance/overview?from=2026-01&to=2026-12` covers whole
+months, at most 24, and defaults to the current year:
+
+```json
+{
+  "companyId": "0193...", "from": "2026-01", "to": "2026-12", "salaryCostFactor": 1.44375,
+  "totals": { "salaries": "43312.50", "projectExpenses": "8200.00", "overheadExpenses": "3100.00", "total": "54612.50" },
+  "months": [{ "month": "2026-01", "salaries": "...", "projectExpenses": "...", "overheadExpenses": "...", "total": "..." }],
+  "byCategory": [{ "category": "software", "amount": "1249.90" }],
+  "byProject": [{ "projectId": "0194...", "projectName": "Portal", "status": "active", "budget": "125000.00",
+                  "expenses": "...", "labourCost": "...", "spentToDate": "...", "budgetUsedPercent": 78 }],
+  "unallocatedSalaries": "11212.50"
+}
+```
+
+- The three series stay apart, so a chart can switch any of them off without
+  asking again.
+- `?projectIds=a,b` narrows the project expenses and `byProject`;
+  `?categories=software,travel` narrows both kinds of expenses. Both are
+  comma-separated, and neither touches salaries.
+- `byCategory` always lists every category in the same order, zeros included,
+  so a chart keeps its shape.
+- Only what has already been spent counts: a month that has not arrived yet is
+  zero, and the current month runs to today.
+
+**Salary cost.** A salary counts what it costs the company, not the gross. In
+Portugal that is fourteen salaries spread over twelve months, plus the employer's
+social security (TSU, 23.75%): each euro of monthly gross costs 1.44375, which
+is `salaryCostFactor`. Each salary row is prorated by the days it was in force in
+each month, with `effectiveTo` exclusive as always. A company outside Portugal
+counts the gross (factor 1), the same way only Portuguese holidays are known.
+Salaries of people who have since left still count: they were paid.
+
+**Labour cost.** A project's people cost is each allocated person's salary cost
+× the allocation percent, over the days the allocation (end date inclusive) and
+the salary overlap. It is a *share of the salaries*, never added to `total` a
+second time. `unallocatedSalaries` is what no project took: people on the bench,
+or allocated below 100%. In `byProject`, `expenses` and `labourCost` cover the
+requested months and filters, while `spentToDate` and `budgetUsedPercent` cover
+the project's whole life up to today, unfiltered, because that is what the
+budget is compared against.
+
+Each month is rounded to the cent once and every total is the sum of its months,
+so a chart and its total always agree.
+
+**A project's finance.** `GET /projects/{id}/finance` compares the budget with
+everything the project has spent since it started (its `startDate`, first
+allocation or first expense, whichever is earliest): `{ projectId, budget,
+includesLabour, expenses, labourCost, spent, remaining, budgetUsedPercent,
+byCategory, months }`. `remaining` goes negative once over budget; without a
+budget, it and `budgetUsedPercent` are `null`.
+
+**Privacy.** Labour cost is for admins only. A manager is often a plain
+`employee`, and on a project with one or two people the labour cost gives away
+their salary, which no colleague may read. So for a manager `includesLabour` is
+`false`, the `labourCost` fields are absent, and `spent` is the expenses alone.
+
+**Budget alerts.** When an expense is logged or raised, or a project's budget
+changes, the spending is compared with the budget before and after the write.
+Crossing 80% or 100% sends `project.budget_threshold`. Only the highest
+threshold crossed is sent, so jumping from 50% to 120% sends just the 100% one,
+and moving within the same band sends nothing new. The two audiences see
+different figures, following the privacy rule:
+
+- the company's active `company_admin`s (or the active `system_admin`s, if it
+  has none) are alerted on expenses plus labour;
+- the manager, unless already one of those admins, is alerted on expenses alone.
+
+Whoever made the change is never alerted. There is no scheduler, so labour cost
+that grows day by day with no write does not alert anyone by itself: the next
+expense or budget change picks it up.
+
 ### Peer reviews
 
 Colleagues vote on whether someone deserves a raise. Admins collect the votes
@@ -430,6 +548,126 @@ answers 403. Announcements are not notifications: a system announcement does
 not write one row per user across every company. Who has read what lives in
 `announcement_reads`.
 
+### Absences
+
+Vacation, sick days, other leave, and unjustified absences ("faltas"). A person
+asks, a company admin decides (a sick day needs no decision), and an approved
+absence shows up on the [calendar](#calendar) so everyone knows who is away. An
+admin can also register an absence for someone, such as a falta when they don't
+show up.
+
+| Endpoint | Who |
+| --- | --- |
+| `POST /absences` | any active account - always for themselves |
+| `GET /absences/mine` | any active account - its own absences, in any status, including the ones an admin registered; takes `?status=` and `?type=` |
+| `GET /absences` | `system_admin`, `company_admin` - the requests to decide. Own company; a `system_admin` sees every company or the one in `?companyId=`. Takes `?userId=`, `?status=` and `?type=` |
+| `GET /absences/{id}` | the person, or whoever manages that company's absences |
+| `POST /absences/{id}/approve` | a `system_admin`, or a `company_admin` of that company - **never on its own request** |
+| `POST /absences/{id}/reject` | the same; optional `{ reason }` |
+| `POST /absences/{id}/cancel` | the person, or the same deciders; optional `{ reason }` |
+| `POST /users/{id}/absences` | the same deciders - registers an absence for that person, already approved |
+| `GET /users/{id}/absence-summary` | the person, or whoever manages that company's absences; takes `?year=` |
+
+**Requests.** A request is `{ type, startDate, endDate, note? }`, where `type` is
+`vacation`, `sick` or `leave`. It covers whole days, and `endDate` is
+inclusive, so one day has `startDate = endDate`. It spans at most 366 days.
+Nobody asks for an `unjustified` absence: only an admin marks one (see below).
+
+- Vacation and leave are born `pending`, and the deciders are notified.
+- A sick day is born `approved`, with no `decidedBy`: it never waits for
+  anyone. The deciders are told, and so are the managers of the person's
+  projects on those days, as when an admin approves.
+- The managers are only told while the absence has not ended: telling them
+  someone "will be away" last week is no use to anyone.
+- The deciders are the company's other active `company_admin`s. When there is
+  none, because the only `company_admin` asked or the company has none active,
+  the active `system_admin`s are notified instead: only they can decide.
+- Vacation cannot start in the past. A sick day or leave can, because it is
+  often registered afterwards.
+- A range with no working day (only weekend and holidays) answers 400.
+- A range that touches another `pending` or `approved` request of the same
+  person answers 409. Rejected and cancelled ones do not count.
+- There is no `PATCH`: cancel it and ask again.
+
+Every request comes back with `workingDays`: the weekdays in the range that are
+not a national or company holiday. It is worked out on every read, so adding a
+company holiday changes it at once for every request that covers that day.
+
+**Deciding.** Only a `pending` request is approved or rejected; anything else
+answers 409. Nobody decides their own request: a `company_admin`'s request is
+decided by another `company_admin` of the same company, or by a `system_admin`.
+An employee trying to decide a colleague's request gets 404, and anyone trying
+to decide their own gets 403. `decidedBy`, `decidedAt` and `decisionNote` record
+the last decision - approved, rejected or cancelled. An `approved` request with
+no `decidedBy` was approved automatically.
+
+**Registering for someone.** `POST /users/{id}/absences` with `{ type,
+startDate, endDate, note? }` lets a decider record an absence for that person,
+born `approved` with `decidedBy` set to them. `type` can be any of the four:
+
+- `unjustified` - a falta, when someone didn't show up. It can only cover days
+  that have already arrived: a future falta answers 400.
+- anything else, such as the sick day of someone who phoned in. Here vacation
+  may be in the past: the admin may be recording something that already
+  happened.
+
+The same 400 and 409 as a request apply, a `terminated` account answers 409, and
+nobody registers an absence for themselves (403). The person gets
+`absence.registered`, and the managers `absence.teammate_away` if it has not
+ended. The person sees it in `GET /absences/mine` (`?type=unjustified` for just
+the faltas) and in their summary. If it was a mistake, a decider cancels it, and
+the person is notified.
+
+**Cancelling.** The person cancels a `pending` request, or an `approved` one
+that has not started yet - so never a falta, which is always in the past. A
+decider cancels a `pending` or `approved` one at any time, for someone who came
+back early or a mistake. Anything else answers 409.
+
+**Privacy.** A sick day is health data. Only the person and whoever manages the
+company's absences (a `system_admin`, or a `company_admin` of that company) see
+the real `type` and the `note`. Everyone else sees vacation as `vacation`, and
+sick days, leave and faltas only as `absent`. A colleague asking for someone else's
+request gets 404, and a colleague asking for someone's summary gets 403.
+
+**Summary.** `GET /users/{id}/absence-summary?year=2026` adds up the working days
+of the approved absences in that year, by type: `{ userId, year, vacation, sick,
+leave, unjustified }`. A request across New Year counts only the days in that year. There is
+no yearly allowance yet: this is a count, not a balance.
+
+### Calendar
+
+| Endpoint | Who | What |
+| --- | --- | --- |
+| `GET /calendar?from=&to=` | any active account | own company; a `system_admin` passes `?companyId=` |
+| `GET /projects/{id}/calendar?from=&to=` | any active account | own company - the project's people only |
+| `GET /holidays?year=` | any active account | own company; a `system_admin` passes `?companyId=`. `year` defaults to this year |
+| `POST /holidays` | `system_admin` (naming `companyId`), `company_admin` | own company |
+| `DELETE /holidays/{id}` | the same | own company |
+
+A calendar answers `{ companyId, from, to, holidays, absences }` for a range of
+at most 366 days, both ends included.
+
+- `holidays` lists the national ones and the company's own, by date. Each one
+  has a `kind` (`national` or `company`) and an `id`, which only company
+  holidays have.
+- `absences` lists the ones that touch the range, as `{ id, userId, type,
+  status, startDate, endDate }`. There is never a note, and `type` is masked as
+  described in [Absences](#absences). Everyone sees `approved` ones. A person
+  also sees their own `pending` ones, and the admins see every `pending` one.
+  Terminated accounts are left out. Names are not included: the client resolves
+  `userId` against `GET /users`.
+
+The project calendar keeps only the absences of people allocated to the project
+on at least one day of the range, plus the project's manager.
+
+**Holidays.** National holidays are not stored. They are worked out from the
+company's `country`, and only Portugal (`PT`) is known: the thirteen mandatory
+days of the Código do Trabalho, with Good Friday, Easter and Corpus Christi
+worked out from Easter each year. Everything else is a company holiday added by
+an admin, such as the municipal holiday, Carnival or a closure on the 24th. A
+company in another country has only its own. Adding a date that is already a
+national holiday, or that the company already has, answers 409.
+
 ### Notifications
 
 A personal inbox. Every notification is **a row first**: it is stored whether or
@@ -456,12 +694,20 @@ and a ready-to-show Portuguese `message`. The types today:
 | `allocation.ended` | the person | the allocation was closed |
 | `project.manager_assigned` | the new manager | a project is created with, or changed to, a manager |
 | `project.status_changed` | the people involved and the manager | the project's status changes |
+| `project.budget_threshold` | the company admins (on expenses plus labour) and the manager (on expenses alone) | a write makes the project's spending cross 80% or 100% of its budget; carries `threshold` |
 | `review_cycle.opened` | every reviewer, once | a cycle opens |
 | `review_cycle.closed` | the reviewers whose requests expired | a cycle closes |
 | `review_request.created` | the reviewer | an ad-hoc request is made |
 | `review_request.declined` | whoever requested it | an ad-hoc request is declined |
 | `review.submitted` | whoever requested it | an ad-hoc review is submitted |
-| `user.activated` | the company's active `company_admin`s | an invite is accepted |
+| `user.activated` | the company's other active `company_admin`s, or the active `system_admin`s when there is none | an invite is accepted |
+| `absence.requested` | the deciders: the company's other active `company_admin`s, or the active `system_admin`s when there is none | someone asks for vacation or leave |
+| `absence.auto_approved` | the deciders | someone registers a sick day, which is approved at once |
+| `absence.approved` | the person | their request is approved |
+| `absence.rejected` | the person | their request is rejected; carries the `reason` |
+| `absence.registered` | the person | an admin registers an absence for them: a falta, or another type already approved |
+| `absence.cancelled` | the person if an admin cancelled it, or the deciders if the person did | a request is cancelled |
+| `absence.teammate_away` | managers of the projects where the person is allocated on those days | an absence is approved or registered, while it has not ended yet. `type` is masked to `vacation` or `absent` |
 
 Whoever performed the action is never notified of it.
 
@@ -527,8 +773,8 @@ six or so connections to the API.
 An activation link expires after `SIGNUP_TOKEN_EXPIRATION_DAYS`. Resending is
 the only way back: the account still occupies its `(company, email)` pair, so
 creating it again answers 409. Resending works **only on an `invited` account** -
-re-minting a token for an active one would hand the requester a way in, since
-the activation URL is logged.
+re-minting a token for an active one would reopen a link that sets a new
+password without knowing the old one.
 
 `POST /auth/password/change` is deliberately **not** behind `requireRole`. That
 middleware rejects any account carrying `mustChangePassword` with a 403, which is
@@ -549,8 +795,11 @@ interchangeable, and the confirm step writes only the password: a suspended
 account can reset its password and is still suspended afterwards, so a reset
 grants nothing. `POST /auth/password/reset` always answers 200 with the same
 body, whether the email matched nothing, one account or several - it is not an
-oracle for which addresses exist. An account that never activated has no
+oracle for which addresses exist. The response does not wait for the email to
+be sent, so how long the request takes does not give the account away either. An account that never activated has no
 password to reset and is skipped; that one is recovered by resend-activation.
+A `terminated` account is skipped too: terminating it already revoked its
+tokens, and that is final.
 
 ---
 

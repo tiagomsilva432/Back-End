@@ -2,10 +2,8 @@ import "reflect-metadata";
 import "dotenv/config";
 import { app } from "./app.js";
 import { AppDataSource } from "./data-source.js";
+import { BASE_URL, PORT } from "./env-vars.js";
 import { realtime } from "./services/realtime.js";
-
-const BASE_URL = process.env.BASE_URL ?? "http://localhost";
-const PORT = Number(process.env.PORT) || 3000;
 
 try {
     await AppDataSource.initialize();
@@ -18,7 +16,6 @@ try {
 const server = app.listen(PORT, () => {
     console.log(`🔥Server a correr em: ${BASE_URL}:${PORT}`);
 });
-
 
 let shuttingDown = false;
 const shutdown = async (signal: string) => {

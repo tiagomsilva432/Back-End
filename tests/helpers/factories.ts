@@ -1,5 +1,8 @@
 import { hash } from "bcrypt";
+import { AbsenceRequest } from "../../src/entities/AbsenceRequest.js";
 import { Company } from "../../src/entities/Company.js";
+import { CompanyHoliday } from "../../src/entities/CompanyHoliday.js";
+import { Expense } from "../../src/entities/Expense.js";
 import { Allocation } from "../../src/entities/Allocation.js";
 import { Announcement } from "../../src/entities/Announcement.js";
 import { Notification } from "../../src/entities/Notification.js";
@@ -13,8 +16,11 @@ import { Salary } from "../../src/entities/Salary.js";
 import { Skill } from "../../src/entities/Skill.js";
 import { User } from "../../src/entities/User.js";
 import {
+    AbsenceStatus,
+    AbsenceType,
     AnnouncementScope,
     AnnouncementSeverity,
+    ExpenseCategory,
     ProjectStatus,
     ReviewRequestStatus,
     SkillCategory,
@@ -103,7 +109,7 @@ export async function criarPerfil(userId: string, opcoes: OpcoesPerfil = {}): Pr
 export async function criarProjeto(
     companyId: string,
     nome?: string,
-    opcoes: { managerId?: string | null } = {},
+    opcoes: { managerId?: string | null; budget?: string | null; startDate?: string | null } = {},
 ): Promise<Project> {
     const repo = manager().getRepository(Project);
     const n = proximo();
@@ -114,6 +120,8 @@ export async function criarProjeto(
             name: nome ?? `Projeto ${n}`,
             status: ProjectStatus.Active,
             managerId: opcoes.managerId ?? null,
+            budget: opcoes.budget ?? null,
+            startDate: opcoes.startDate ?? null,
         }),
     );
 }
@@ -315,6 +323,87 @@ export async function criarNotificacao(
             type: opcoes.type ?? "project.manager_assigned",
             data: opcoes.data ?? { projectId: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42", projectName: `Projeto ${proximo()}` },
             readAt: opcoes.readAt ?? null,
+        }),
+    );
+}
+
+interface OpcoesAusencia {
+    type?: AbsenceType;
+    status?: AbsenceStatus;
+    startDate?: string;
+    endDate?: string;
+    note?: string | null;
+    decidedBy?: string | null;
+}
+
+/** Férias pendentes por omissão, numa semana de dezembro sem feriados. */
+export async function criarAusencia(
+    user: Pick<User, "id" | "companyId">,
+    opcoes: OpcoesAusencia = {},
+): Promise<AbsenceRequest> {
+    const repo = manager().getRepository(AbsenceRequest);
+    const decidedBy = opcoes.decidedBy ?? null;
+
+    return repo.save(
+        repo.create({
+            companyId: user.companyId,
+            userId: user.id,
+            type: opcoes.type ?? AbsenceType.Vacation,
+            status: opcoes.status ?? AbsenceStatus.Pending,
+            startDate: opcoes.startDate ?? "2026-12-14",
+            endDate: opcoes.endDate ?? "2026-12-18",
+            note: opcoes.note ?? null,
+            decidedBy,
+            decidedAt: decidedBy ? new Date() : null,
+            decisionNote: null,
+        }),
+    );
+}
+
+export async function criarFeriado(
+    companyId: string,
+    createdBy: string,
+    opcoes: { date?: string; name?: string } = {},
+): Promise<CompanyHoliday> {
+    const repo = manager().getRepository(CompanyHoliday);
+
+    return repo.save(
+        repo.create({
+            companyId,
+            createdBy,
+            date: opcoes.date ?? "2026-06-13",
+            name: opcoes.name ?? `Feriado ${proximo()}`,
+        }),
+    );
+}
+
+interface OpcoesDespesa {
+    projectId?: string | null;
+    title?: string;
+    description?: string | null;
+    amount?: string;
+    category?: ExpenseCategory;
+    incurredOn?: string;
+}
+
+/** Uma despesa da empresa por omissão: software, num dia de 2025. */
+export async function criarDespesa(
+    companyId: string,
+    createdBy: string,
+    opcoes: OpcoesDespesa = {},
+): Promise<Expense> {
+    const repo = manager().getRepository(Expense);
+
+    return repo.save(
+        repo.create({
+            companyId,
+            projectId: opcoes.projectId ?? null,
+            title: opcoes.title ?? `Despesa ${proximo()}`,
+            description: opcoes.description ?? null,
+            amount: opcoes.amount ?? "100.00",
+            category: opcoes.category ?? ExpenseCategory.Software,
+            incurredOn: opcoes.incurredOn ?? "2025-06-15",
+            createdBy,
         }),
     );
 }

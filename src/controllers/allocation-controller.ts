@@ -5,7 +5,7 @@ import type {
     ListAllocationsQuery,
     PatchAllocationRequest,
 } from "../dtos/allocation/allocation-dto.js";
-import { HttpError } from "../dtos/common/errors-dto.js";
+import { HttpError, invalidData } from "../dtos/common/errors-dto.js";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import type { Allocation } from "../entities/Allocation.js";
 import type { Project } from "../entities/Project.js";
@@ -192,9 +192,7 @@ export const patchAllocation = async (req: Request, res: Response) => {
 
     // O Zod só vê o patch, por isso a data compara-se aqui com a que está gravada.
     if (endDate && endDate < allocation.startDate) {
-        throw new HttpError(400, "Dados inválidos", "BAD_REQUEST", [
-            { field: "endDate", message: "A data de fim não pode ser anterior à data de início" },
-        ]);
+        throw invalidData([{ field: "endDate", message: "A data de fim não pode ser anterior à data de início" }]);
     }
 
     // Reabrir volta a disputar o índice único. Só corre de fechada para aberta,

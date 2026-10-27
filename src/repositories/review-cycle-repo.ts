@@ -37,10 +37,6 @@ export async function createReviewCycle(cycle: ReviewCycle) {
     return await reviewCycleRepo.save(cycle);
 }
 
-export async function updateReviewCycle(cycle: ReviewCycle) {
-    return await reviewCycleRepo.save(cycle);
-}
-
 /**
  * O ciclo e os seus pedidos numa só transação: um ciclo sem os pedidos todos
  * ficava aberto com metade das pessoas de fora. Os pedidos precisam do id do

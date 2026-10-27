@@ -18,23 +18,12 @@ export async function getEmployeeSkillsByUserId(userId: string): Promise<Employe
     });
 }
 
-export async function getEmployeeSkillsBySkillId(skillId: string): Promise<EmployeeSkill[]> {
-    return await employeeSkillRepo.find({
-        where: { skillId },
-        order: { proficiency: "DESC" }
-    });
-}
-
 /** O catálogo é partilhado, as pessoas não: filtra-se pela empresa de cada uma. */
 export async function getEmployeeSkillsBySkillIdAndCompanyId(skillId: string, companyId: string): Promise<EmployeeSkill[]> {
     return await employeeSkillRepo.find({
         where: { skillId, user: { companyId } },
         order: { proficiency: { direction: "DESC", nulls: "LAST" } }
     });
-}
-
-export async function createEmployeeSkill(employeeSkill: EmployeeSkill) {
-    return await employeeSkillRepo.save(employeeSkill);
 }
 
 export async function updateEmployeeSkill(employeeSkill: EmployeeSkill) {

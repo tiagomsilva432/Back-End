@@ -8,19 +8,18 @@ import {
     projectListResponseSchema,
     projectResponseSchema,
 } from "../dtos/project/project-dto.js";
-import { jsonBody, jsonResponse, errorResponses } from "../docs/response.js";
+import { jsonBody, jsonResponse, errorResponses, pathId } from "../docs/response.js";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { requireRole } from "../middleware/requireRole.js";
+import { requireAdmin, requireRole } from "../middleware/requireRole.js";
 import { validateBody } from "../middleware/validateBody.js";
 import { validateQuery } from "../middleware/validateQuery.js";
-import { UserRole } from "../types/enums.js";
 
 const router = Router();
 
 router.post(
     "/projects",
     requireAuth,
-    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    requireAdmin,
     validateBody(createProjectSchema),
     createProject
 );
@@ -44,18 +43,12 @@ router.get(
 router.patch(
     "/projects/:id",
     requireAuth,
-    requireRole(UserRole.SystemAdmin, UserRole.CompanyAdmin),
+    requireAdmin,
     validateBody(patchProjectSchema),
     patchProject
 );
 
-const idParam = {
-    name: "id",
-    in: "path" as const,
-    required: true,
-    schema: { type: "string" as const, format: "uuid" },
-    description: "Id do projeto",
-};
+const idParam = pathId("Id do projeto");
 
 //Documentação OpenAPI destas rotas
 export const projectPaths: ZodOpenApiPathsObject = {

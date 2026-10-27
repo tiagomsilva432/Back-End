@@ -2,11 +2,11 @@ import type { Response, Request } from "express";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import { HttpError } from "../dtos/common/errors-dto.js";
 import { feUrl, jwtExpiresIn, jwtSecret, passwordResetExpDate, saltRounds, signupTokenExpDate } from "../env-vars.js";
-import { createUser, getUserByEmailAndCompanyId, getUserById, getUserByPasswordResetToken, getUserBySignupToken, getUsersByCompanyId, getUsersByEmail, updateUser } from "../repositories/user-repo.js";
+import { createUser, getUserByEmailAndCompanyId, getUserById, getUserByPasswordResetToken, getUserBySignupToken, getUsersByEmail, updateUser } from "../repositories/user-repo.js";
 import { User } from "../entities/User.js";
 import { compare, hash } from "bcrypt";
 import jwt from "jsonwebtoken";
-import { UserRole, UserStatus } from "../types/enums.js";
+import { UserStatus } from "../types/enums.js";
 import { randomUUID } from "node:crypto";
 import { requireUserInReach } from "../services/user-scope.js";
 import { isoDate } from "../utils/dates.js";
@@ -22,14 +22,14 @@ import type { MeResponse } from "../dtos/auth/me-dto.js";
 import { getAuth } from "../middleware/requireAuth.js";
 import { getCurrentActor } from "../middleware/requireRole.js";
 import { canAdministerAccount, resolveAccountTarget } from "../services/account-policy.js";
-import type { CreateAccountRequest, CreateAccountResponse } from "../dtos/auth/account-dto.js";
+import { companyAdminIdsOrSystemAdmins } from "../services/admin-recipients.js";
+import type { ActivateAccountRequest, CreateAccountRequest, CreateAccountResponse } from "../dtos/auth/account-dto.js";
 import { getCompanyById } from "../repositories/company-repo.js";
 import { mailer } from "../services/mailer.js";
 import { notifier } from "../services/notifier.js";
+import { passwordTiming } from "../services/password-timing.js";
 import { createEmployeeProfile, employeeProfileRepo } from "../repositories/employee-profile-repo.js";
 import { toProfileResponse } from "../services/user-mapper.js";
-
-
 
 export const createAccount = async (req: Request, res: Response) => {
     const body = req.body as CreateAccountRequest;
@@ -51,9 +51,7 @@ export const createAccount = async (req: Request, res: Response) => {
 
     const created: User = await createUser(new User(companyId, body.email, role));
 
-    const activationUrl: string = `${feUrl()}/auth/account/activate?token=${created.signupToken}`
-
-    console.log(`Conta Criada - URL Ativação: ${activationUrl}`);
+    const activationUrl: string = `${feUrl()}/auth/account/activate?token=${created.signupToken}`;
 
     // A conta fica criada mesmo que o email falhe; o token continua válido
     // e pode ser reenviado.
@@ -94,7 +92,7 @@ export const createAccount = async (req: Request, res: Response) => {
 }
 
 export const activateUserWithToken = async (req: Request, res: Response) => {
-    const { signupToken, password } = req.body;
+    const { signupToken, password } = req.body as ActivateAccountRequest;
 
     const user = await getUserBySignupToken(signupToken);
 
@@ -107,19 +105,16 @@ export const activateUserWithToken = async (req: Request, res: Response) => {
     user.mustChangePassword = false;
     user.signupToken = null;
     user.signupTokenExpiresAt = null;
+    // O token chegou por email: quem o usa tem acesso à caixa.
+    user.emailVerifiedAt = new Date();
 
     await updateUser(user);
 
-    // Os admins da empresa sabem que o convite foi aceite. Sem outro admin
-    // (o primeiro, convidado por um system_admin), não há a quem dizer.
-    const admins = await getUsersByCompanyId(user.companyId, {
-        role: UserRole.CompanyAdmin,
-        status: UserStatus.Active,
-    });
-
+    // Os admins da empresa sabem que o convite foi aceite. O primeiro
+    // company_admin não tem nenhum: vai para os system_admins.
     await notifier.notify("user.activated", {
         companyId: user.companyId,
-        recipientIds: admins.map((admin) => admin.id),
+        recipientIds: await companyAdminIdsOrSystemAdmins(user.companyId, user.id),
         exclude: [user.id],
         data: { userId: user.id, email: user.email },
     });
@@ -138,12 +133,23 @@ export const loginWithEmailAndPassword = async (req: Request, res: Response) => 
         : await getUsersByEmail(email);
 
     const matches: User[] = [];
+    let compared = false;
 
     // Sequencial para um pedido não multiplicar o trabalho de bcrypt.
     for (const candidate of candidates) {
-        if (candidate.passwordHash && (await compare(password, candidate.passwordHash))) {
+        if (!candidate.passwordHash) {
+            continue;
+        }
+
+        compared = true;
+
+        if (await compare(password, candidate.passwordHash)) {
             matches.push(candidate);
         }
+    }
+
+    if (!compared) {
+        await passwordTiming.burnCompare(password);
     }
 
     // Password antes do estado: mantém o 401 uniforme.
@@ -187,6 +193,9 @@ export const loginWithEmailAndPassword = async (req: Request, res: Response) => 
 
     const token: string = jwt.sign(claims, jwtSecret(), { expiresIn: jwtExpiresIn() });
 
+    user.lastLoginAt = new Date();
+    await updateUser(user);
+
     const data: LoginResponse = {
         token,
         user: {
@@ -223,7 +232,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
 }
 /**
  * Só uma conta `invited` se reenvia. Recunhar um token numa conta ativa seria um
- * caminho de tomada de conta: o URL de ativação vai para a consola.
+ * caminho de tomada de conta: o link de ativação define uma password nova.
  */
 export const resendActivation = async (req: Request, res: Response) => {
     const actor: User = getCurrentActor(req);
@@ -251,8 +260,6 @@ export const resendActivation = async (req: Request, res: Response) => {
     const saved = await updateUser(target);
 
     const activationUrl: string = `${feUrl()}/auth/account/activate?token=${saved.signupToken}`;
-
-    console.log(`Ativação reenviada - URL Ativação: ${activationUrl}`);
 
     // O token fica válido mesmo que o email falhe.
     try {
@@ -313,7 +320,8 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
 
     for (const candidate of candidates) {
         // Sem passwordHash não há password para redefinir: essa conta ativa-se.
-        if (!candidate.passwordHash) {
+        // Uma conta terminada é definitiva: terminar já lhe apagou o token.
+        if (!candidate.passwordHash || candidate.status === UserStatus.Terminated) {
             continue;
         }
 
@@ -327,8 +335,10 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
 
             if (company) {
                 const resetUrl = `${feUrl()}/auth/password/reset?token=${saved.passwordResetToken}`;
-                console.log(`Reset pedido - URL: ${resetUrl}`);
-                await mailer.sendPasswordResetEmail(company, saved.email, resetUrl);
+                // Sem await: o envio só acontece para contas que existem, e esperar por ele denunciava-as.
+                void mailer.sendPasswordResetEmail(company, saved.email, resetUrl).catch((error: unknown) => {
+                    console.error(`Falha ao enviar a recuperação de ${saved.id}`, error);
+                });
             }
         } catch (error) {
             console.error(`Falha ao preparar a recuperação de ${candidate.id}`, error);
@@ -352,6 +362,8 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
     user.mustChangePassword = false;
     user.passwordResetToken = null;
     user.passwordResetExpiresAt = null;
+    // O link também chegou por email.
+    user.emailVerifiedAt ??= new Date();
 
     await updateUser(user);
 
