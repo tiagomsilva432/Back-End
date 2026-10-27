@@ -2,6 +2,7 @@ import { hash } from "bcrypt";
 import { AbsenceRequest } from "../../src/entities/AbsenceRequest.js";
 import { Company } from "../../src/entities/Company.js";
 import { CompanyHoliday } from "../../src/entities/CompanyHoliday.js";
+import { Expense } from "../../src/entities/Expense.js";
 import { Allocation } from "../../src/entities/Allocation.js";
 import { Announcement } from "../../src/entities/Announcement.js";
 import { Notification } from "../../src/entities/Notification.js";
@@ -19,6 +20,7 @@ import {
     AbsenceType,
     AnnouncementScope,
     AnnouncementSeverity,
+    ExpenseCategory,
     ProjectStatus,
     ReviewRequestStatus,
     SkillCategory,
@@ -107,7 +109,7 @@ export async function criarPerfil(userId: string, opcoes: OpcoesPerfil = {}): Pr
 export async function criarProjeto(
     companyId: string,
     nome?: string,
-    opcoes: { managerId?: string | null } = {},
+    opcoes: { managerId?: string | null; budget?: string | null; startDate?: string | null } = {},
 ): Promise<Project> {
     const repo = manager().getRepository(Project);
     const n = proximo();
@@ -118,6 +120,8 @@ export async function criarProjeto(
             name: nome ?? `Projeto ${n}`,
             status: ProjectStatus.Active,
             managerId: opcoes.managerId ?? null,
+            budget: opcoes.budget ?? null,
+            startDate: opcoes.startDate ?? null,
         }),
     );
 }
@@ -369,6 +373,37 @@ export async function criarFeriado(
             createdBy,
             date: opcoes.date ?? "2026-06-13",
             name: opcoes.name ?? `Feriado ${proximo()}`,
+        }),
+    );
+}
+
+interface OpcoesDespesa {
+    projectId?: string | null;
+    title?: string;
+    description?: string | null;
+    amount?: string;
+    category?: ExpenseCategory;
+    incurredOn?: string;
+}
+
+/** Uma despesa da empresa por omissão: software, num dia de 2025. */
+export async function criarDespesa(
+    companyId: string,
+    createdBy: string,
+    opcoes: OpcoesDespesa = {},
+): Promise<Expense> {
+    const repo = manager().getRepository(Expense);
+
+    return repo.save(
+        repo.create({
+            companyId,
+            projectId: opcoes.projectId ?? null,
+            title: opcoes.title ?? `Despesa ${proximo()}`,
+            description: opcoes.description ?? null,
+            amount: opcoes.amount ?? "100.00",
+            category: opcoes.category ?? ExpenseCategory.Software,
+            incurredOn: opcoes.incurredOn ?? "2025-06-15",
+            createdBy,
         }),
     );
 }

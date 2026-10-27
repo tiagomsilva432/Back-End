@@ -122,6 +122,13 @@ export const notificationCatalog = {
         z.object({ ...allocation, endDate: z.string() }),
         (d) => `A tua alocação no projeto ${d.projectName} foi fechada (fim a ${d.endDate})`,
     ),
+    // Os admins contam com o custo em pessoas; o gestor só com as despesas.
+    "project.budget_threshold": defineNotification(
+        z.object({ ...project, threshold: z.union([z.literal(80), z.literal(100)]) }),
+        (d) => d.threshold === 100
+            ? `O projeto ${d.projectName} esgotou o orçamento`
+            : `O projeto ${d.projectName} já gastou ${d.threshold}% do orçamento`,
+    ),
     "project.manager_assigned": defineNotification(
         z.object(project),
         (d) => `Passaste a gerir o projeto ${d.projectName}`,

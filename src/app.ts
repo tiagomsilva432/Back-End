@@ -17,6 +17,8 @@ import announcementRouter from "./routes/announcement-routes.js"
 import notificationRouter from "./routes/notification-routes.js"
 import absenceRouter from "./routes/absence-routes.js"
 import calendarRouter from "./routes/calendar-routes.js"
+import expenseRouter from "./routes/expense-routes.js"
+import financeRouter from "./routes/finance-routes.js"
 
 export const app = express();
 //Middlewares globais
@@ -39,6 +41,8 @@ app.use(announcementRouter);
 app.use(notificationRouter);
 app.use(absenceRouter);
 app.use(calendarRouter);
+app.use(expenseRouter);
+app.use(financeRouter);
 
 //Rota não encontrada
 app.use((_req: Request, res: Response) => {

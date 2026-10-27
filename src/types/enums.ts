@@ -77,4 +77,15 @@ export enum AbsenceStatus {
 }
 export const isAbsenceStatus = guard(AbsenceStatus);
 
+/** Em que se gastou: é por aqui que o painel de finanças agrupa e filtra. */
+export enum ExpenseCategory {
+    Software = "software",
+    Hardware = "hardware",
+    Travel = "travel",
+    Services = "services",
+    Office = "office",
+    Other = "other",
+}
+export const isExpenseCategory = guard(ExpenseCategory);
+
 export const ENUM_COLUMN_LENGTH = 20;

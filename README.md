@@ -1,8 +1,8 @@
 # Back-End
 
 ERP backend for a software company: users, projects, allocations, salaries,
-skills, peer salary reviews, announcements, and a calendar of absences and
-holidays.
+skills, peer salary reviews, announcements, a calendar of absences and
+holidays, and project expenses with a finance dashboard.
 
 Express 5 + TypeORM + PostgreSQL, written in TypeScript (ESM).
 
@@ -343,6 +343,120 @@ on its first day.
 reopens the previous one, if that is the one it had closed. Deleting from the
 middle of the history would leave a gap, so it answers 409.
 
+### Expenses
+
+Money spent on a project, or by the company itself (rent, licences, equipment)
+when there is no project. Salaries are not expenses: they stay in `salaries`, and
+the [finance dashboard](#finance-dashboard) adds them up on their own.
+
+| Endpoint | Who |
+| --- | --- |
+| `POST /expenses` | on a project: `system_admin`, a `company_admin` of its company, or the project's manager (`managerId`). Without a project: the two admins only |
+| `GET /expenses` | admins list their company (a `system_admin` passes `?companyId=`); a manager who is not an admin must pass the `?projectId=` of a project they manage. Takes `?category=`, `?from=`, `?to=` and `?overhead=true` |
+| `GET /expenses/{id}` | whoever could have logged it |
+| `PATCH /expenses/{id}` | the same |
+| `DELETE /expenses/{id}` | the same |
+
+An expense is `{ projectId?, title, description?, amount, category, incurredOn? }`.
+
+- `category` is one of `software`, `hardware`, `travel`, `services`, `office`
+  or `other`. It is a fixed list so the dashboard can group and filter by it.
+- `incurredOn` is the day the money was spent, which is what the charts plot. It
+  defaults to today and cannot be in the future.
+- `amount` is greater than zero with at most two decimals, and comes back as a
+  string, like every other amount.
+- A project expense takes its company from the project, so sending `companyId`
+  with it answers 400. A company expense takes the caller's company, or the
+  `companyId` a `system_admin` names.
+
+There is no approval step: an expense counts as soon as it is logged, and
+`createdBy` records who logged it. `PATCH` merges like the others, an explicit
+`null` clears the description, and an expense never moves to another project.
+`DELETE` is for correcting a mistake and notifies nobody.
+
+The manager is the one `employee` who can do any of this, and only on their own
+projects. A colleague asking for an expense of their company gets 403; one from
+another company answers 404.
+
+### Finance dashboard
+
+| Endpoint | Who |
+| --- | --- |
+| `GET /finance/overview` | `system_admin` (naming `?companyId=`), `company_admin` - own company |
+| `GET /projects/{id}/finance` | the same admins, or the project's manager |
+
+**Overview.** `GET /finance/overview?from=2026-01&to=2026-12` covers whole
+months, at most 24, and defaults to the current year:
+
+```json
+{
+  "companyId": "0193...", "from": "2026-01", "to": "2026-12", "salaryCostFactor": 1.44375,
+  "totals": { "salaries": "43312.50", "projectExpenses": "8200.00", "overheadExpenses": "3100.00", "total": "54612.50" },
+  "months": [{ "month": "2026-01", "salaries": "...", "projectExpenses": "...", "overheadExpenses": "...", "total": "..." }],
+  "byCategory": [{ "category": "software", "amount": "1249.90" }],
+  "byProject": [{ "projectId": "0194...", "projectName": "Portal", "status": "active", "budget": "125000.00",
+                  "expenses": "...", "labourCost": "...", "spentToDate": "...", "budgetUsedPercent": 78 }],
+  "unallocatedSalaries": "11212.50"
+}
+```
+
+- The three series stay apart, so a chart can switch any of them off without
+  asking again.
+- `?projectIds=a,b` narrows the project expenses and `byProject`;
+  `?categories=software,travel` narrows both kinds of expenses. Both are
+  comma-separated, and neither touches salaries.
+- `byCategory` always lists every category in the same order, zeros included,
+  so a chart keeps its shape.
+- Only what has already been spent counts: a month that has not arrived yet is
+  zero, and the current month runs to today.
+
+**Salary cost.** A salary counts what it costs the company, not the gross. In
+Portugal that is fourteen salaries spread over twelve months, plus the employer's
+social security (TSU, 23.75%): each euro of monthly gross costs 1.44375, which
+is `salaryCostFactor`. Each salary row is prorated by the days it was in force in
+each month, with `effectiveTo` exclusive as always. A company outside Portugal
+counts the gross (factor 1), the same way only Portuguese holidays are known.
+Salaries of people who have since left still count: they were paid.
+
+**Labour cost.** A project's people cost is each allocated person's salary cost
+× the allocation percent, over the days the allocation (end date inclusive) and
+the salary overlap. It is a *share of the salaries*, never added to `total` a
+second time. `unallocatedSalaries` is what no project took: people on the bench,
+or allocated below 100%. In `byProject`, `expenses` and `labourCost` cover the
+requested months and filters, while `spentToDate` and `budgetUsedPercent` cover
+the project's whole life up to today, unfiltered, because that is what the
+budget is compared against.
+
+Each month is rounded to the cent once and every total is the sum of its months,
+so a chart and its total always agree.
+
+**A project's finance.** `GET /projects/{id}/finance` compares the budget with
+everything the project has spent since it started (its `startDate`, first
+allocation or first expense, whichever is earliest): `{ projectId, budget,
+includesLabour, expenses, labourCost, spent, remaining, budgetUsedPercent,
+byCategory, months }`. `remaining` goes negative once over budget; without a
+budget, it and `budgetUsedPercent` are `null`.
+
+**Privacy.** Labour cost is for admins only. A manager is often a plain
+`employee`, and on a project with one or two people the labour cost gives away
+their salary, which no colleague may read. So for a manager `includesLabour` is
+`false`, the `labourCost` fields are absent, and `spent` is the expenses alone.
+
+**Budget alerts.** When an expense is logged or raised, or a project's budget
+changes, the spending is compared with the budget before and after the write.
+Crossing 80% or 100% sends `project.budget_threshold`. Only the highest
+threshold crossed is sent, so jumping from 50% to 120% sends just the 100% one,
+and moving within the same band sends nothing new. The two audiences see
+different figures, following the privacy rule:
+
+- the company's active `company_admin`s (or the active `system_admin`s, if it
+  has none) are alerted on expenses plus labour;
+- the manager, unless already one of those admins, is alerted on expenses alone.
+
+Whoever made the change is never alerted. There is no scheduler, so labour cost
+that grows day by day with no write does not alert anyone by itself: the next
+expense or budget change picks it up.
+
 ### Peer reviews
 
 Colleagues vote on whether someone deserves a raise. Admins collect the votes
@@ -580,6 +694,7 @@ and a ready-to-show Portuguese `message`. The types today:
 | `allocation.ended` | the person | the allocation was closed |
 | `project.manager_assigned` | the new manager | a project is created with, or changed to, a manager |
 | `project.status_changed` | the people involved and the manager | the project's status changes |
+| `project.budget_threshold` | the company admins (on expenses plus labour) and the manager (on expenses alone) | a write makes the project's spending cross 80% or 100% of its budget; carries `threshold` |
 | `review_cycle.opened` | every reviewer, once | a cycle opens |
 | `review_cycle.closed` | the reviewers whose requests expired | a cycle closes |
 | `review_request.created` | the reviewer | an ad-hoc request is made |
