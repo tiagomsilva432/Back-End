@@ -42,7 +42,7 @@ const requireOwnPendingRequest = async (actor: User, id: string): Promise<Review
     }
 
     if (request.status !== ReviewRequestStatus.Pending) {
-        throw new HttpError(409, `Este pedido já não está pendente: está ${request.status}`);
+        throw new HttpError(409, "Este pedido já não está pendente");
     }
 
     if (request.dueDate && request.dueDate < isoDate()) {
@@ -72,7 +72,7 @@ export const createAdHocReviewRequest = async (req: Request, res: Response) => {
     }
 
     if (await getPendingAdHocRequest(reviewer.id, reviewee.id)) {
-        throw new HttpError(409, "Já existe um pedido por responder para este par");
+        throw new HttpError(409, "Já existe um pedido por responder entre estas duas pessoas");
     }
 
     const created = await saveReviewRequest(

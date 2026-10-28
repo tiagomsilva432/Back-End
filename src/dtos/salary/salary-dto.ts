@@ -8,7 +8,7 @@ const amountSchema = decimalString(10, 2, "Montante inválido: usa no máximo 10
 export const createSalarySchema = z.object({
     amount: amountSchema.meta({ example: "2150.00", description: "Bruto mensal. Não pode ser negativo." }),
     currency: z.string().trim().toUpperCase().pipe(z.string().regex(/^[A-Z]{3}$/, {
-        message: "Moeda inválida: usa o código ISO de 3 letras",
+        message: "Moeda inválida: use o código de 3 letras (por exemplo, EUR)",
     })).default("EUR").meta({ example: "EUR" }),
     effectiveFrom: z.iso.date()
         .default(() => isoDate())

@@ -78,13 +78,13 @@ export const createExpense = async (req: Request, res: Response) => {
         project = requireInReach(actor, await getProjectById(body.projectId), PROJECT_NOT_FOUND);
 
         if (!canManageProjectExpenses(actor, project)) {
-            throw new HttpError(403, "Só o gestor do projeto ou um admin regista despesas neste projeto");
+            throw new HttpError(403, "Só o gestor do projeto ou um administrador regista despesas neste projeto");
         }
 
         companyId = project.companyId;
     } else {
         if (actor.role === UserRole.Employee) {
-            throw new HttpError(403, "Só um admin regista despesas da empresa");
+            throw new HttpError(403, "Só um administrador regista despesas da empresa");
         }
 
         companyId = resolveCompanyScope(actor, body.companyId, "Só pode registar despesas na sua empresa");
@@ -136,7 +136,7 @@ export const listExpenses = async (req: Request, res: Response) => {
         expenses = await getExpenses({ ...filters, projectId: project.id });
     } else {
         if (actor.role === UserRole.Employee) {
-            throw new HttpError(403, "Indica o projectId de um projeto que geres");
+            throw new HttpError(403, "Indique um projeto de que seja gestor");
         }
 
         const companyId = resolveCompanyScope(actor, query.companyId, "Só pode ver a sua empresa");

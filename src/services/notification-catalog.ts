@@ -74,11 +74,11 @@ export const notificationCatalog = {
     ),
     "absence.approved": defineNotification(
         z.object(absence),
-        (d) => `O teu pedido de ${ABSENCE_LABELS[d.type]} ${period(d)} foi aprovado`,
+        (d) => `O seu pedido de ${ABSENCE_LABELS[d.type]} ${period(d)} foi aprovado`,
     ),
     "absence.rejected": defineNotification(
         z.object({ ...absence, reason: z.string().nullable() }),
-        (d) => `O teu pedido de ${ABSENCE_LABELS[d.type]} ${period(d)} foi recusado${because(d.reason)}`,
+        (d) => `O seu pedido de ${ABSENCE_LABELS[d.type]} ${period(d)} foi recusado${because(d.reason)}`,
     ),
     // Uma baixa não espera por ninguém: quem decide fica só a saber.
     "absence.auto_approved": defineNotification(
@@ -89,8 +89,8 @@ export const notificationCatalog = {
     "absence.registered": defineNotification(
         z.object(absence),
         (d) => d.type === AbsenceType.Unjustified
-            ? `Foi-te marcada uma falta injustificada ${period(d)}`
-            : `Foi registado em teu nome um pedido de ${ABSENCE_LABELS[d.type]} ${period(d)}, já aprovado`,
+            ? `Foi-lhe marcada uma falta injustificada ${period(d)}`
+            : `Foi registado em seu nome um pedido de ${ABSENCE_LABELS[d.type]} ${period(d)}, já aprovado`,
     ),
     // Vai para a pessoa, se foi um admin, ou para quem decide, se foi a pessoa.
     "absence.cancelled": defineNotification(
@@ -101,8 +101,8 @@ export const notificationCatalog = {
     "absence.teammate_away": defineNotification(
         z.object({ ...absence, type: z.enum([AbsenceType.Vacation, ABSENT]) }),
         (d) => d.type === AbsenceType.Vacation
-            ? `Alguém da tua equipa vai estar de férias ${period(d)}`
-            : `Alguém da tua equipa vai estar ausente ${period(d)}`,
+            ? `Alguém da sua equipa vai estar de férias ${period(d)}`
+            : `Alguém da sua equipa vai estar ausente ${period(d)}`,
     ),
     // Para quem decide: a pessoa juntou uma justificação a um pedido que ainda espera por eles.
     "absence.document_added": defineNotification(
@@ -117,7 +117,7 @@ export const notificationCatalog = {
             startDate: z.string(),
             endDate: z.string().nullable(),
         }),
-        (d) => `Tens uma nova alocação no projeto ${d.projectName} (${d.allocationPercent}%)`,
+        (d) => `Tem uma nova alocação no projeto ${d.projectName} (${d.allocationPercent}%)`,
     ),
     "allocation.updated": defineNotification(
         z.object({
@@ -127,11 +127,11 @@ export const notificationCatalog = {
             endDate: z.string().nullable(),
             changes: z.array(z.enum(["allocationPercent", "roleOnProject", "endDate"])),
         }),
-        (d) => `A tua alocação no projeto ${d.projectName} foi alterada`,
+        (d) => `A sua alocação no projeto ${d.projectName} foi alterada`,
     ),
     "allocation.ended": defineNotification(
         z.object({ ...allocation, endDate: z.string() }),
-        (d) => `A tua alocação no projeto ${d.projectName} foi fechada (fim a ${d.endDate})`,
+        (d) => `A sua alocação no projeto ${d.projectName} foi fechada (fim a ${d.endDate})`,
     ),
     // Os admins contam com o custo em pessoas; o gestor só com as despesas.
     "project.budget_threshold": defineNotification(
@@ -142,7 +142,7 @@ export const notificationCatalog = {
     ),
     "project.manager_assigned": defineNotification(
         z.object(project),
-        (d) => `Passaste a gerir o projeto ${d.projectName}`,
+        (d) => `Passou a gerir o projeto ${d.projectName}`,
     ),
     "project.status_changed": defineNotification(
         z.object({ ...project, from: z.enum(ProjectStatus), to: z.enum(ProjectStatus) }),
@@ -150,7 +150,7 @@ export const notificationCatalog = {
     ),
     "task.assigned": defineNotification(
         z.object(task),
-        (d) => `Tens uma nova tarefa no projeto ${d.projectName}: ${d.taskTitle}`,
+        (d) => `Tem uma nova tarefa no projeto ${d.projectName}: ${d.taskTitle}`,
     ),
     "task.commented": defineNotification(
         z.object(task),
@@ -164,30 +164,30 @@ export const notificationCatalog = {
     "task.reviewed": defineNotification(
         z.object({ ...task, approved: z.boolean() }),
         (d) => d.approved
-            ? `A tua tarefa ${d.taskTitle} (${d.projectName}) foi aprovada`
-            : `A tua tarefa ${d.taskTitle} (${d.projectName}) voltou da revisão`,
+            ? `A sua tarefa ${d.taskTitle} (${d.projectName}) foi aprovada`
+            : `A sua tarefa ${d.taskTitle} (${d.projectName}) voltou da revisão`,
     ),
     "review_cycle.opened": defineNotification(
         z.object({ cycleId: z.uuid(), cycleName: z.string(), deadline: z.string().nullable() }),
-        (d) => `Abriu o ciclo de avaliação ${d.cycleName}: tens colegas para avaliar${until(d.deadline)}`,
+        (d) => `Abriu o ciclo de avaliação ${d.cycleName}: tem colegas para avaliar${until(d.deadline)}`,
     ),
     "review_cycle.closed": defineNotification(
         z.object({ cycleId: z.uuid(), cycleName: z.string() }),
-        (d) => `O ciclo de avaliação ${d.cycleName} fechou e os teus pedidos por responder expiraram`,
+        (d) => `O ciclo de avaliação ${d.cycleName} fechou e os seus pedidos por responder expiraram`,
     ),
     "review_request.created": defineNotification(
         z.object({ requestId: z.uuid(), revieweeId: z.uuid(), dueDate: z.string().nullable() }),
-        (d) => `Tens um novo pedido de avaliação${until(d.dueDate)}`,
+        (d) => `Tem um novo pedido de avaliação${until(d.dueDate)}`,
     ),
     "review_request.declined": defineNotification(
         z.object({ requestId: z.uuid(), reviewerId: z.uuid(), revieweeId: z.uuid() }),
-        () => "Um pedido de avaliação que fizeste foi recusado",
+        () => "Um pedido de avaliação que fez foi recusado",
     ),
     // Anónima de propósito: nem o pedido, nem quem avaliou, nem o conteúdo. Com o
     // pedido e a hora, cruzava-se com as datas das avaliações e via-se quem foi.
     "review.submitted": defineNotification(
         z.object({ revieweeId: z.uuid() }),
-        () => "Foi submetida uma avaliação que pediste",
+        () => "Foi submetida uma avaliação que pediu",
     ),
     "user.activated": defineNotification(
         z.object({ userId: z.uuid(), email: z.string() }),

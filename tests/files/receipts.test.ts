@@ -85,7 +85,7 @@ describe("POST /expenses/:id/receipts", () => {
         const res = await anexar(despesa.id, header, Buffer.from("<html><script>alert(1)</script></html>"), "recibo.pdf");
 
         expect(res.status).toBe(400);
-        expect(res.body.data).toEqual([{ field: "file", message: "Tipo de ficheiro não aceite: usa JPG, PNG, WEBP, PDF" }]);
+        expect(res.body.data).toEqual([{ field: "file", message: "Tipo de ficheiro não aceite: use JPG, PNG, WEBP, PDF" }]);
         expect(await noDisco()).toEqual([]);
         expect(await ficheiros().countBy({ ownerId: despesa.id })).toBe(0);
     });
@@ -102,7 +102,7 @@ describe("POST /expenses/:id/receipts", () => {
         expect(semNada.status).toBe(400);
         expect(semNada.body.data).toEqual([{ field: "file", message: expect.any(String) }]);
         expect(outroCampo.status).toBe(400);
-        expect(outroCampo.body.data).toEqual([{ field: "recibo", message: "Envia um só ficheiro, no campo file" }]);
+        expect(outroCampo.body.data).toEqual([{ field: "recibo", message: "Envie um só ficheiro" }]);
     });
 
     it("mais de 10 MB é 413", async () => {

@@ -29,7 +29,7 @@ export const createReviewCycleSchema = z.object({
     .superRefine((cycle, ctx) => {
         notInThePast("deadline")(cycle.deadline, ctx);
         if (cycle.since > isoDate()) {
-            ctx.addIssue({ code: "custom", message: "A janela não pode começar no futuro", path: ["since"] });
+            ctx.addIssue({ code: "custom", message: "A data de início não pode ser no futuro", path: ["since"] });
         }
     })
     .meta({ id: "CreateReviewCycleRequest", description: "Abrir um ciclo de avaliação" });

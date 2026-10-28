@@ -21,7 +21,7 @@ const taskPrioritySchema = z.string().trim().toLowerCase().pipe(z.enum(TaskPrior
 
 // Uma tarefa nova não salta a revisão: só começa em todo ou in_progress.
 const newTaskStatusSchema = z.string().trim().toLowerCase()
-    .pipe(z.enum([TaskStatus.Todo, TaskStatus.InProgress], { error: "Uma tarefa nova começa em todo ou in_progress" }))
+    .pipe(z.enum([TaskStatus.Todo, TaskStatus.InProgress], { error: "Uma tarefa nova começa em Por fazer ou Em curso" }))
     .meta({ example: TaskStatus.Todo, description: "`todo` ou `in_progress`. Por omissão, `todo`." });
 
 const labelSchema = z.string().trim().toLowerCase().min(1).max(30);

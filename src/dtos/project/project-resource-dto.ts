@@ -5,7 +5,7 @@ const titleSchema = z.string().trim().min(1).max(150).meta({ example: "Servidor 
 
 // Só http e https: um javascript: num href corria no browser de quem clicasse.
 const urlSchema = z.string().trim().max(2048)
-    .pipe(z.url({ protocol: /^https?$/, error: "Link inválido: usa um endereço http:// ou https://" }))
+    .pipe(z.url({ protocol: /^https?$/, error: "Link inválido: use um endereço que comece por http:// ou https://" }))
     .meta({ example: "https://teste.exemplo.pt", description: "Só `http` ou `https`." });
 
 const noteSchema = z.string().trim().min(1).max(2000).meta({ example: "Login: pedir ao gestor do projeto" });

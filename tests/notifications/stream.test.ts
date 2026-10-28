@@ -136,7 +136,7 @@ describe("GET /notifications/stream", () => {
 
         expect(await stream.next("notification")).toMatchObject({
             type: "allocation.created",
-            message: "Tens uma nova alocação no projeto Website (50%)",
+            message: "Tem uma nova alocação no projeto Website (50%)",
             readAt: null,
         });
         stream.close();

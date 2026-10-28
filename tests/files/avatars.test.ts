@@ -75,7 +75,7 @@ describe("PUT /users/:id/avatar", () => {
         const res = await enviarAvatar(ana.id, authorization(ana), pdf(), "eu.pdf");
 
         expect(res.status).toBe(400);
-        expect(res.body.data).toEqual([{ field: "file", message: "Tipo de ficheiro não aceite: usa JPG, PNG, WEBP" }]);
+        expect(res.body.data).toEqual([{ field: "file", message: "Tipo de ficheiro não aceite: use JPG, PNG, WEBP" }]);
     });
 
     it("o PUT do perfil não lhe toca", async () => {

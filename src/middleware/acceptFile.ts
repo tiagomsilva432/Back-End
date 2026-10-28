@@ -28,7 +28,7 @@ export function acceptFile(spec: FileKindSpec) {
                     return next(new HttpError(413, `O ficheiro tem mais de ${spec.maxBytes / MB} MB`));
                 }
 
-                return next(invalidData([{ field: error.field ?? "file", message: "Envia um só ficheiro, no campo file" }]));
+                return next(invalidData([{ field: error.field ?? "file", message: "Envie um só ficheiro" }]));
             }
 
             if (error) {
@@ -36,7 +36,7 @@ export function acceptFile(spec: FileKindSpec) {
             }
 
             if (!req.file || req.file.size === 0) {
-                return next(invalidData([{ field: "file", message: "Falta o ficheiro (multipart/form-data, campo file)" }]));
+                return next(invalidData([{ field: "file", message: "Falta o ficheiro" }]));
             }
 
             next();

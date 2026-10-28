@@ -69,7 +69,7 @@ describe("alocações", () => {
         expect(enviados).toHaveLength(1);
         const [destinatarios, evento] = enviados[0]!;
         expect(destinatarios).toEqual([ana.id]);
-        expect(evento).toMatchObject({ message: "Tens uma nova alocação no projeto Website (60%)" });
+        expect(evento).toMatchObject({ message: "Tem uma nova alocação no projeto Website (60%)" });
     });
 
     it("registar uma alocação que já acabou não notifica ninguém", async () => {

@@ -67,9 +67,9 @@ describe("checkTaskMove", () => {
 
     it("as mensagens dizem o porquê", () => {
         expect(() => checkTaskMove(rui, projeto, { status: Todo, assigneeId: ana.id }, InProgress))
-            .toThrow("Só o responsável pela tarefa, o gestor ou um admin a move");
+            .toThrow("Só o responsável pela tarefa, o gestor ou um administrador a move");
         expect(() => checkTaskMove(ana, projeto, { status: Review, assigneeId: ana.id }, Done))
-            .toThrow("Só o gestor do projeto ou um admin aprova tarefas");
+            .toThrow("Só o gestor do projeto ou um administrador aprova tarefas");
 
         let erro: unknown;
         try {

@@ -35,7 +35,7 @@ describe("GET /notifications/mine", () => {
         expect(res.body.data.items[0]).toEqual({
             id: recente.id,
             type: "project.manager_assigned",
-            message: "Passaste a gerir o projeto Beta",
+            message: "Passou a gerir o projeto Beta",
             data: { projectId: ana.id, projectName: "Beta" },
             readAt: null,
             createdAt: recente.createdAt.toISOString(),

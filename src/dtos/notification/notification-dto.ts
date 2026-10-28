@@ -21,7 +21,7 @@ export const notificationStreamQuerySchema = z.object({
 export const notificationResponseSchema = z.object({
     id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     type: z.string().meta({ example: "allocation.created" }),
-    message: z.string().meta({ example: "Tens uma nova alocação no projeto Website (50%)" }),
+    message: z.string().meta({ example: "Tem uma nova alocação no projeto Website (50%)" }),
     data: z.record(z.string(), z.unknown()).meta({
         example: { projectId: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42", projectName: "Website" },
         description: "Depende do `type`: os ids para onde a notificação leva, e os nomes da altura.",
