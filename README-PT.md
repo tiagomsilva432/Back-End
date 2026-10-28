@@ -2,6 +2,10 @@
 
 [English](README.md) · Português
 
+> Este é um de dois repositórios: esta API e a aplicação web do
+> [Front-End](https://github.com/tiagomsilva432/Front-End) foram feitas para
+> trabalhar juntas. Clona os dois lado a lado.
+
 A API de um ERP para uma empresa de software: pessoas, projetos e alocações,
 salários e avaliações entre colegas, ausências e feriados, despesas e um painel
 de finanças, um quadro de tarefas, chat e ficheiros por projeto, avisos e

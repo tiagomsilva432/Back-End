@@ -2,6 +2,10 @@
 
 English · [Português](README-PT.md)
 
+> This is one half of a pair: this API and the web app in
+> [Front-End](https://github.com/tiagomsilva432/Front-End) are designed to work
+> together. Clone both side by side.
+
 The API of an ERP for a software company: people, projects and allocations,
 salaries and peer reviews, absences and holidays, expenses and a finance
 dashboard, a kanban board, chat and file uploads per project, announcements and
