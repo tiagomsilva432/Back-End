@@ -29,7 +29,6 @@ router.get(
     getProjectFinance
 );
 
-//Documentação OpenAPI destas rotas
 export const financePaths: ZodOpenApiPathsObject = {
     "/finance/overview": {
         get: {

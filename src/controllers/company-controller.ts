@@ -87,7 +87,7 @@ export const patchCompany = async (req: Request, res: Response) => {
 
     // O NIF identifica o tenant, e foi o system_admin quem o registou.
     if (body.taxId !== undefined && actor.role !== UserRole.SystemAdmin) {
-        throw new HttpError(403, "Só o system_admin altera o NIF");
+        throw new HttpError(403, "Só o administrador do sistema altera o NIF");
     }
 
     if (body.taxId && body.taxId !== company.taxId) {

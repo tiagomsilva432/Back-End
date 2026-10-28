@@ -5,12 +5,10 @@ const idSchema = z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42"
 const bodySchema = z.string().trim().min(1).max(2000)
     .meta({ example: "Já está no servidor de testes.", description: "Texto simples, até 2000 caracteres." });
 
-//Schema REQUEST createProjectTaskComment e patchProjectTaskComment
 export const projectTaskCommentBodySchema = z.object({
     body: bodySchema,
 }).meta({ id: "ProjectTaskCommentRequest", description: "O texto de um comentário" });
 
-//Como um comentário é devolvido, na REST e no stream
 export const projectTaskCommentResponseSchema = z.object({
     id: idSchema,
     taskId: idSchema,

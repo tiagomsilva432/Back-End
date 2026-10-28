@@ -73,7 +73,7 @@ export function requireAttachableAbsence(
     const readable = requireReadableAbsence(actor, absence, notFoundMessage);
 
     if (readable.status !== AbsenceStatus.Pending && readable.status !== AbsenceStatus.Approved) {
-        throw new HttpError(409, `Este pedido já não está ativo: está ${readable.status}`);
+        throw new HttpError(409, "Este pedido já não está ativo");
     }
 
     return readable;

@@ -23,7 +23,7 @@ export const downloadFile = async (req: Request, res: Response) => {
     const check = checkSignature(id, exp, sig);
 
     if (check !== "valid") {
-        throw new HttpError(403, check === "expired" ? "Este link expirou: pede o recurso outra vez" : "Link inválido");
+        throw new HttpError(403, check === "expired" ? "Este link expirou. Atualize a página para abrir o ficheiro" : "Link inválido");
     }
 
     const file = await getFileById(id);
@@ -50,7 +50,6 @@ export const downloadFile = async (req: Request, res: Response) => {
                 return resolve();
             }
 
-            // A linha existe mas o disco não tem o ficheiro.
             if ((error as NodeJS.ErrnoException).code === "ENOENT") {
                 console.error(`O ficheiro ${file.id} não está no disco: ${file.storageKey}`);
                 return reject(new HttpError(404, NOT_FOUND));

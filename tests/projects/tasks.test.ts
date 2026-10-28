@@ -174,7 +174,7 @@ describe("POST /projects/:id/tasks", () => {
             const res = await criar(projeto.id, authorization(ana), { title: "B", status });
 
             expect(res.status).toBe(400);
-            expect(res.body.data).toEqual([{ field: "status", message: "Uma tarefa nova começa em todo ou in_progress" }]);
+            expect(res.body.data).toEqual([{ field: "status", message: "Uma tarefa nova começa em Por fazer ou Em curso" }]);
         }
     });
 
@@ -275,7 +275,7 @@ describe("PATCH /projects/:id/tasks/:taskId", () => {
 });
 
 describe("DELETE /projects/:id/tasks/:taskId", () => {
-    it("só quem a criou, a gestora ou um admin apagam; vai em direto", async () => {
+    it("só quem a criou, a gestora ou um administrador apagam; vai em direto", async () => {
         const { adminHeader, gestora, ana, rui, projeto } = await cenario();
         const [a, b, c] = [
             await criarTarefa(projeto.id, ana.id, { assigneeId: rui.id }),
@@ -287,7 +287,7 @@ describe("DELETE /projects/:id/tasks/:taskId", () => {
         const doRui = await apagar(caminho(a!.id), authorization(rui));
 
         expect(doRui.status).toBe(403);
-        expect(doRui.body.message).toBe("Só quem criou a tarefa, o gestor do projeto ou um admin a apaga");
+        expect(doRui.body.message).toBe("Só quem criou a tarefa, o gestor do projeto ou um administrador a apaga");
         expect((await apagar(caminho(a!.id), authorization(ana))).status).toBe(200);
         expect((await apagar(caminho(b!.id), authorization(gestora))).status).toBe(200);
         expect((await apagar(caminho(c!.id), adminHeader)).status).toBe(200);

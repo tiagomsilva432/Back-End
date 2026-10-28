@@ -59,12 +59,10 @@ async function lockBoard(manager: EntityManager, projectId: string): Promise<voi
 const byPosition = (a: ProjectTask, b: ProjectTask): number =>
     a.position - b.position || (a.id < b.id ? -1 : 1);
 
-/** Uma coluna, pela ordem do quadro. */
 async function columnOf(manager: EntityManager, projectId: string, status: TaskStatus): Promise<ProjectTask[]> {
     return (await manager.getRepository(ProjectTask).findBy({ projectId, status })).sort(byPosition);
 }
 
-/** Grava uma tarefa nova no fundo da sua coluna. */
 export async function createProjectTaskAtBottom(task: ProjectTask): Promise<ProjectTask> {
     return await projectTaskRepo.manager.transaction(async (manager) => {
         await lockBoard(manager, task.projectId);
@@ -123,7 +121,6 @@ export async function moveProjectTask(
             columns.push((await columnOf(manager, projectId, from)).filter((t) => t.id !== task.id));
         }
 
-        // Só se grava o que mudou: a tarefa movida, e as que mudaram de lugar.
         const changed = new Set<ProjectTask>([task]);
 
         for (const column of columns) {

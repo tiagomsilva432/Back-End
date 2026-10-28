@@ -10,11 +10,9 @@ import { uploadsDir } from "../../env-vars.js";
 export interface FileStorage {
     /** Grava inteiro ou não grava: nunca fica meio ficheiro com o nome certo. */
     put(key: string, bytes: Buffer): Promise<void>;
-    /** O caminho absoluto, para o res.sendFile. */
     path(key: string): string;
     /** Apagar um que já não existe não é erro. */
     remove(key: string): Promise<void>;
-    /** Tudo o que lá está, para o files:sweep. */
     list(): Promise<Array<{ key: string; modifiedAt: Date }>>;
 }
 
@@ -37,7 +35,6 @@ const diskStorage: FileStorage = {
 
         await mkdir(path.dirname(full), { recursive: true });
         await writeFile(temp, bytes);
-        // Um rename na mesma pasta é atómico.
         await rename(temp, full);
     },
 
@@ -62,7 +59,6 @@ const diskStorage: FileStorage = {
                 .filter((entry) => entry.isFile())
                 .map(async (entry) => {
                     const full = path.join(entry.parentPath, entry.name);
-                    // As chaves usam sempre "/", também no Windows.
                     const key = path.relative(root, full).split(path.sep).join("/");
 
                     return { key, modifiedAt: (await stat(full)).mtime };

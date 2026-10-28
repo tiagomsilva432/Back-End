@@ -27,7 +27,6 @@ const startsWith = (bytes: Uint8Array, signature: readonly number[], offset = 0)
 
 const ascii = (text: string): number[] => [...text].map((char) => char.charCodeAt(0));
 
-/** O tipo pelos bytes, ou null se não for nenhum dos que conhecemos. */
 export function detectFileType(bytes: Uint8Array): FileType | null {
     if (startsWith(bytes, [0xff, 0xd8, 0xff])) {
         return "jpeg";
@@ -45,6 +44,5 @@ export function detectFileType(bytes: Uint8Array): FileType | null {
     return null;
 }
 
-/** Os tipos que um kind aceita, como o 400 os diz a quem enviou. */
 export const describeTypes = (types: readonly FileType[]): string =>
     types.map((type) => FILE_TYPES[type].extension.toUpperCase()).join(", ");

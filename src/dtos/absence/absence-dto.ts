@@ -43,7 +43,6 @@ const validRange = (absence: { startDate: string; endDate: string }, ctx: z.Refi
     }
 };
 
-//Schema REQUEST createAbsence
 export const createAbsenceSchema = z.object({
     type: ownTypeSchema,
     ...range,
@@ -63,7 +62,6 @@ export const createAbsenceSchema = z.object({
     })
     .meta({ id: "CreateAbsenceRequest", description: "Pedir uma ausência para si próprio" });
 
-//Schema REQUEST registerAbsence
 export const registerAbsenceSchema = z.object({
     type: typeSchema,
     ...range,
@@ -92,7 +90,6 @@ export const absenceDecisionBodySchema = z.object({
 
 export const absenceDecisionSchema = absenceDecisionBodySchema.optional();
 
-//Schemas QUERY
 export const listMyAbsencesQuerySchema = z.object({
     status: statusFilter,
     type: typeFilter,
@@ -109,7 +106,6 @@ export const absenceSummaryQuerySchema = z.object({
     year: yearSchema,
 }).meta({ id: "AbsenceSummaryQuery", description: "O ano a contar" });
 
-//Como um pedido é devolvido
 export const absenceResponseSchema = z.object({
     id: idSchema,
     companyId: z.uuid(),

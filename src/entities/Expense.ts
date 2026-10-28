@@ -53,7 +53,6 @@ export class Expense {
     @Column({ type: "numeric", precision: 12, scale: 2 })
     amount!: string;
 
-    /** Not constrained by the database; guard with isExpenseCategory before writing. */
     @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH })
     category!: ExpenseCategory;
 

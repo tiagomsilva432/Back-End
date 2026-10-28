@@ -139,7 +139,7 @@ describe("POST /projects/:id/resources", () => {
             const res = await criar(projeto.id, authorization(ana), { title: "Link", url });
 
             expect(res.status).toBe(400);
-            expect(res.body.data).toEqual([{ field: "url", message: "Link inválido: usa um endereço http:// ou https://" }]);
+            expect(res.body.data).toEqual([{ field: "url", message: "Link inválido: use um endereço que comece por http:// ou https://" }]);
         }
 
         expect(await recursos().countBy({ projectId: projeto.id })).toBe(0);

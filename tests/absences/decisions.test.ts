@@ -194,7 +194,7 @@ describe("POST /absences/{id}/cancel", () => {
 
         const res = await acao(comecado.id, "cancel", authorization(ana));
         expect(res.status).toBe(409);
-        expect(res.body.message).toBe("Esta ausência já começou: só um admin a pode cancelar");
+        expect(res.body.message).toBe("Esta ausência já começou: só um administrador a pode cancelar");
     });
 
     it("um admin cancela um aprovado que já começou, com motivo, e a pessoa é avisada", async () => {

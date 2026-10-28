@@ -35,7 +35,6 @@ export class StoredFile {
     @JoinColumn({ name: "company_id" })
     company!: Company;
 
-    /** Not constrained by the database; guard with isFileKind before writing. */
     @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH })
     kind!: FileKind;
 

@@ -143,7 +143,6 @@ const resultsReaders =
     "Só quem administra a conta da pessoa: um `company_admin` sobre os seus `employee`, um " +
     "`system_admin` sobre qualquer uma. A própria pessoa nunca vê os seus resultados. ";
 
-//Documentação OpenAPI destas rotas
 export const reviewPaths: ZodOpenApiPathsObject = {
     "/review-cycles": {
         post: {

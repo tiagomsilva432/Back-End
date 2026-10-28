@@ -83,11 +83,10 @@ const notifyTeammatesAway = async (absence: AbsenceRequest, actorId: string): Pr
 
 const requirePending = (absence: AbsenceRequest): void => {
     if (absence.status !== AbsenceStatus.Pending) {
-        throw new HttpError(409, `Este pedido já não está pendente: está ${absence.status}`);
+        throw new HttpError(409, "Este pedido já não está pendente");
     }
 };
 
-/** Quem fez a última coisa ao pedido, e quando. */
 const decide = (absence: AbsenceRequest, actor: User, status: AbsenceStatus, note: string | null): void => {
     absence.status = status;
     absence.decidedBy = actor.id;
@@ -123,7 +122,7 @@ export const createAbsence = async (req: Request, res: Response) => {
     const body = req.body as CreateAbsenceRequest;
     const actor: User = getCurrentActor(req);
 
-    const workingDays = await requireFreeWorkingDays(actor, body, "Já tens um pedido pendente ou aprovado nesses dias");
+    const workingDays = await requireFreeWorkingDays(actor, body, "Já tem um pedido pendente ou aprovado nesses dias");
 
     // Uma baixa não passa por aprovação. Sem decidedBy: ninguém a aprovou,
     // e muito menos a própria pessoa.
@@ -167,7 +166,7 @@ export const registerAbsence = async (req: Request, res: Response) => {
     const target = requireUserInReach(actor, await getUserById(id), USER_NOT_FOUND);
 
     if (!canDecideAbsence(actor, { userId: target.id, companyId: target.companyId })) {
-        throw new HttpError(403, "Uma ausência sua pede-se em POST /absences");
+        throw new HttpError(403, "Para pedir uma ausência sua, use a página das suas ausências");
     }
 
     if (target.status === UserStatus.Terminated) {
@@ -311,13 +310,13 @@ export const cancelAbsence = async (req: Request, res: Response) => {
     const absence = requireReadableAbsence(actor, await getAbsenceById(id), NOT_FOUND);
 
     if (absence.status !== AbsenceStatus.Pending && absence.status !== AbsenceStatus.Approved) {
-        throw new HttpError(409, `Este pedido já não está ativo: está ${absence.status}`);
+        throw new HttpError(409, "Este pedido já não está ativo");
     }
 
     const byDecider = canDecideAbsence(actor, absence);
 
     if (!byDecider && absence.status === AbsenceStatus.Approved && absence.startDate <= isoDate()) {
-        throw new HttpError(409, "Esta ausência já começou: só um admin a pode cancelar");
+        throw new HttpError(409, "Esta ausência já começou: só um administrador a pode cancelar");
     }
 
     decide(absence, actor, AbsenceStatus.Cancelled, body?.reason ?? null);

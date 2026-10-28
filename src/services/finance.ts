@@ -38,7 +38,6 @@ export function employerCostFactor(country: string): number {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** O mês (AAAA-MM) de um dia. */
 export const monthOf = (date: string): string => date.slice(0, 7);
 
 const firstDayOf = (month: string): string => `${month}-01`;
@@ -48,7 +47,6 @@ function nextMonth(month: string): string {
     return m === 12 ? `${year + 1}-01` : `${year}-${pad(m + 1)}`;
 }
 
-/** O último dia de um mês, inclusivo. */
 export const lastDayOf = (month: string): string => addDays(firstDayOf(nextMonth(month)), -1);
 
 export const daysInMonth = (month: string): number =>

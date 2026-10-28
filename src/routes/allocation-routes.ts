@@ -71,7 +71,6 @@ router.get(
     getUserAllocationLoad
 );
 
-//Documentação OpenAPI destas rotas
 export const allocationPaths: ZodOpenApiPathsObject = {
     "/allocations": {
         post: {

@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-//Schema REQUEST createCompany
 export const createCompanySchema = z.object({
     name: z.string().trim().min(1).max(150).meta({ example: "Os Silvas, Lda." }),
     taxId: z.string().trim().min(1).max(50).optional().meta({ example: "500123456" }),
@@ -28,7 +27,6 @@ export const patchCompanySchema = z.object({
     .refine((patch) => Object.keys(patch).length > 0, { message: "Nada para alterar" })
     .meta({ id: "PatchCompanyRequest", description: "Alterar uma empresa" });
 
-//Como uma empresa é devolvida, na criação e na leitura
 export const companyResponseSchema = z.object({
     id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     name: z.string().meta({ example: "Os Silvas, Lda." }),

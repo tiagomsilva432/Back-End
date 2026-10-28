@@ -5,7 +5,7 @@ const titleSchema = z.string().trim().min(1).max(150).meta({ example: "Servidor 
 
 // Só http e https: um javascript: num href corria no browser de quem clicasse.
 const urlSchema = z.string().trim().max(2048)
-    .pipe(z.url({ protocol: /^https?$/, error: "Link inválido: usa um endereço http:// ou https://" }))
+    .pipe(z.url({ protocol: /^https?$/, error: "Link inválido: use um endereço que comece por http:// ou https://" }))
     .meta({ example: "https://teste.exemplo.pt", description: "Só `http` ou `https`." });
 
 const noteSchema = z.string().trim().min(1).max(2000).meta({ example: "Login: pedir ao gestor do projeto" });
@@ -29,7 +29,6 @@ export const patchProjectResourceSchema = z.object({
     .refine((patch) => Object.keys(patch).length > 0, { message: "Nada para alterar" })
     .meta({ id: "PatchProjectResourceRequest", description: "Alterar um recurso" });
 
-//Como um recurso é devolvido
 export const projectResourceResponseSchema = z.object({
     id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     projectId: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),

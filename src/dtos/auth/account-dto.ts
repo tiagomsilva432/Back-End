@@ -4,11 +4,11 @@ import { employeeProfileResponseSchema } from "../user/employee-profile-dto.js";
 
 /** Shared with the bootstrap CLI so both enforce the same rules. */
 export const passwordSchema = z.string()
-    .min(8, { message: "Password tem de ter pelo menos 8 caracteres!" })
-    .regex(/[a-z]/, { message: "Password tem de ter pelo menos uma letra minúscula!" })
-    .regex(/[A-Z]/, { message: "Password tem de ter pelo menos uma letra maiúscula!" })
-    .regex(/[0-9]/, { message: "Password tem de conter pelo menos um número!" })
-    .regex(/[@$!%*?&#]/, { message: "Password tem de ter pelo menos um caracter especial!" });
+    .min(8, { message: "A palavra-passe tem de ter pelo menos 8 caracteres" })
+    .regex(/[a-z]/, { message: "A palavra-passe tem de ter pelo menos uma letra minúscula" })
+    .regex(/[A-Z]/, { message: "A palavra-passe tem de ter pelo menos uma letra maiúscula" })
+    .regex(/[0-9]/, { message: "A palavra-passe tem de ter pelo menos um número" })
+    .regex(/[@$!%*?&#]/, { message: "A palavra-passe tem de ter pelo menos um carácter especial" });
 
 /** O nome da pessoa, logo no convite. O resto do perfil vem depois. */
 export const inviteProfileSchema = z.object({
@@ -21,7 +21,6 @@ export const inviteProfileSchema = z.object({
     jobTitle: z.string().trim().min(1).max(100).optional().meta({ example: "Backend Developer" }),
 }).meta({ id: "InviteProfile", description: "Nome da pessoa convidada" });
 
-//Schema REQUEST createAccount
 export const createAccountSchema = z.object({
     companyId: z.uuid().optional().meta({
         example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42",
@@ -43,7 +42,6 @@ export const activateAccountSchema = z.object({
 }).meta({ id: "ActivateAccountRequest", description: "Dados para ativar uma conta"});
 
 
-//Schema RESPONSE createAccount
 export const createAccountResponseSchema = z.object({
     id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     companyId: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),

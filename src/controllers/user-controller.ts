@@ -135,6 +135,14 @@ const ALLOWED_TRANSITIONS: Record<UserStatus, readonly UserStatus[]> = {
     [UserStatus.Terminated]: [],
 };
 
+/** Os estados como aparecem nas mensagens de erro. */
+const STATUS_LABELS: Record<UserStatus, string> = {
+    [UserStatus.Invited]: "convidada",
+    [UserStatus.Active]: "ativa",
+    [UserStatus.Suspended]: "suspensa",
+    [UserStatus.Terminated]: "terminada",
+};
+
 export const patchUserStatus = async (req: Request, res: Response) => {
     const { status } = req.body as PatchUserStatusRequest;
     const actor: User = getCurrentActor(req);
@@ -153,7 +161,7 @@ export const patchUserStatus = async (req: Request, res: Response) => {
 
     if (target.status !== status) {
         if (!ALLOWED_TRANSITIONS[target.status].includes(status)) {
-            throw new HttpError(409, `Uma conta ${target.status} não pode passar a ${status}`);
+            throw new HttpError(409, `Uma conta ${STATUS_LABELS[target.status]} não pode passar a ${STATUS_LABELS[status]}`);
         }
 
         target.status = status;

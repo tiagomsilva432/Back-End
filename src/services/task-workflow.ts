@@ -28,12 +28,12 @@ export function checkTaskMove(actor: Actor, project: ProjectRef, task: TaskRef, 
 
     if (task.status === TaskStatus.Done || toStatus === TaskStatus.Done) {
         if (!manages) {
-            throw new HttpError(403, "Só o gestor do projeto ou um admin aprova tarefas");
+            throw new HttpError(403, "Só o gestor do projeto ou um administrador aprova tarefas");
         }
         return;
     }
 
     if (!manages && task.assigneeId !== null && task.assigneeId !== actor.id) {
-        throw new HttpError(403, "Só o responsável pela tarefa, o gestor ou um admin a move");
+        throw new HttpError(403, "Só o responsável pela tarefa, o gestor ou um administrador a move");
     }
 }

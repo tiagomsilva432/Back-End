@@ -70,7 +70,6 @@ router.post(
     readNotification
 );
 
-//Documentação OpenAPI destas rotas
 export const notificationPaths: ZodOpenApiPathsObject = {
     "/notifications/mine": {
         get: {

@@ -10,7 +10,7 @@ export const changePasswordSchema = z.object({
     newPassword: passwordSchema.meta({ example: "PasswordNova1!" }),
 })
     .refine((p) => p.newPassword !== p.currentPassword, {
-        message: "A password nova tem de ser diferente da atual",
+        message: "A palavra-passe nova tem de ser diferente da atual",
         path: ["newPassword"],
     })
     .meta({ id: "ChangePasswordRequest", description: "Trocar a própria password" });

@@ -12,7 +12,7 @@ export function requireRole(...roles: UserRole[]) {
         const user: User | null = await getUserById(claims.sub);
 
         if (!user) {
-            return next(new HttpError(401, "Token inválido"));
+            return next(new HttpError(401, "Sessão inválida. Inicie sessão novamente"));
         }
 
         if (user.status !== UserStatus.Active || user.mustChangePassword) {

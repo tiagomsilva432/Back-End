@@ -89,7 +89,6 @@ router.patch(
 
 const idParam = pathId("Id do utilizador");
 
-//Documentação OpenAPI destas rotas
 export const userPaths: ZodOpenApiPathsObject = {
     "/users": {
         get: {

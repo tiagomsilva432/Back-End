@@ -11,7 +11,6 @@ router.get(
     downloadFile
 );
 
-//Documentação OpenAPI destas rotas
 export const filePaths: ZodOpenApiPathsObject = {
     "/files/{id}": {
         get: {

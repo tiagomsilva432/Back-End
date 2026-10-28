@@ -33,7 +33,6 @@ export async function requireBoardTask(project: Project, req: Request): Promise<
     return task;
 }
 
-/** Manda uma mudança do quadro a quem o pode ter aberto, como o chat. */
 export async function pushToBoard(project: Project, event: string, payload: unknown): Promise<void> {
     realtime.sendToUsers(await projectAudienceIds(project), event, payload);
 }

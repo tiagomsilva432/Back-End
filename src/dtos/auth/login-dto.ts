@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { UserRole } from "../../types/enums.js";
 
-//Schema REQUEST Login
 export const loginSchema = z.object({
     email: z.string().trim().toLowerCase().pipe(z.email()).meta({ example: "user@exemplo.pt" }),
     password: z.string().min(1).meta({ example: "password123" }),
@@ -15,7 +14,6 @@ export const loginSchema = z.object({
 
 export type LoginRequest = z.infer<typeof loginSchema>;
 
-//Schema RESPONSE Login
 export const loginResponseSchema = z.object({
     token: z.string().meta({ example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." }),
     user: z.object({

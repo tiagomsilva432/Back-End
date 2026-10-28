@@ -33,7 +33,6 @@ export class Announcement {
     @PrimaryColumn({ type: "uuid", default: () => "uuidv7()" })
     id!: string;
 
-    /** Not constrained by the database beyond the check; guard with isAnnouncementScope. */
     @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH })
     scope!: AnnouncementScope;
 
@@ -66,7 +65,6 @@ export class Announcement {
     @Column({ type: "text" })
     body!: string;
 
-    /** Not constrained by the database; guard with isAnnouncementSeverity before writing. */
     @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: AnnouncementSeverity.Info })
     severity!: AnnouncementSeverity;
 

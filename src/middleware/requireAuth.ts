@@ -10,16 +10,16 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
     const token = BEARER.exec(req.headers.authorization?.trim() ?? "")?.[1];
 
     if (!token) {
-        return next(new HttpError(401, "Token em falta"));
+        return next(new HttpError(401, "Sessão em falta. Inicie sessão"));
     }
 
     jwt.verify(token, jwtSecret(), (error, payload) => {
         if (error) {
-            return next(new HttpError(401, "Token inválido"));
+            return next(new HttpError(401, "Sessão inválida. Inicie sessão novamente"));
         }
         const claims = jwtPayloadSchema.safeParse(payload);
         if (!claims.success) {
-            return next(new HttpError(401, "Token inválido"));
+            return next(new HttpError(401, "Sessão inválida. Inicie sessão novamente"));
         }
 
         req.auth = claims.data;

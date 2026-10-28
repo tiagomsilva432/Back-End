@@ -6,9 +6,8 @@ const numberEnv = (name: string, fallback: number): number => {
     return Number.isFinite(value) && value > 0 ? value : fallback;
 };
 
-//Ambiente
 export const envIsDev = (): boolean => process.env.NODE_ENV !== "production";
-//URLS
+
 export const BASE_URL: string = process.env.BASE_URL ?? "http://localhost";
 export const PORT: number = numberEnv("PORT", 3000);
 /**
@@ -20,13 +19,13 @@ export const apiPublicUrl = (): string =>
 /** Base do frontend, para o link de ativação. Sem barra final. */
 export const feUrl = (): string =>
     (process.env.FE_URL ?? "http://localhost:5173").replace(/\/$/, "");
-//CORS
+
 export const corsOrigins = (): string[] =>
     (process.env.CORS_ORIGINS ?? "")
         .split(",")
         .map((origin) => origin.trim().replace(/\/$/, ""))
         .filter(Boolean);
-//Auth
+
 export const signupTokenExpDate = (): number => {
     return (numberEnv("SIGNUP_TOKEN_EXPIRATION_DAYS", 7) * 24) * 60 * 60 * 1000;
 };
@@ -35,7 +34,7 @@ export const passwordResetExpDate = (): number => {
     return numberEnv("PASSWORD_RESET_EXPIRATION_HOURS", 1) * 60 * 60 * 1000;
 };
 export const saltRounds = numberEnv("BCRYPT_ROUNDS", 12);
-//JWT
+
 export const jwtSecret = (): string => {
     const secret = process.env.JWT_SECRET;
     if (!secret) {
@@ -47,7 +46,7 @@ export const jwtSecret = (): string => {
 export const jwtExpiresIn = (): NonNullable<SignOptions["expiresIn"]> => {
     return (process.env.JWT_EXPIRES_IN ?? "1d") as NonNullable<SignOptions["expiresIn"]>;
 };
-//Ficheiros
+
 /** A raiz dos uploads. Relativa ao diretório onde a API corre: /app/uploads no contentor. */
 export const uploadsDir = (): string => path.resolve(process.env.UPLOADS_DIR || "uploads");
 /**
@@ -55,7 +54,7 @@ export const uploadsDir = (): string => path.resolve(process.env.UPLOADS_DIR || 
  * dobro, porque a expiração é arredondada para o link não mudar a cada pedido.
  */
 export const fileUrlTtlSeconds = (): number => numberEnv("FILE_URL_TTL_MINUTES", 60) * 60;
-//Email
+
 export const smtpHost = (): string | undefined => process.env.SMTP_HOST || undefined;
 export const smtpPort = (): number => numberEnv("SMTP_PORT", 587);
 export const smtpUser = (): string | undefined => process.env.SMTP_USER || undefined;

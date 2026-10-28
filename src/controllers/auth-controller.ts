@@ -83,7 +83,6 @@ export const createAccount = async (req: Request, res: Response) => {
         email: created.email,
         role: created.role,
         status: created.status,
-        // Só aparece quando o convite trouxe nome.
         ...(profile ? { profile: toProfileResponse(profile, null) } : {}),
     };
 
@@ -157,7 +156,6 @@ export const loginWithEmailAndPassword = async (req: Request, res: Response) => 
     }
 
     if (matches.length > 1) {
-        // HttpResponse e não HttpError: o errorHandler esconde details de 5xx.
         const choices: LoginCompanyChoice[] = [];
 
         for (const match of matches) {
@@ -213,7 +211,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
     const user: User | null = await getUserById(claims.sub);
 
     if(!user){
-        throw new HttpError(401, "Token inválido");
+        throw new HttpError(401, "Sessão inválida. Inicie sessão novamente");
     }
 
     if(user.status !== UserStatus.Active || user.mustChangePassword){
@@ -281,7 +279,7 @@ export const changePassword = async (req: Request, res: Response) => {
     const user: User | null = await getUserById(claims.sub);
 
     if (!user) {
-        throw new HttpError(401, "Token inválido");
+        throw new HttpError(401, "Sessão inválida. Inicie sessão novamente");
     }
 
     if (user.status !== UserStatus.Active) {
