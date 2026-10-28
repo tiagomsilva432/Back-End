@@ -1,4 +1,5 @@
 import express, { type Request, type Response } from "express";
+import "./utils/validation-messages.js";
 import { HttpResponse } from "./dtos/common/responses-dto.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/errorHandler.js";
