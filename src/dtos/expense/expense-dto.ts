@@ -8,7 +8,8 @@ const idSchema = z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42"
 
 // NUMERIC(12,2): 10 dígitos inteiros. O CHECK pede mais do que zero.
 const amountSchema = decimalString(10, 2, "Montante inválido: usa no máximo 10 dígitos e 2 casas decimais")
-    .refine((amount) => amount !== "0.00", { message: "O montante tem de ser maior que zero" });
+    // Por valor: "00" chega aqui como "00.00".
+    .refine((amount) => Number(amount) > 0, { message: "O montante tem de ser maior que zero" });
 
 export const expenseCategorySchema = z.string().trim().toLowerCase().pipe(z.enum(ExpenseCategory)).meta({
     example: ExpenseCategory.Software,

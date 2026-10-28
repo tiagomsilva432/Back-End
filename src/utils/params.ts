@@ -3,6 +3,8 @@ import { HttpError } from "../dtos/common/errors-dto.js";
 
 const uuid = z.uuid();
 
+export const isUuid = (value: unknown): value is string => uuid.safeParse(value).success;
+
 export function uuidParam(value: unknown, notFoundMessage: string): string {
     const parsed = uuid.safeParse(value);
 

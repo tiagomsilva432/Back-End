@@ -1,6 +1,7 @@
-import { In, IsNull, LessThanOrEqual, MoreThan } from "typeorm";
+import { type EntityManager, In, IsNull, LessThanOrEqual, MoreThan } from "typeorm";
 import { AppDataSource } from "../data-source.js";
 import { Salary } from "../entities/Salary.js";
+import { addDays } from "../utils/dates.js";
 
 export const salaryRepo = AppDataSource.getRepository(Salary);
 
@@ -62,6 +63,19 @@ export async function replaceOpenSalary(open: Salary | null, next: Salary): Prom
         }
         return await manager.save(next);
     });
+}
+
+/**
+ * Quem sai é pago até `lastDay`, inclusive: o effectiveTo, exclusivo, fica no dia
+ * seguinte. Um aumento marcado para depois nunca chegou a valer.
+ */
+export async function endSalariesOn(manager: EntityManager, userId: string, lastDay: string): Promise<void> {
+    const repo = manager.getRepository(Salary);
+    const end = addDays(lastDay, 1);
+
+    await repo.delete({ userId, effectiveFrom: MoreThan(lastDay) });
+    await repo.update({ userId, effectiveTo: IsNull() }, { effectiveTo: end });
+    await repo.update({ userId, effectiveTo: MoreThan(end) }, { effectiveTo: end });
 }
 
 /** Desfaz o salário mais recente e reabre o anterior, se foi ele que o fechou. */

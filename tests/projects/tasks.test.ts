@@ -216,12 +216,11 @@ describe("POST /projects/:id/tasks", () => {
 });
 
 describe("PATCH /projects/:id/tasks/:taskId", () => {
-    it("qualquer membro altera o conteúdo: junta, um null limpa, e as etiquetas substituem", async () => {
+    it("o responsável e quem a criou alteram-na: junta, um null limpa, e as etiquetas substituem", async () => {
         const { ana, rui, projeto } = await cenario();
-        const tarefa = await criarTarefa(projeto.id, ana.id, { assigneeId: ana.id, labels: ["bug"] });
+        const tarefa = await criarTarefa(projeto.id, ana.id, { assigneeId: rui.id, labels: ["bug"] });
 
         const res = await alterar(projeto.id, tarefa.id, authorization(rui), {
-            description: "Passos para reproduzir",
             dueDate: "2026-12-01",
             priority: "HIGH",
             labels: ["api"],
@@ -230,16 +229,18 @@ describe("PATCH /projects/:id/tasks/:taskId", () => {
         expect(res.status).toBe(200);
         expect(res.body.data).toMatchObject({
             title: tarefa.title,
-            description: "Passos para reproduzir",
             dueDate: "2026-12-01",
             priority: TaskPriority.High,
             labels: ["api"],
-            assigneeId: ana.id,
+            assigneeId: rui.id,
         });
 
-        const limpa = await alterar(projeto.id, tarefa.id, authorization(rui), { description: null, assigneeId: null });
+        const limpa = await alterar(projeto.id, tarefa.id, authorization(ana), {
+            description: "Passos para reproduzir",
+            dueDate: null,
+        });
 
-        expect(limpa.body.data).toMatchObject({ description: null, assigneeId: null });
+        expect(limpa.body.data).toMatchObject({ description: "Passos para reproduzir", dueDate: null, assigneeId: rui.id });
         expect(eventsSentToUsers("project_task").map(([, e]) => (e as { action: string }).action)).toEqual(["updated", "updated"]);
     });
 
@@ -271,6 +272,156 @@ describe("PATCH /projects/:id/tasks/:taskId", () => {
 
         expect(res.status).toBe(404);
         expect(res.body.message).toBe("Tarefa não encontrada");
+    });
+});
+
+describe("PATCH /projects/:id/tasks/:taskId: quem altera o quê", () => {
+    const SO_QUEM_CRIOU = "Só quem criou a tarefa, o gestor ou um administrador altera o título e a descrição";
+    const SO_QUEM_GERE_ATRIBUI = "Só o gestor ou um administrador atribui tarefas a outras pessoas";
+    const SO_O_RESPONSAVEL = "Só o responsável, o gestor ou um administrador mudam o responsável desta tarefa";
+    const CONCLUIDA = "Uma tarefa concluída só é alterada pelo gestor ou por um administrador";
+    const SO_QUEM_ESTA_NELA = "Só quem criou a tarefa, o responsável, o gestor ou um administrador alteram esta tarefa";
+
+    it("o prazo, a prioridade, as etiquetas e os anexos: quem criou, o responsável, a gestora ou um admin; os outros comentam", async () => {
+        const { adminHeader, gestora, ana, rui, projeto } = await cenario();
+        const tarefa = await criarTarefa(projeto.id, gestora.id, { assigneeId: ana.id });
+
+        for (const corpo of [{ priority: "high" }, { dueDate: "2026-12-01" }, { labels: ["api"] }]) {
+            const res = await alterar(projeto.id, tarefa.id, authorization(rui), corpo);
+
+            expect(res.status).toBe(403);
+            expect(res.body.message).toBe(SO_QUEM_ESTA_NELA);
+        }
+
+        expect((await anexar(projeto.id, tarefa.id, authorization(rui), pdf("do rui"))).status).toBe(403);
+        expect(await noDisco()).toEqual([]);
+
+        const comentario = await request(app)
+            .post(`/projects/${projeto.id}/tasks/${tarefa.id}/comments`)
+            .set("Authorization", authorization(rui))
+            .send({ body: "Posso ajudar?" });
+
+        expect(comentario.status).toBe(201);
+        expect((await alterar(projeto.id, tarefa.id, authorization(ana), { priority: "high" })).status).toBe(200);
+        expect((await anexar(projeto.id, tarefa.id, authorization(ana), pdf("da ana"))).status).toBe(201);
+        expect((await alterar(projeto.id, tarefa.id, authorization(gestora), { labels: ["api"] })).status).toBe(200);
+        expect((await alterar(projeto.id, tarefa.id, adminHeader, { dueDate: "2026-12-01" })).status).toBe(200);
+
+        const doRui = await criarTarefa(projeto.id, rui.id, { assigneeId: ana.id });
+
+        expect((await alterar(projeto.id, doRui.id, authorization(rui), { labels: ["minha"] })).status).toBe(200);
+    });
+
+    it("quem pega numa tarefa sem responsável já a pode alterar no mesmo pedido", async () => {
+        const { ana, rui, projeto } = await cenario();
+        const tarefa = await criarTarefa(projeto.id, ana.id);
+
+        expect((await alterar(projeto.id, tarefa.id, authorization(rui), { assigneeId: ana.id, priority: "high" })).status).toBe(403);
+
+        const res = await alterar(projeto.id, tarefa.id, authorization(rui), { assigneeId: rui.id, priority: "high" });
+
+        expect(res.status).toBe(200);
+        expect(res.body.data).toMatchObject({ assigneeId: rui.id, priority: TaskPriority.High });
+    });
+
+    it("numa tarefa concluída, os anexos também são só da gestora ou de um admin", async () => {
+        const { gestora, ana, projeto } = await cenario();
+        const tarefa = await criarTarefa(projeto.id, ana.id, { status: TaskStatus.Done, assigneeId: ana.id });
+
+        const daAna = await anexar(projeto.id, tarefa.id, authorization(ana), pdf());
+
+        expect(daAna.status).toBe(403);
+        expect(daAna.body.message).toBe(CONCLUIDA);
+        expect((await anexar(projeto.id, tarefa.id, authorization(gestora), pdf())).status).toBe(201);
+    });
+
+    it("o título e a descrição: só quem criou, a gestora ou um admin", async () => {
+        const { adminHeader, gestora, ana, rui, projeto } = await cenario();
+        const tarefa = await criarTarefa(projeto.id, ana.id, { assigneeId: rui.id, title: "Original" });
+
+        for (const corpo of [{ title: "Do Rui" }, { description: "Do Rui" }]) {
+            const res = await alterar(projeto.id, tarefa.id, authorization(rui), corpo);
+
+            expect(res.status).toBe(403);
+            expect(res.body.message).toBe(SO_QUEM_CRIOU);
+        }
+
+        expect((await alterar(projeto.id, tarefa.id, authorization(rui), { title: "Original" })).status).toBe(200);
+        expect((await alterar(projeto.id, tarefa.id, authorization(ana), { title: "Da Ana" })).status).toBe(200);
+        expect((await alterar(projeto.id, tarefa.id, authorization(gestora), { description: "Da gestora" })).status).toBe(200);
+        expect((await alterar(projeto.id, tarefa.id, adminHeader, { title: "Do admin" })).status).toBe(200);
+        expect(await tarefas().findOneByOrFail({ id: tarefa.id })).toMatchObject({ title: "Do admin", description: "Da gestora" });
+    });
+
+    it("sem responsável, quem não gere só fica com ela para si", async () => {
+        const { ana, rui, projeto } = await cenario();
+        const tarefa = await criarTarefa(projeto.id, ana.id);
+
+        const paraOutra = await alterar(projeto.id, tarefa.id, authorization(rui), { assigneeId: ana.id });
+
+        expect(paraOutra.status).toBe(403);
+        expect(paraOutra.body.message).toBe(SO_QUEM_GERE_ATRIBUI);
+
+        const paraSi = await alterar(projeto.id, tarefa.id, authorization(rui), { assigneeId: rui.id });
+
+        expect(paraSi.status).toBe(200);
+        expect(paraSi.body.data.assigneeId).toBe(rui.id);
+    });
+
+    it("com responsável, só ele a passa ou larga; a gestora e um admin põem quem quiserem", async () => {
+        const { adminHeader, gestora, ana, rui, projeto } = await cenario();
+        const tarefa = await criarTarefa(projeto.id, ana.id, { assigneeId: rui.id });
+
+        const daAna = await alterar(projeto.id, tarefa.id, authorization(ana), { assigneeId: ana.id });
+
+        expect(daAna.status).toBe(403);
+        expect(daAna.body.message).toBe(SO_O_RESPONSAVEL);
+        expect((await alterar(projeto.id, tarefa.id, authorization(ana), { assigneeId: null })).status).toBe(403);
+
+        expect((await alterar(projeto.id, tarefa.id, authorization(rui), { assigneeId: ana.id })).status).toBe(200);
+        expect((await alterar(projeto.id, tarefa.id, authorization(gestora), { assigneeId: rui.id })).status).toBe(200);
+        expect((await alterar(projeto.id, tarefa.id, adminHeader, { assigneeId: null })).status).toBe(200);
+        expect((await alterar(projeto.id, tarefa.id, authorization(rui), { assigneeId: rui.id })).status).toBe(200);
+        expect((await alterar(projeto.id, tarefa.id, authorization(rui), { assigneeId: null })).status).toBe(200);
+    });
+
+    it("mudar o responsável para si já não serve para mover a tarefa de outra pessoa", async () => {
+        const { ana, rui, projeto } = await cenario();
+        const tarefa = await criarTarefa(projeto.id, ana.id, { assigneeId: ana.id });
+
+        expect((await alterar(projeto.id, tarefa.id, authorization(rui), { assigneeId: rui.id })).status).toBe(403);
+
+        const mover = await request(app)
+            .post(`/projects/${projeto.id}/tasks/${tarefa.id}/move`)
+            .set("Authorization", authorization(rui))
+            .send({ status: "in_progress", position: 0 });
+
+        expect(mover.status).toBe(403);
+        expect((await tarefas().findOneByOrFail({ id: tarefa.id })).assigneeId).toBe(ana.id);
+    });
+
+    it("uma tarefa concluída só a gestora ou um admin alteram, mesmo quem a criou", async () => {
+        const { adminHeader, gestora, ana, projeto } = await cenario();
+        const tarefa = await criarTarefa(projeto.id, ana.id, { status: TaskStatus.Done, assigneeId: ana.id });
+
+        const daAna = await alterar(projeto.id, tarefa.id, authorization(ana), { priority: "high" });
+
+        expect(daAna.status).toBe(403);
+        expect(daAna.body.message).toBe(CONCLUIDA);
+        expect((await alterar(projeto.id, tarefa.id, authorization(gestora), { priority: "high" })).status).toBe(200);
+        expect((await alterar(projeto.id, tarefa.id, adminHeader, { title: "Revisto" })).status).toBe(200);
+    });
+
+    it("ao criar, quem não gere deixa-a sem responsável ou fica com ela", async () => {
+        const { gestora, ana, rui, projeto } = await cenario();
+
+        const paraOutra = await criar(projeto.id, authorization(rui), { title: "A", assigneeId: ana.id });
+
+        expect(paraOutra.status).toBe(403);
+        expect(paraOutra.body.message).toBe(SO_QUEM_GERE_ATRIBUI);
+        expect((await criar(projeto.id, authorization(rui), { title: "B", assigneeId: rui.id })).status).toBe(201);
+        expect((await criar(projeto.id, authorization(rui), { title: "C" })).status).toBe(201);
+        expect((await criar(projeto.id, authorization(gestora), { title: "D", assigneeId: ana.id })).status).toBe(201);
     });
 });
 
@@ -310,9 +461,9 @@ describe("DELETE /projects/:id/tasks/:taskId", () => {
 });
 
 describe("Anexos de uma tarefa", () => {
-    it("qualquer membro anexa; o cartão mostra-o e o quadro recebe o cartão novo", async () => {
+    it("o responsável anexa; o cartão mostra-o e o quadro recebe o cartão novo", async () => {
         const { admin, ana, rui, projeto } = await cenario();
-        const tarefa = await criarTarefa(projeto.id, ana.id, { assigneeId: ana.id });
+        const tarefa = await criarTarefa(projeto.id, ana.id, { assigneeId: rui.id });
 
         const res = await anexar(projeto.id, tarefa.id, authorization(rui), await png(), "ecra.png");
 
@@ -349,8 +500,8 @@ describe("Anexos de uma tarefa", () => {
 
     it("tirar um anexo atualiza o cartão em direto; o de outra tarefa é 404", async () => {
         const { ana, rui, projeto } = await cenario();
-        const tarefa = await criarTarefa(projeto.id, ana.id);
-        const outra = await criarTarefa(projeto.id, ana.id);
+        const tarefa = await criarTarefa(projeto.id, ana.id, { assigneeId: rui.id });
+        const outra = await criarTarefa(projeto.id, ana.id, { assigneeId: rui.id });
         const anexo = await anexar(projeto.id, tarefa.id, authorization(ana), pdf());
         const caminho = (tarefaId: string) => `/projects/${projeto.id}/tasks/${tarefaId}/attachments/${anexo.body.data.id}`;
 

@@ -261,6 +261,13 @@ describe("POST /auth/password/reset/confirm", () => {
         expect(res.body).toMatchObject({ status: 401, message: "Token Inválido" });
     });
 
+    it("um token que nem é uuid (um link cortado) é o mesmo 401", async () => {
+        const res = await confirmar({ token: "abc", password: NOVA });
+
+        expect(res.status).toBe(401);
+        expect(res.body).toMatchObject({ status: 401, message: "Token Inválido" });
+    });
+
     it("devolve 401 quando o token já expirou, e não troca a password", async () => {
         const user = await comPassword({ email: EMAIL });
         user.passwordResetToken = randomUUID();

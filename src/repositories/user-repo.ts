@@ -1,7 +1,11 @@
-import { In } from "typeorm";
+import { type FindOptionsWhere, In } from "typeorm";
+import type { QueryDeepPartialEntity } from "typeorm/query-builder/QueryPartialEntity.js";
 import { AppDataSource } from "../data-source.js";
 import { User } from "../entities/User.js";
-import type { UserRole, UserStatus } from "../types/enums.js";
+import { type UserRole, UserStatus } from "../types/enums.js";
+import { isUuid } from "../utils/params.js";
+import { endAllocationsOn } from "./allocation-repo.js";
+import { endSalariesOn } from "./salary-repo.js";
 
 export const userRepo = AppDataSource.getRepository(User);
 
@@ -26,7 +30,12 @@ export async function getUsersByEmail(email: string): Promise <User[]> {
     });
 }
 
+// Um link cortado traz um token que não é uuid: na coluna uuid isso era um 500, e é só um token inválido.
 export async function getUserBySignupToken(signupToken:string): Promise <User | null> {
+    if (!isUuid(signupToken)) {
+        return null;
+    }
+
     return await userRepo.findOneBy({
         signupToken
     });
@@ -41,6 +50,10 @@ export async function getUserByIdWithProfile(id: string): Promise <User | null> 
 }
 
 export async function getUserByPasswordResetToken(passwordResetToken: string): Promise <User | null> {
+    if (!isUuid(passwordResetToken)) {
+        return null;
+    }
+
     return await userRepo.findOneBy({
         passwordResetToken
     });
@@ -86,8 +99,46 @@ export async function getUsersByIds(ids: string[]): Promise <User[]> {
     });
 }
 
-export async function updateUser(user: User){
-    return await userRepo.save(user);
+/**
+ * Só as colunas indicadas, e só se a linha ainda cumprir o `where`. Um save()
+ * reescrevia as colunas que outro pedido mudou entretanto: um login a meio do
+ * bcrypt repunha "active" numa conta acabada de suspender.
+ */
+export async function updateUserFields(
+    id: string,
+    fields: QueryDeepPartialEntity<User>,
+    where: FindOptionsWhere<User> = {},
+): Promise<boolean> {
+    const result = await userRepo.update({ ...where, id }, fields);
+    return (result.affected ?? 0) > 0;
+}
+
+/**
+ * Só muda se a conta ainda estiver em `from`. Terminar revoga os tokens e fecha,
+ * na mesma transação, o salário e as alocações no `lastDay`: senão a pessoa
+ * continuava a custar nas finanças até hoje.
+ */
+export async function changeUserStatus(id: string, from: UserStatus, to: UserStatus, lastDay: string): Promise<boolean> {
+    return await userRepo.manager.transaction(async (manager) => {
+        const terminating = to === UserStatus.Terminated;
+        const result = await manager.getRepository(User).update({ id, status: from }, {
+            status: to,
+            ...(terminating
+                ? { signupToken: null, signupTokenExpiresAt: null, passwordResetToken: null, passwordResetExpiresAt: null }
+                : {}),
+        });
+
+        if ((result.affected ?? 0) === 0) {
+            return false;
+        }
+
+        if (terminating) {
+            await endSalariesOn(manager, id, lastDay);
+            await endAllocationsOn(manager, id, lastDay);
+        }
+
+        return true;
+    });
 }
 
 export async function createUser(user: User){

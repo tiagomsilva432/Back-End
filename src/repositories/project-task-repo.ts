@@ -87,21 +87,27 @@ export interface MovedTask {
  *
  * O `check` corre já com o quadro trancado, sobre a tarefa lida outra vez: as
  * regras (ver task-workflow.ts) olham para a coluna em que ela está mesmo, e
- * não para a de antes de esperar pela tranca.
+ * não para a de antes de esperar pela tranca. Null se a tarefa foi apagada
+ * entretanto.
  */
 export async function moveProjectTask(
     target: Pick<ProjectTask, "id" | "projectId">,
     toStatus: TaskStatus,
     toIndex: number,
     check: (current: ProjectTask) => void,
-): Promise<MovedTask> {
+): Promise<MovedTask | null> {
     return await projectTaskRepo.manager.transaction(async (manager) => {
         const repo = manager.getRepository(ProjectTask);
         const { projectId } = target;
 
         await lockBoard(manager, projectId);
 
-        const task = await repo.findOneByOrFail({ id: target.id });
+        const task = await repo.findOneBy({ id: target.id });
+
+        if (!task) {
+            return null;
+        }
+
         check(task);
 
         const from = task.status;
@@ -144,8 +150,31 @@ export async function moveProjectTask(
     });
 }
 
-export async function updateProjectTask(task: ProjectTask) {
-    return await projectTaskRepo.save(task);
+/**
+ * Altera o cartão com o quadro trancado, sobre a tarefa lida outra vez: gravar a
+ * de antes da tranca desfazia um move feito entretanto (a coluna, o lugar, o
+ * completedAt). O `apply` faz as verificações e muda os campos. Null se a
+ * tarefa foi apagada entretanto.
+ */
+export async function updateProjectTask(
+    target: Pick<ProjectTask, "id" | "projectId">,
+    apply: (current: ProjectTask) => Promise<void>,
+): Promise<ProjectTask | null> {
+    return await projectTaskRepo.manager.transaction(async (manager) => {
+        const repo = manager.getRepository(ProjectTask);
+
+        await lockBoard(manager, target.projectId);
+
+        const task = await repo.findOneBy({ id: target.id });
+
+        if (!task) {
+            return null;
+        }
+
+        await apply(task);
+
+        return await repo.save(task);
+    });
 }
 
 export async function deleteProjectTask(id: string) {

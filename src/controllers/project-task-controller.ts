@@ -30,8 +30,8 @@ import { FILE_KINDS } from "../services/files/file-kinds.js";
 import { filesFor, removeFilesOf } from "../services/files/files.js";
 import { notifier } from "../services/notifier.js";
 import { canManageProject, isProjectMember } from "../services/project-access.js";
-import { pushToBoard, requireBoardProject, requireBoardTask } from "../services/project-board.js";
-import { checkTaskMove } from "../services/task-workflow.js";
+import { pushToBoard, requireBoardProject, requireBoardTask, TASK_NOT_FOUND } from "../services/project-board.js";
+import { checkAssignee, checkTaskEdit, checkTaskMove } from "../services/task-workflow.js";
 import { FileKind, TaskPriority, TaskStatus, UserStatus } from "../types/enums.js";
 
 const EVENT = "project_task";
@@ -129,6 +129,8 @@ export const createProjectTask = async (req: Request, res: Response) => {
     const actor: User = getCurrentActor(req);
     const project = await requireBoardProject(actor, req);
 
+    checkAssignee(actor, project, null, body.assigneeId ?? null);
+
     if (body.assigneeId) {
         await requireAssignee(project, body.assigneeId);
     }
@@ -169,39 +171,56 @@ export const patchProjectTask = async (req: Request, res: Response) => {
     const body = req.body as PatchProjectTaskRequest;
     const actor: User = getCurrentActor(req);
     const project = await requireBoardProject(actor, req);
-    const task = await requireBoardTask(project, req);
+    const target = await requireBoardTask(project, req);
 
-    const previousAssigneeId = task.assigneeId;
+    let previousAssigneeId: string | null = null;
 
-    if (body.assigneeId && body.assigneeId !== task.assigneeId) {
-        await requireAssignee(project, body.assigneeId);
+    const saved = await updateProjectTask(target, async (task) => {
+        previousAssigneeId = task.assigneeId;
+
+        const changes = {
+            text: (body.title !== undefined && body.title !== task.title)
+                || (body.description !== undefined && body.description !== task.description),
+            details: body.dueDate !== undefined || body.priority !== undefined || body.labels !== undefined,
+        };
+
+        // Quem fica com a tarefa neste pedido já conta como responsável: pegar nela e marcar o prazo é um só gravar.
+        checkTaskEdit(actor, project, { ...task, assigneeId: body.assigneeId === undefined ? task.assigneeId : body.assigneeId }, changes);
+
+        if (body.assigneeId !== undefined && body.assigneeId !== task.assigneeId) {
+            checkAssignee(actor, project, task, body.assigneeId);
+
+            if (body.assigneeId) {
+                await requireAssignee(project, body.assigneeId);
+            }
+
+            task.assigneeId = body.assigneeId;
+        }
+
+        if (body.title !== undefined) {
+            task.title = body.title;
+        }
+
+        if (body.description !== undefined) {
+            task.description = body.description;
+        }
+
+        if (body.dueDate !== undefined) {
+            task.dueDate = body.dueDate;
+        }
+
+        if (body.priority !== undefined) {
+            task.priority = body.priority;
+        }
+
+        if (body.labels !== undefined) {
+            task.labels = body.labels;
+        }
+    });
+
+    if (!saved) {
+        throw new HttpError(404, TASK_NOT_FOUND);
     }
-
-    if (body.title !== undefined) {
-        task.title = body.title;
-    }
-
-    if (body.description !== undefined) {
-        task.description = body.description;
-    }
-
-    if (body.assigneeId !== undefined) {
-        task.assigneeId = body.assigneeId;
-    }
-
-    if (body.dueDate !== undefined) {
-        task.dueDate = body.dueDate;
-    }
-
-    if (body.priority !== undefined) {
-        task.priority = body.priority;
-    }
-
-    if (body.labels !== undefined) {
-        task.labels = body.labels;
-    }
-
-    const saved = await updateProjectTask(task);
 
     if (saved.assigneeId !== previousAssigneeId) {
         await notifyAssigned(actor, project, saved);
@@ -224,9 +243,15 @@ export const moveTask = async (req: Request, res: Response) => {
     const project = await requireBoardProject(actor, req);
     const target = await requireBoardTask(project, req);
 
-    const { task, from, order } = await moveProjectTask(target, body.status, body.position, (current) =>
+    const moved = await moveProjectTask(target, body.status, body.position, (current) =>
         checkTaskMove(actor, project, current, body.status),
     );
+
+    if (!moved) {
+        throw new HttpError(404, TASK_NOT_FOUND);
+    }
+
+    const { task, from, order } = moved;
 
     if (task.status === TaskStatus.Review && from !== TaskStatus.Review) {
         await notifier.notify("task.review_requested", {
@@ -274,10 +299,7 @@ export const removeProjectTask = async (req: Request, res: Response) => {
     return new HttpResponse(200, "Tarefa apagada").send(res);
 }
 
-/**
- * Qualquer pessoa do projeto anexa e tira ficheiros, como altera o resto do
- * cartão. O quadro recebe o cartão atualizado, com a lista nova.
- */
+/** O quadro recebe o cartão atualizado, com a lista nova. */
 const pushCard = async (project: Project, task: ProjectTask): Promise<void> => {
     await pushToBoard(project, EVENT, { action: "updated", task: await cardOf(task) });
 };
@@ -286,6 +308,8 @@ const attachments = fileHandlers<{ project: Project; task: ProjectTask }>(FILE_K
     requireOwner: async (actor, req) => {
         const project = await requireBoardProject(actor, req);
         const task = await requireBoardTask(project, req);
+
+        checkTaskEdit(actor, project, task, { details: true });
 
         return { companyId: project.companyId, ownerId: task.id, owner: { project, task } };
     },
