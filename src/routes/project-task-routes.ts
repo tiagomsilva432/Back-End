@@ -185,14 +185,16 @@ export const projectTaskPaths: ZodOpenApiPathsObject = {
             description:
                 `${members}Fica no fundo da coluna. Só começa em \`todo\` ou \`in_progress\`: a \`done\` só ` +
                 "se chega pela revisão. O responsável, se indicado, tem de estar no projeto, e recebe a " +
-                `notificação \`task.assigned\` (se não for quem criou). ${live("project_task")}`,
+                "notificação `task.assigned` (se não for quem criou). Quem não gere o projeto só a deixa sem " +
+                `responsável ou fica com ela; outra pessoa é 403. ${live("project_task")}`,
             security: [{ bearerAuth: [] }],
             parameters: [idParam],
             requestBody: jsonBody(createProjectTaskSchema),
             responses: {
                 "201": jsonResponse(201, "Tarefa criada", projectTaskResponseSchema),
                 ...errorResponses(400),
-                ...memberErrors,
+                "401": jsonResponse(401, "Token em falta ou inválido"),
+                "403": jsonResponse(403, "Não está no projeto, ou não pode atribuir a tarefa a outra pessoa"),
                 "404": jsonResponse(404, "Projeto não encontrado"),
                 ...errorResponses(500),
             },
@@ -231,17 +233,24 @@ export const projectTaskPaths: ZodOpenApiPathsObject = {
             tags: ["Tarefas"],
             summary: "Alterar o conteúdo de uma tarefa",
             description:
-                `${members}Qualquer pessoa do projeto altera o título, a descrição, o responsável, a data, a ` +
-                "prioridade e as etiquetas. Junta: um campo omitido fica como está, e um `null` limpa. As " +
-                "etiquetas substituem as que lá estão. A coluna e o lugar mudam-se no `move`. Um responsável " +
-                `novo recebe \`task.assigned\`. ${live("project_task")}`,
+                `${members}Junta: um campo omitido fica como está, e um \`null\` limpa. As etiquetas substituem ` +
+                "as que lá estão. A coluna e o lugar mudam-se no `move`. Quem pode:\n\n" +
+                "- o título e a descrição: quem criou a tarefa, o gestor do projeto ou um admin;\n" +
+                "- o responsável: o gestor ou um admin põem qualquer pessoa do projeto. Os outros só ficam com " +
+                "uma tarefa sem responsável para si, e só passam a outra pessoa (ou largam) a que já é sua;\n" +
+                "- o prazo, a prioridade e as etiquetas: quem criou a tarefa, o responsável (também quem fica " +
+                "com ela no mesmo pedido), o gestor ou um admin;\n" +
+                "- numa tarefa concluída: só o gestor ou um admin.\n\n" +
+                "Os outros do projeto só veem e comentam.\n\n" +
+                `Um responsável novo recebe \`task.assigned\`. ${live("project_task")}`,
             security: [{ bearerAuth: [] }],
             parameters: [idParam, taskIdParam],
             requestBody: jsonBody(patchProjectTaskSchema),
             responses: {
                 "200": jsonResponse(200, "Tarefa atualizada", projectTaskResponseSchema),
                 ...errorResponses(400),
-                ...memberErrors,
+                "401": jsonResponse(401, "Token em falta ou inválido"),
+                "403": jsonResponse(403, "Não está no projeto, ou sem permissões para esta alteração"),
                 "404": jsonResponse(404, "Projeto ou tarefa não encontrado"),
                 ...errorResponses(500),
             },
@@ -294,16 +303,18 @@ export const projectTaskPaths: ZodOpenApiPathsObject = {
             tags: ["Tarefas"],
             summary: "Anexar um ficheiro a uma tarefa",
             description:
-                `${members}JPEG, PNG, WebP ou PDF até 10 MB, em \`multipart/form-data\` no campo \`file\`; ` +
-                "até 5 por tarefa. O tipo vê-se pelos bytes, não pela extensão. O mesmo ficheiro duas vezes " +
-                `na mesma tarefa é 409. ${live("project_task")} (\`updated\`, com o cartão novo).`,
+                "Quem criou a tarefa, o responsável, o gestor do projeto ou um admin; numa tarefa concluída, só " +
+                "o gestor ou um admin. JPEG, PNG, WebP ou PDF até 10 MB, em `multipart/form-data` no campo " +
+                "`file`; até 5 por tarefa. O tipo vê-se pelos bytes, não pela extensão. O mesmo ficheiro duas " +
+                `vezes na mesma tarefa é 409. ${live("project_task")} (\`updated\`, com o cartão novo).`,
             security: [{ bearerAuth: [] }],
             parameters: [idParam, taskIdParam],
             requestBody: fileBody("O anexo: JPEG, PNG, WebP ou PDF, até 10 MB"),
             responses: {
                 "201": jsonResponse(201, "Anexo adicionado", fileResponseSchema),
                 ...errorResponses(400),
-                ...memberErrors,
+                "401": jsonResponse(401, "Token em falta ou inválido"),
+                "403": jsonResponse(403, "Não está no projeto, ou sem permissões para mexer nos anexos desta tarefa"),
                 "404": jsonResponse(404, "Projeto ou tarefa não encontrado"),
                 "409": jsonResponse(409, "Já tem 5 anexos, ou este já está anexado"),
                 "413": jsonResponse(413, "O ficheiro tem mais de 10 MB"),
@@ -315,12 +326,15 @@ export const projectTaskPaths: ZodOpenApiPathsObject = {
         delete: {
             tags: ["Tarefas"],
             summary: "Tirar um anexo",
-            description: `${members}O anexo de outra tarefa é 404. ${live("project_task")}`,
+            description:
+                "Os mesmos que anexam: quem criou a tarefa, o responsável, o gestor ou um admin (numa concluída, " +
+                `só o gestor ou um admin). O anexo de outra tarefa é 404. ${live("project_task")}`,
             security: [{ bearerAuth: [] }],
             parameters: [idParam, taskIdParam, pathId("Id do anexo", "fileId")],
             responses: {
                 "200": jsonResponse(200, "Anexo apagado"),
-                ...memberErrors,
+                "401": jsonResponse(401, "Token em falta ou inválido"),
+                "403": jsonResponse(403, "Não está no projeto, ou sem permissões para mexer nos anexos desta tarefa"),
                 "404": jsonResponse(404, "Projeto, tarefa ou anexo não encontrado"),
                 ...errorResponses(500),
             },

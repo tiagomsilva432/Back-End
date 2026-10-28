@@ -1,4 +1,4 @@
-import { IsNull, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
+import { type EntityManager, IsNull, LessThanOrEqual, MoreThan, MoreThanOrEqual } from "typeorm";
 import { AppDataSource } from "../data-source.js";
 import { Allocation } from "../entities/Allocation.js";
 import { UserStatus } from "../types/enums.js";
@@ -191,4 +191,13 @@ export async function deleteAllocation(id: string) {
     return await allocationRepo.delete({
         id
     });
+}
+
+/** Quem sai trabalha até `lastDay`, inclusive. Uma alocação que só começava depois nunca aconteceu. */
+export async function endAllocationsOn(manager: EntityManager, userId: string, lastDay: string): Promise<void> {
+    const repo = manager.getRepository(Allocation);
+
+    await repo.delete({ userId, startDate: MoreThan(lastDay) });
+    await repo.update({ userId, endDate: IsNull() }, { endDate: lastDay });
+    await repo.update({ userId, endDate: MoreThan(lastDay) }, { endDate: lastDay });
 }

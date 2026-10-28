@@ -2,10 +2,11 @@ import type { Response, Request } from "express";
 import { HttpResponse } from "../dtos/common/responses-dto.js";
 import { HttpError } from "../dtos/common/errors-dto.js";
 import { feUrl, jwtExpiresIn, jwtSecret, passwordResetExpDate, saltRounds, signupTokenExpDate } from "../env-vars.js";
-import { createUser, getUserByEmailAndCompanyId, getUserById, getUserByPasswordResetToken, getUserBySignupToken, getUsersByEmail, updateUser } from "../repositories/user-repo.js";
+import { createUser, getUserByEmailAndCompanyId, getUserById, getUserByPasswordResetToken, getUserBySignupToken, getUsersByEmail, updateUserFields } from "../repositories/user-repo.js";
 import { User } from "../entities/User.js";
 import { compare, hash } from "bcrypt";
 import jwt from "jsonwebtoken";
+import { Not } from "typeorm";
 import { UserStatus } from "../types/enums.js";
 import { randomUUID } from "node:crypto";
 import { requireUserInReach } from "../services/user-scope.js";
@@ -98,15 +99,20 @@ export const activateUserWithToken = async (req: Request, res: Response) => {
         throw new HttpError(401, "Token Inválido");
     }
 
-    user.passwordHash = await hash(password, saltRounds);
-    user.status = UserStatus.Active;
-    user.mustChangePassword = false;
-    user.signupToken = null;
-    user.signupTokenExpiresAt = null;
-    // O token chegou por email: quem o usa tem acesso à caixa.
-    user.emailVerifiedAt = new Date();
+    const activated = await updateUserFields(user.id, {
+        passwordHash: await hash(password, saltRounds),
+        status: UserStatus.Active,
+        mustChangePassword: false,
+        signupToken: null,
+        signupTokenExpiresAt: null,
+        // O token chegou por email: quem o usa tem acesso à caixa.
+        emailVerifiedAt: new Date(),
+    }, { signupToken });
 
-    await updateUser(user);
+    // O convite foi revogado ou usado noutro pedido enquanto o bcrypt corria.
+    if (!activated) {
+        throw new HttpError(401, "Token Inválido");
+    }
 
     // Os admins da empresa sabem que o convite foi aceite. O primeiro
     // company_admin não tem nenhum: vai para os system_admins.
@@ -190,8 +196,7 @@ export const loginWithEmailAndPassword = async (req: Request, res: Response) => 
 
     const token: string = jwt.sign(claims, jwtSecret(), { expiresIn: jwtExpiresIn() });
 
-    user.lastLoginAt = new Date();
-    await updateUser(user);
+    await updateUserFields(user.id, { lastLoginAt: new Date() });
 
     const data: LoginResponse = {
         token,
@@ -227,6 +232,8 @@ export const getCurrentUser = async (req: Request, res: Response) => {
 
     return new HttpResponse(200, "Utilizador autenticado", undefined, data).send(res);
 }
+const ONLY_INVITED = "Só é possível reenviar a ativação de uma conta convidada";
+
 /**
  * Só uma conta `invited` se reenvia. Recunhar um token numa conta ativa seria um
  * caminho de tomada de conta: o link de ativação define uma password nova.
@@ -242,7 +249,7 @@ export const resendActivation = async (req: Request, res: Response) => {
     }
 
     if (target.status !== UserStatus.Invited) {
-        throw new HttpError(409, "Só é possível reenviar a ativação de uma conta convidada");
+        throw new HttpError(409, ONLY_INVITED);
     }
 
     const company = await getCompanyById(target.companyId);
@@ -251,18 +258,24 @@ export const resendActivation = async (req: Request, res: Response) => {
         throw new HttpError(404, "Empresa não encontrada");
     }
 
-    target.signupToken = randomUUID();
-    target.signupTokenExpiresAt = new Date(Date.now() + signupTokenExpDate());
+    const signupToken = randomUUID();
+    const resent = await updateUserFields(target.id, {
+        signupToken,
+        signupTokenExpiresAt: new Date(Date.now() + signupTokenExpDate()),
+    }, { status: UserStatus.Invited });
 
-    const saved = await updateUser(target);
+    // Ativada entretanto: um token novo voltava a abrir a conta.
+    if (!resent) {
+        throw new HttpError(409, ONLY_INVITED);
+    }
 
-    const activationUrl: string = `${feUrl()}/auth/account/activate?token=${saved.signupToken}`;
+    const activationUrl: string = `${feUrl()}/auth/account/activate?token=${signupToken}`;
 
     // O token fica válido mesmo que o email falhe.
     try {
-        await mailer.sendActivationEmail(company, saved.email, activationUrl);
+        await mailer.sendActivationEmail(company, target.email, activationUrl);
     } catch (error) {
-        console.error(`Falha ao reenviar o email de ativação para ${saved.email}`, error);
+        console.error(`Falha ao reenviar o email de ativação para ${target.email}`, error);
     }
 
     return new HttpResponse(200, "Ativação reenviada").send(res);
@@ -290,15 +303,15 @@ export const changePassword = async (req: Request, res: Response) => {
         throw new HttpError(401, "Credenciais Inválidas");
     }
 
-    user.passwordHash = await hash(newPassword, saltRounds);
-    user.mustChangePassword = false;
-    // Uma password nova invalida qualquer recuperação pendente.
-    user.signupToken = null;
-    user.signupTokenExpiresAt = null;
-    user.passwordResetToken = null;
-    user.passwordResetExpiresAt = null;
-
-    await updateUser(user);
+    await updateUserFields(user.id, {
+        passwordHash: await hash(newPassword, saltRounds),
+        mustChangePassword: false,
+        // Uma password nova invalida qualquer recuperação pendente.
+        signupToken: null,
+        signupTokenExpiresAt: null,
+        passwordResetToken: null,
+        passwordResetExpiresAt: null,
+    });
 
     return new HttpResponse(200, "Password alterada com sucesso").send(res);
 }
@@ -324,17 +337,23 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
 
         // Um erro numa conta não pode mudar a resposta: um 500 aqui era um oráculo.
         try {
-            candidate.passwordResetToken = randomUUID();
-            candidate.passwordResetExpiresAt = new Date(Date.now() + passwordResetExpDate());
+            const passwordResetToken = randomUUID();
+            const prepared = await updateUserFields(candidate.id, {
+                passwordResetToken,
+                passwordResetExpiresAt: new Date(Date.now() + passwordResetExpDate()),
+            }, { status: Not(UserStatus.Terminated) });
 
-            const saved = await updateUser(candidate);
-            const company = await getCompanyById(saved.companyId);
+            if (!prepared) {
+                continue;
+            }
+
+            const company = await getCompanyById(candidate.companyId);
 
             if (company) {
-                const resetUrl = `${feUrl()}/auth/password/reset?token=${saved.passwordResetToken}`;
+                const resetUrl = `${feUrl()}/auth/password/reset?token=${passwordResetToken}`;
                 // Sem await: o envio só acontece para contas que existem, e esperar por ele denunciava-as.
-                void mailer.sendPasswordResetEmail(company, saved.email, resetUrl).catch((error: unknown) => {
-                    console.error(`Falha ao enviar a recuperação de ${saved.id}`, error);
+                void mailer.sendPasswordResetEmail(company, candidate.email, resetUrl).catch((error: unknown) => {
+                    console.error(`Falha ao enviar a recuperação de ${candidate.id}`, error);
                 });
             }
         } catch (error) {
@@ -355,14 +374,19 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
         throw new HttpError(401, "Token Inválido");
     }
 
-    user.passwordHash = await hash(password, saltRounds);
-    user.mustChangePassword = false;
-    user.passwordResetToken = null;
-    user.passwordResetExpiresAt = null;
-    // O link também chegou por email.
-    user.emailVerifiedAt ??= new Date();
+    const reset = await updateUserFields(user.id, {
+        passwordHash: await hash(password, saltRounds),
+        mustChangePassword: false,
+        passwordResetToken: null,
+        passwordResetExpiresAt: null,
+        // O link também chegou por email.
+        emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+    }, { passwordResetToken: token });
 
-    await updateUser(user);
+    // Já usado noutro pedido, ou substituído por um reset mais recente.
+    if (!reset) {
+        throw new HttpError(401, "Token Inválido");
+    }
 
     return new HttpResponse(200, "Password redefinida com sucesso").send(res);
 }
