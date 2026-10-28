@@ -100,7 +100,7 @@ describe("POST /absences/:id/documents", () => {
         const res = await juntar(ausencia.id, authorization(ana), pdf());
 
         expect(res.status).toBe(409);
-        expect(res.body.message).toBe(`Este pedido já não está ativo: está ${status}`);
+        expect(res.body.message).toBe("Este pedido já não está ativo");
     });
 
     it("o mesmo documento duas vezes é 409", async () => {
