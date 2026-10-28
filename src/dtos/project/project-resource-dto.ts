@@ -29,7 +29,6 @@ export const patchProjectResourceSchema = z.object({
     .refine((patch) => Object.keys(patch).length > 0, { message: "Nada para alterar" })
     .meta({ id: "PatchProjectResourceRequest", description: "Alterar um recurso" });
 
-//Como um recurso é devolvido
 export const projectResourceResponseSchema = z.object({
     id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     projectId: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),

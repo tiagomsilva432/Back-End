@@ -41,11 +41,9 @@ export class AbsenceRequest {
     @JoinColumn({ name: "user_id" })
     user!: User;
 
-    /** Not constrained by the database; guard with isAbsenceType before writing. */
     @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH })
     type!: AbsenceType;
 
-    /** Not constrained by the database; guard with isAbsenceStatus before writing. */
     @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: AbsenceStatus.Pending })
     status!: AbsenceStatus;
 

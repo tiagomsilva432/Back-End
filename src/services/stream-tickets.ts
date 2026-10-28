@@ -32,7 +32,6 @@ function issue(auth: JwtPayload): { ticket: string; expiresInSeconds: number } {
     sweep(now);
 
     const ticket = randomBytes(32).toString("base64url");
-    // Nunca dura mais do que o token que o pediu.
     tickets.set(ticket, { auth, expiresAt: Math.min(now + TICKET_TTL_MS, auth.exp * 1000) });
 
     return { ticket, expiresInSeconds: TICKET_TTL_MS / 1000 };

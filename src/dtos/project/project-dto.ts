@@ -5,7 +5,6 @@ import { companyIdSchema, decimalString } from "../common/fields-dto.js";
 // NUMERIC(14,2): 12 dígitos inteiros.
 const budgetSchema = decimalString(12, 2, "Orçamento inválido: usa no máximo 12 dígitos e 2 casas decimais");
 
-//Schema REQUEST createProject
 export const createProjectSchema = z.object({
     companyId: companyIdSchema.optional(),
     name: z.string().trim().min(1).max(150).meta({ example: "Portal do Cliente" }),
@@ -46,14 +45,12 @@ export const patchProjectSchema = z.object({
     .refine((patch) => Object.keys(patch).length > 0, { message: "Nada para alterar" })
     .meta({ id: "PatchProjectRequest", description: "Alterar um projeto" });
 
-//Schema QUERY listProjects
 export const listProjectsQuerySchema = z.object({
     companyId: companyIdSchema.optional(),
     status: z.string().trim().toLowerCase().pipe(z.enum(ProjectStatus)).optional()
         .meta({ example: ProjectStatus.Active, description: "Filtra por estado." }),
 }).meta({ id: "ListProjectsQuery", description: "Filtros da listagem de projetos" });
 
-//Como um projeto é devolvido, na criação e na leitura
 export const projectResponseSchema = z.object({
     id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     companyId: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),

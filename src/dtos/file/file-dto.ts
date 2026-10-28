@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { FileKind } from "../../types/enums.js";
 
-//Como um ficheiro é devolvido, dentro do recurso a que pertence
 export const fileResponseSchema = z.object({
     id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     kind: z.enum(FileKind).meta({ example: FileKind.ExpenseReceipt }),

@@ -21,7 +21,6 @@ export const inviteProfileSchema = z.object({
     jobTitle: z.string().trim().min(1).max(100).optional().meta({ example: "Backend Developer" }),
 }).meta({ id: "InviteProfile", description: "Nome da pessoa convidada" });
 
-//Schema REQUEST createAccount
 export const createAccountSchema = z.object({
     companyId: z.uuid().optional().meta({
         example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42",
@@ -43,7 +42,6 @@ export const activateAccountSchema = z.object({
 }).meta({ id: "ActivateAccountRequest", description: "Dados para ativar uma conta"});
 
 
-//Schema RESPONSE createAccount
 export const createAccountResponseSchema = z.object({
     id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     companyId: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),

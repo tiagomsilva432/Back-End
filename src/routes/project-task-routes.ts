@@ -160,7 +160,6 @@ const memberErrors = {
     "403": jsonResponse(403, "Conta não está ativa, ou não está no projeto"),
 };
 
-//Documentação OpenAPI destas rotas
 export const projectTaskPaths: ZodOpenApiPathsObject = {
     "/projects/{id}/tasks": {
         get: {

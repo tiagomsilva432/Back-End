@@ -17,7 +17,6 @@ export class Skill {
     @Column({ type: "varchar", length: 100 })
     name!: string;
 
-    /** Not constrained by the database; guard with isSkillCategory before writing. */
     @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: SkillCategory.Other })
     category!: SkillCategory;
 

@@ -1,8 +1,6 @@
 import { z } from "zod";
 import { isoDate } from "../../utils/dates.js";
 
-/** Peças repetidas entre DTOs. Cada uma gera exatamente o mesmo OpenAPI que as cópias que substituiu. */
-
 /** O companyId de quem pode escolher a empresa: só o system_admin. */
 export const companyIdSchema = z.uuid().meta({
     example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42",

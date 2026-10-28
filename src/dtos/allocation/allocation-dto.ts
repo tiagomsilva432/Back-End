@@ -15,7 +15,6 @@ const startDateSchema = z.iso.date()
     .default(() => isoDate())
     .meta({ example: "2026-02-01", description: "Por omissão, a data de hoje." });
 
-//Schema REQUEST createAllocation
 export const createAllocationSchema = z.object({
     userId: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     projectId: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
@@ -43,12 +42,10 @@ export const patchAllocationSchema = z.object({
     .refine((patch) => Object.keys(patch).length > 0, { message: "Nada para alterar" })
     .meta({ id: "PatchAllocationRequest", description: "Alterar ou fechar uma alocação" });
 
-//Schema QUERY listAllocations
 export const listAllocationsQuerySchema = z.object({
     open: flag("Só as alocações abertas."),
 }).meta({ id: "ListAllocationsQuery", description: "Filtros das alocações" });
 
-//Como uma alocação é devolvida
 export const allocationResponseSchema = z.object({
     id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     userId: z.uuid(),

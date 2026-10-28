@@ -43,7 +43,6 @@ const toResponse = (resource: ProjectResource, file: FileResponse | null): Proje
     updatedAt: resource.updatedAt.toISOString(),
 });
 
-/** O ficheiro de um só recurso. Há no máximo um. */
 const fileOf = async (resource: ProjectResource): Promise<FileResponse | null> =>
     (await filesFor(FileKind.ProjectResourceFile, [resource.id])).get(resource.id)?.[0] ?? null;
 
@@ -106,7 +105,6 @@ export const createProjectResource = async (req: Request, res: Response) => {
         }),
     );
 
-    // O ficheiro vem depois, em PUT .../file.
     return new HttpResponse(201, "Recurso adicionado", undefined, toResponse(created, null)).send(res);
 }
 

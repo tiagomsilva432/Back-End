@@ -44,7 +44,6 @@ export function fileHandlers<O>(spec: FileKindSpec, options: FileHandlerOptions<
         const actor: User = getCurrentActor(req);
         const { companyId, ownerId, owner } = await options.requireOwner(actor, req);
 
-        // O acceptFile já garantiu que está lá.
         const saved = await saveUpload(spec, { companyId, ownerId, uploadedBy: actor.id }, req.file!);
 
         await options.afterUpload?.(actor, owner, saved);

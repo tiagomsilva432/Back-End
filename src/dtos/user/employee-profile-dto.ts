@@ -17,7 +17,7 @@ export const upsertEmployeeProfileSchema = z.object({
     })
     .meta({ id: "UpsertEmployeeProfileRequest", description: "Dados pessoais de um colaborador" });
 
-/** Como um perfil é devolvido. As datas saem como 'YYYY-MM-DD'. */
+/** As datas saem como 'YYYY-MM-DD'. */
 export const employeeProfileResponseSchema = z.object({
     userId: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     firstName: z.string().meta({ example: "Carla" }),

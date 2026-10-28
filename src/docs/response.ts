@@ -3,10 +3,7 @@ import type { z } from "zod";
 import { httpResponseSchema } from "../dtos/common/responses-dto.js";
 import { getDefaults } from "../utils/httpStatusDefaults.js";
 
-/**
- * Constrói uma Response Object do OpenAPI já embrulhada no envelope da API.
- * `data` é o schema Zod do payload (opcional).
- */
+/** Uma Response Object do OpenAPI, já dentro do envelope da API. */
 export const jsonResponse = (
     status: number,
     description?: string,
@@ -18,7 +15,6 @@ export const jsonResponse = (
     },
 });
 
-/** Corpo de pedido JSON obrigatório, a partir do schema Zod. */
 export const jsonBody = (schema: z.ZodType): ZodOpenApiRequestBodyObject => ({
     required: true,
     content: { "application/json": { schema } },
@@ -42,7 +38,6 @@ export const fileBody = (description: string): ZodOpenApiRequestBodyObject => ({
     },
 });
 
-/** Um id no caminho, como o `{id}` de `/users/{id}`. */
 export const pathId = (description: string, name = "id") => ({
     name,
     in: "path" as const,
@@ -51,7 +46,6 @@ export const pathId = (description: string, name = "id") => ({
     description,
 });
 
-/** Atalho para as respostas de erro mais comuns. */
 export const errorResponses = (
     ...statuses: number[]
 ): Record<string, ZodOpenApiResponseObject> =>

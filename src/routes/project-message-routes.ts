@@ -82,7 +82,6 @@ const members =
     "Quem está no projeto: quem lá tem uma alocação que ainda não terminou, o gestor (`managerId`), " +
     "um `company_admin` da empresa ou um `system_admin`. Os outros da empresa recebem 403. ";
 
-//Documentação OpenAPI destas rotas
 export const projectMessagePaths: ZodOpenApiPathsObject = {
     "/projects/messages/unread": {
         get: {

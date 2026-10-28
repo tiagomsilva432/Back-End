@@ -48,7 +48,6 @@ router.patch(
 
 const idParam = pathId("Id da empresa");
 
-//Documentação OpenAPI destas rotas
 export const companyPaths: ZodOpenApiPathsObject = {
     "/companies": {
         post: {

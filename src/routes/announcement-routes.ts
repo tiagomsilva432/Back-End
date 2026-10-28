@@ -97,7 +97,6 @@ const WHO_MANAGES =
     "Sistema: só um `system_admin`. Empresa: um `system_admin`, ou um `company_admin` dessa empresa. " +
     "Projeto: esses dois, ou o gestor do projeto (`managerId`).";
 
-//Documentação OpenAPI destas rotas
 export const announcementPaths: ZodOpenApiPathsObject = {
     "/announcements": {
         post: {

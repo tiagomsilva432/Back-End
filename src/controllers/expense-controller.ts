@@ -50,7 +50,6 @@ const toResponse = (expense: Expense, receipts: FileResponse[]): ExpenseResponse
     updatedAt: expense.updatedAt.toISOString(),
 });
 
-/** Os recibos de uma só despesa. */
 const receiptsOf = async (expense: Expense): Promise<FileResponse[]> =>
     (await filesFor(FileKind.ExpenseReceipt, [expense.id])).get(expense.id) ?? [];
 
@@ -109,7 +108,6 @@ export const createExpense = async (req: Request, res: Response) => {
         await notifyBudgetCrossings(actor, project, { expensesDelta: toCents(created.amount) });
     }
 
-    // Os recibos vêm depois, em POST /expenses/{id}/receipts.
     return new HttpResponse(201, "Despesa registada", undefined, toResponse(created, [])).send(res);
 }
 
@@ -196,7 +194,6 @@ export const patchExpense = async (req: Request, res: Response) => {
     const saved = await updateExpense(expense);
     const delta = toCents(saved.amount) - toCents(previousAmount);
 
-    // Só uma subida pode passar um limiar.
     if (project && delta > 0) {
         await notifyBudgetCrossings(actor, project, { expensesDelta: delta });
     }

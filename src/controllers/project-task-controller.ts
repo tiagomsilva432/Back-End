@@ -150,7 +150,6 @@ export const createProjectTask = async (req: Request, res: Response) => {
 
     await notifyAssigned(actor, project, created);
 
-    // Uma tarefa nova não tem anexos nem comentários.
     const data = toResponse(created, [], 0);
 
     await pushToBoard(project, EVENT, { action: "created", task: data });

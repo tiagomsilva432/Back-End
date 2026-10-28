@@ -4,13 +4,11 @@ export interface StatusDefaults {
 }
 
 export const HTTP_STATUS_DEFAULTS: Record<number, StatusDefaults> = {
-    //100 - Informativas
     100: { message: "Continuar", code: "INFO_CONTINUE" },
     101: { message: "A mudar protocolos", code: "INFO_SWITCHING_PROTOCOLS" },
     102: { message: "A processar", code: "INFO_PROCESSING" },
     103: { message: "Indicações antecipadas", code: "INFO_EARLY_HINTS" },
 
-    //200 - Sucesso
     200: { message: "OK", code: "SUCCESS_OK" },
     201: { message: "Criado com sucesso", code: "SUCCESS_CREATED" },
     202: { message: "Aceito", code: "SUCCESS_ACCEPTED" },
@@ -22,7 +20,6 @@ export const HTTP_STATUS_DEFAULTS: Record<number, StatusDefaults> = {
     208: { message: "Já reportado", code: "SUCCESS_ALREADY_REPORTED" },
     226: { message: "Estou usado", code: "SUCCESS_IM_USED" },
 
-    //300 - Redirecionamento
     300: { message: "Múltiplas escolhas", code: "REDIRECTION_MULTIPLE_CHOICES" },
     301: { message: "Movido permanentemente", code: "REDIRECTION_MOVED_PERMANENTLY" },
     302: { message: "Encontrado", code: "REDIRECTION_FOUND" },
@@ -32,7 +29,6 @@ export const HTTP_STATUS_DEFAULTS: Record<number, StatusDefaults> = {
     307: { message: "Redirecionamento temporário", code: "REDIRECTION_TEMPORARY_REDIRECT" },
     308: { message: "Redirecionamento permanente", code: "REDIRECTION_PERMANENT_REDIRECT" },
 
-    //400 - Erros Cliente
     400: { message: "Requisição inválida", code: "BAD_REQUEST" },
     401: { message: "Não autorizado", code: "UNAUTHORIZED" },
     402: { message: "Pagamento necessário", code: "PAYMENT_REQUIRED" },
@@ -51,7 +47,7 @@ export const HTTP_STATUS_DEFAULTS: Record<number, StatusDefaults> = {
     415: { message: "Tipo de mídia não suportado", code: "UNSUPPORTED_MEDIA_TYPE" },
     416: { message: "Intervalo solicitado não satisfatório", code: "RANGE_NOT_SATISFIABLE" },
     417: { message: "Expectativa falhou", code: "EXPECTATION_FAILED" },
-    418: { message: "Eu sou um bule de chá", code: "IM_A_TEAPOT" }, // The classic RFC 2324 Easter Egg
+    418: { message: "Eu sou um bule de chá", code: "IM_A_TEAPOT" },
     421: { message: "Requisição mal direcionada", code: "MISDIRECTED_REQUEST" },
     422: { message: "Entidade não processável", code: "UNPROCESSABLE_ENTITY" },
     423: { message: "Bloqueado", code: "LOCKED" },
@@ -63,7 +59,6 @@ export const HTTP_STATUS_DEFAULTS: Record<number, StatusDefaults> = {
     431: { message: "Campos de cabeçalho da requisição muito grandes", code: "REQUEST_HEADER_FIELDS_TOO_LARGE" },
     451: { message: "Indisponível por motivos legais", code: "UNAVAILABLE_FOR_LEGAL_REASONS" },
 
-    //500 - Erros Servidor  
     500: { message: "Erro interno do servidor", code: "INTERNAL_SERVER_ERROR" },
     501: { message: "Não implementado", code: "NOT_IMPLEMENTED" },
     502: { message: "Bad Gateway / Gateway Inválido", code: "BAD_GATEWAY" },
