@@ -11,10 +11,10 @@ import {
     updateEmployeeProfile,
 } from "../repositories/employee-profile-repo.js";
 import {
+    changeUserStatus,
     getUserById,
     getUserByIdWithProfile,
     getUsersByCompanyId,
-    updateUser,
 } from "../repositories/user-repo.js";
 import { canAdministerAccount } from "../services/account-policy.js";
 import { resolveCompanyScope } from "../services/company-scope.js";
@@ -24,6 +24,7 @@ import { fileHandlers } from "../services/files/file-handlers.js";
 import { avatarUrlsOf, toProfileResponse, toUserResponse } from "../services/user-mapper.js";
 import { requireCanManageUser, requireUserInReach } from "../services/user-scope.js";
 import { FileKind, UserStatus } from "../types/enums.js";
+import { isoDate } from "../utils/dates.js";
 import { uuidParam } from "../utils/params.js";
 
 const NOT_FOUND = "Utilizador não encontrado";
@@ -164,17 +165,11 @@ export const patchUserStatus = async (req: Request, res: Response) => {
             throw new HttpError(409, `Uma conta ${STATUS_LABELS[target.status]} não pode passar a ${STATUS_LABELS[status]}`);
         }
 
-        target.status = status;
-
-        // Terminar um convite revoga-o: o link deixa de servir.
-        if (status === UserStatus.Terminated) {
-            target.signupToken = null;
-            target.signupTokenExpiresAt = null;
-            target.passwordResetToken = null;
-            target.passwordResetExpiresAt = null;
+        if (!(await changeUserStatus(target.id, target.status, status, isoDate()))) {
+            throw new HttpError(409, "O estado desta conta mudou entretanto. Atualize e tente outra vez");
         }
 
-        await updateUser(target);
+        target.status = status;
 
         // O stream em direto não espera que o token expire.
         if (status !== UserStatus.Active) {

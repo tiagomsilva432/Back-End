@@ -74,6 +74,15 @@ describe("POST /auth/account/activate", () => {
         expect(res.body).toMatchObject({ status: 401, message: "Token Inválido" });
     });
 
+    it("um token que nem é uuid (um link cortado) é o mesmo 401", async () => {
+        const res = await request(app)
+            .post("/auth/account/activate")
+            .send({ signupToken: "abc", password: PASSWORD_VALIDA });
+
+        expect(res.status).toBe(401);
+        expect(res.body).toMatchObject({ status: 401, message: "Token Inválido" });
+    });
+
     it("devolve 401 quando o token já expirou", async () => {
         const signupToken = randomUUID();
         await criarUtilizador({

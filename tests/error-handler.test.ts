@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "@jest/globals";
 import type { Response } from "express";
 import request from "supertest";
+import { QueryFailedError } from "typeorm";
 import { app } from "../src/app.js";
 import { HttpError } from "../src/dtos/common/errors-dto.js";
 import { errorHandler } from "../src/middleware/errorHandler.js";
@@ -97,6 +98,51 @@ describe("errorHandler: os details de um 4xx chegam sempre ao cliente", () => {
 
         expect(gravado.status).toBe(404);
         expect(gravado.body).toMatchObject({ status: 404, data: undefined });
+    });
+});
+
+describe("errorHandler: o que chega mal formado é 4xx, não 500", () => {
+    it("um corpo que não é JSON é 400", async () => {
+        const res = await request(app)
+            .post("/auth/login")
+            .set("Content-Type", "application/json")
+            .send('{"email": ');
+
+        expect(res.status).toBe(400);
+        expect(res.body).toMatchObject({ status: 400, message: "O pedido não é JSON válido" });
+    });
+
+    it("um corpo acima do limite do express.json() é 413", async () => {
+        const res = await request(app).post("/auth/login").send({ email: "a".repeat(200_000), password: "x" });
+
+        expect(res.status).toBe(413);
+    });
+
+    it("um multipart sem boundary é 400 no campo file", async () => {
+        const { user, header } = await createActor(UserRole.Employee);
+
+        const res = await request(app)
+            .put(`/users/${user.id}/avatar`)
+            .set("Authorization", header)
+            .set("Content-Type", "multipart/form-data")
+            .send("isto não é um formulário");
+
+        expect(res.status).toBe(400);
+        expect(res.body.data).toEqual([{ field: "file", message: "O ficheiro não chegou completo. Tente enviar outra vez" }]);
+    });
+
+    it("um índice único que trava um pedido concorrente é 409", () => {
+        const { res, gravado } = resFalso();
+        const duplicado = new QueryFailedError(
+            "INSERT INTO ...",
+            [],
+            Object.assign(new Error("duplicate key value violates unique constraint"), { code: "23505" }),
+        );
+
+        errorHandler(duplicado, {} as never, res, (() => {}) as never);
+
+        expect(gravado.status).toBe(409);
+        expect(gravado.body).toMatchObject({ status: 409, message: "Já existe um registo igual" });
     });
 });
 

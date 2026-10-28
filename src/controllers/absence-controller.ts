@@ -15,11 +15,10 @@ import type { User } from "../entities/User.js";
 import { getCurrentActor } from "../middleware/requireRole.js";
 import {
     absenceRepo,
-    createAbsence as saveAbsence,
+    createAbsenceIfFree,
     getAbsenceById,
     getAbsences,
     getApprovedAbsencesBetween,
-    getOverlappingActiveAbsence,
     updateAbsence,
 } from "../repositories/absence-repo.js";
 import { getManagerIdsOfProjectsAllocatedBetween } from "../repositories/allocation-repo.js";
@@ -94,14 +93,10 @@ const decide = (absence: AbsenceRequest, actor: User, status: AbsenceStatus, not
     absence.decisionNote = note;
 };
 
-/**
- * Os dias úteis do intervalo, para a pessoa que o vai ocupar: 400 se só tem
- * fins de semana e feriados, 409 se toca noutro pedido pendente ou aprovado dela.
- */
-async function requireFreeWorkingDays(
-    person: Pick<User, "id" | "companyId">,
+/** Os dias úteis do intervalo: 400 se só tem fins de semana e feriados. */
+async function requireWorkingDays(
+    person: Pick<User, "companyId">,
     range: { startDate: string; endDate: string },
-    overlapMessage: string,
 ): Promise<number> {
     const company = await requireCompany(person.companyId);
     const holidays = await getHolidaysOf(company, range.startDate, range.endDate);
@@ -111,24 +106,31 @@ async function requireFreeWorkingDays(
         throw invalidData([{ field: "endDate", message: "O intervalo só tem fins de semana e feriados" }]);
     }
 
-    if (await getOverlappingActiveAbsence(person.id, range.startDate, range.endDate)) {
+    return workingDays;
+}
+
+/** 409 se toca noutro pedido pendente ou aprovado da mesma pessoa. */
+async function createIfFree(absence: AbsenceRequest, overlapMessage: string): Promise<AbsenceRequest> {
+    const created = await createAbsenceIfFree(absence);
+
+    if (!created) {
         throw new HttpError(409, overlapMessage);
     }
 
-    return workingDays;
+    return created;
 }
 
 export const createAbsence = async (req: Request, res: Response) => {
     const body = req.body as CreateAbsenceRequest;
     const actor: User = getCurrentActor(req);
 
-    const workingDays = await requireFreeWorkingDays(actor, body, "Já tem um pedido pendente ou aprovado nesses dias");
+    const workingDays = await requireWorkingDays(actor, body);
 
     // Uma baixa não passa por aprovação. Sem decidedBy: ninguém a aprovou,
     // e muito menos a própria pessoa.
     const autoApproved = body.type === AbsenceType.Sick;
 
-    const created = await saveAbsence(
+    const created = await createIfFree(
         absenceRepo.create({
             companyId: actor.companyId,
             userId: actor.id,
@@ -141,6 +143,7 @@ export const createAbsence = async (req: Request, res: Response) => {
             decidedAt: autoApproved ? new Date() : null,
             decisionNote: null,
         }),
+        "Já tem um pedido pendente ou aprovado nesses dias",
     );
 
     await notifier.notify(autoApproved ? "absence.auto_approved" : "absence.requested", {
@@ -173,13 +176,9 @@ export const registerAbsence = async (req: Request, res: Response) => {
         throw new HttpError(409, "Esta conta está terminada");
     }
 
-    const workingDays = await requireFreeWorkingDays(
-        target,
-        body,
-        "Esta pessoa já tem um pedido pendente ou aprovado nesses dias",
-    );
+    const workingDays = await requireWorkingDays(target, body);
 
-    const created = await saveAbsence(
+    const created = await createIfFree(
         absenceRepo.create({
             companyId: target.companyId,
             userId: target.id,
@@ -192,6 +191,7 @@ export const registerAbsence = async (req: Request, res: Response) => {
             decidedAt: new Date(),
             decisionNote: null,
         }),
+        "Esta pessoa já tem um pedido pendente ou aprovado nesses dias",
     );
 
     await notifier.notify("absence.registered", {

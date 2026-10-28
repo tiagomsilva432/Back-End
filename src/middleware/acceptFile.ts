@@ -31,8 +31,9 @@ export function acceptFile(spec: FileKindSpec) {
                 return next(invalidData([{ field: error.field ?? "file", message: "Envie um só ficheiro" }]));
             }
 
+            // O resto vem do busboy: um multipart sem boundary, ou cortado a meio.
             if (error) {
-                return next(error);
+                return next(invalidData([{ field: "file", message: "O ficheiro não chegou completo. Tente enviar outra vez" }]));
             }
 
             if (!req.file || req.file.size === 0) {

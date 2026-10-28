@@ -1,6 +1,7 @@
 import { Brackets, In, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
 import { AppDataSource } from "../data-source.js";
 import { AbsenceRequest } from "../entities/AbsenceRequest.js";
+import { User } from "../entities/User.js";
 import { AbsenceStatus, type AbsenceType, UserStatus } from "../types/enums.js";
 
 export const absenceRepo = AppDataSource.getRepository(AbsenceRequest);
@@ -31,20 +32,6 @@ export async function getAbsences(filter: AbsenceFilter): Promise<AbsenceRequest
             ...(filter.type ? { type: filter.type } : {})
         },
         order: { startDate: "DESC", id: "DESC" }
-    });
-}
-
-/** Um pedido pendente ou aprovado da mesma pessoa que toque em algum dia de [from, to]. */
-export async function getOverlappingActiveAbsence(
-    userId: string,
-    from: string,
-    to: string,
-): Promise<AbsenceRequest | null> {
-    return await absenceRepo.findOneBy({
-        userId,
-        status: In(ACTIVE_STATUSES),
-        startDate: LessThanOrEqual(to),
-        endDate: MoreThanOrEqual(from)
     });
 }
 
@@ -115,8 +102,29 @@ export async function getCalendarAbsences(options: CalendarAbsenceOptions): Prom
         .getMany();
 }
 
-export async function createAbsence(absence: AbsenceRequest) {
-    return await absenceRepo.save(absence);
+/**
+ * Grava a ausência se não tocar noutra pendente ou aprovada da mesma pessoa, ou
+ * devolve null. A linha da pessoa fica trancada até ao fim: dois pedidos ao mesmo
+ * tempo (um duplo clique) passavam os dois pela verificação.
+ */
+export async function createAbsenceIfFree(absence: AbsenceRequest): Promise<AbsenceRequest | null> {
+    return await absenceRepo.manager.transaction(async (manager) => {
+        await manager.getRepository(User)
+            .createQueryBuilder("u")
+            .setLock("pessimistic_write")
+            .where("u.id = :userId", { userId: absence.userId })
+            .getOne();
+
+        const repo = manager.getRepository(AbsenceRequest);
+        const overlapping = await repo.findOneBy({
+            userId: absence.userId,
+            status: In(ACTIVE_STATUSES),
+            startDate: LessThanOrEqual(absence.endDate),
+            endDate: MoreThanOrEqual(absence.startDate)
+        });
+
+        return overlapping ? null : await repo.save(absence);
+    });
 }
 
 export async function updateAbsence(absence: AbsenceRequest) {

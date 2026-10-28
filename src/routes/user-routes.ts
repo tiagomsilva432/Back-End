@@ -215,7 +215,9 @@ export const userPaths: ZodOpenApiPathsObject = {
                 "Transições: `active` ↔ `suspended`, e qualquer uma → `terminated`, que é definitivo. " +
                 "Uma conta `invited` só pode passar a `terminated`, o que revoga o convite. " +
                 "Pedir o estado que a conta já tem responde 200 sem mudar nada. " +
-                "Uma conta suspensa perde o acesso no pedido seguinte, sem esperar que o token expire.",
+                "Uma conta suspensa perde o acesso no pedido seguinte, sem esperar que o token expire. " +
+                "Terminar fecha também o salário e as alocações no próprio dia (o último dia pago e alocado), " +
+                "e apaga os que só começavam depois. Suspender não mexe em nada disso.",
             security: [{ bearerAuth: [] }],
             parameters: [idParam],
             requestBody: jsonBody(patchUserStatusSchema),
@@ -225,7 +227,7 @@ export const userPaths: ZodOpenApiPathsObject = {
                 "401": jsonResponse(401, "Token em falta ou inválido"),
                 "403": jsonResponse(403, "Sem permissões para alterar o estado desta conta"),
                 "404": jsonResponse(404, "Utilizador não encontrado"),
-                "409": jsonResponse(409, "Transição de estado não permitida"),
+                "409": jsonResponse(409, "Transição de estado não permitida, ou o estado mudou entretanto"),
                 ...errorResponses(500),
             },
         },

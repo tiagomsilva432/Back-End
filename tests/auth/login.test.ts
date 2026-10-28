@@ -326,3 +326,30 @@ describe("POST /auth/login: o tempo do 401", () => {
         expect(burnSpy).not.toHaveBeenCalled();
     });
 });
+
+describe("POST /auth/login: uma suspensão a meio", () => {
+    it("o login só grava o lastLoginAt e não repõe a conta como ativa", async () => {
+        const utilizador = await criarUtilizador({ email: "rita@empresa.pt", password: PASSWORD });
+        const assinar = jwt.sign.bind(jwt) as (...args: unknown[]) => string;
+        let suspender: Promise<unknown> | undefined;
+
+        // Um admin suspende a conta depois de o login a ler e antes de ele gravar.
+        const signSpy = jest.spyOn(jwt, "sign").mockImplementationOnce(((...args: unknown[]) => {
+            suspender = repo(User).update(utilizador.id, { status: UserStatus.Suspended });
+            return assinar(...args);
+        }) as never);
+
+        try {
+            const res = await request(app).post("/auth/login").send({ email: "rita@empresa.pt", password: PASSWORD });
+            await suspender;
+
+            expect(res.status).toBe(200);
+            expect(await repo(User).findOneBy({ id: utilizador.id })).toMatchObject({
+                status: UserStatus.Suspended,
+                lastLoginAt: expect.any(Date),
+            });
+        } finally {
+            signSpy.mockRestore();
+        }
+    });
+});

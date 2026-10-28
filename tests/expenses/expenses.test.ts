@@ -140,6 +140,7 @@ describe("POST /expenses", () => {
 
     it.each([
         ["um montante a zero", { amount: 0 }, "amount"],
+        ["um montante a zero escrito com dois zeros", { amount: "00" }, "amount"],
         ["um montante negativo", { amount: -5 }, "amount"],
         ["3 casas decimais", { amount: "10.123" }, "amount"],
         ["sem título", { title: undefined }, "title"],
