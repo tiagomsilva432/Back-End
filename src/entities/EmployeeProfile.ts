@@ -40,8 +40,6 @@ export class EmployeeProfile {
     @Column({ type: "varchar", length: 100, nullable: true })
     jobTitle!: string | null;
 
-    // O avatar não mora aqui: é um ficheiro do user (FileKind.Avatar), na tabela files.
-
     @UpdateDateColumn({ type: "timestamptz" })
     updatedAt!: Date;
 }

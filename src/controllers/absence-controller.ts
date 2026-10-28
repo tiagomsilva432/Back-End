@@ -87,7 +87,6 @@ const requirePending = (absence: AbsenceRequest): void => {
     }
 };
 
-/** Quem fez a última coisa ao pedido, e quando. */
 const decide = (absence: AbsenceRequest, actor: User, status: AbsenceStatus, note: string | null): void => {
     absence.status = status;
     absence.decidedBy = actor.id;

@@ -3,12 +3,10 @@ import { openApiDocument } from "../docs/openapi.js";
 
 const router = Router();
 
-//Especificação em JSON
 router.get("/docs.json", (_req: Request, res: Response) => {
     res.json(openApiDocument);
 });
 
-//UI para ler/testar a documentação
 router.get("/docs", (_req: Request, res: Response) => {
     res.type("html").send(`<!doctype html>
 <html>
@@ -27,8 +25,6 @@ router.get("/docs", (_req: Request, res: Response) => {
 </html>`);
 });
 
-//A documentação OpenAPI destas rotas vive em ../docs/docs-paths.ts:
-//ao contrário das outras, este ficheiro já importa o openapi.ts e declará-la
-//aqui criava um ciclo de imports.
+// A documentação destas rotas está em ../docs/docs-paths.ts: aqui fazia um ciclo de imports com o openapi.ts.
 
 export default router;

@@ -27,7 +27,6 @@ const validRange = (query: { from: string; to: string }, ctx: z.RefinementCtx) =
     }
 };
 
-//Schemas QUERY
 export const calendarQuerySchema = z.object({ ...range, companyId: companyIdFilter })
     .superRefine(validRange)
     .meta({ id: "CalendarQuery", description: "O intervalo do calendário" });
@@ -41,7 +40,6 @@ export const listHolidaysQuerySchema = z.object({
     companyId: companyIdFilter,
 }).meta({ id: "ListHolidaysQuery", description: "O ano dos feriados" });
 
-//Schema REQUEST createHoliday
 export const createHolidaySchema = z.object({
     companyId: idSchema.optional().meta({
         description: "Obrigatório para um system_admin. Um company_admin junta sempre à sua.",
@@ -50,7 +48,6 @@ export const createHolidaySchema = z.object({
     name: z.string().trim().min(1).max(150).meta({ example: "Santo António" }),
 }).meta({ id: "CreateHolidayRequest", description: "Juntar um feriado da empresa" });
 
-//Como um feriado é devolvido
 export const holidaySchema = z.object({
     id: z.uuid().nullable().meta({ description: "Só nos da empresa: é com ele que se apaga. null nos nacionais." }),
     date: z.iso.date().meta({ example: "2026-12-25" }),
@@ -73,7 +70,6 @@ export const companyHolidayResponseSchema = z.object({
     createdAt: z.iso.datetime(),
 }).meta({ id: "CompanyHoliday", description: "Um feriado da empresa" });
 
-//Como uma ausência aparece no calendário
 export const calendarAbsenceSchema = z.object({
     id: idSchema,
     userId: z.uuid(),
@@ -112,4 +108,3 @@ export type ListHolidaysQuery = z.infer<typeof listHolidaysQuerySchema>;
 export type CreateHolidayRequest = z.infer<typeof createHolidaySchema>;
 export type CompanyHolidayResponse = z.infer<typeof companyHolidayResponseSchema>;
 export type CalendarAbsence = z.infer<typeof calendarAbsenceSchema>;
-export type CalendarResponse = z.infer<typeof calendarResponseSchema>;

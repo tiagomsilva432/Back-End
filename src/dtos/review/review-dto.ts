@@ -10,7 +10,6 @@ const notInThePast = (field: string) => (value: string | undefined, ctx: z.Refin
     }
 };
 
-//Schema REQUEST createReviewCycle
 export const createReviewCycleSchema = z.object({
     companyId: companyIdSchema.optional(),
     name: z.string().trim().min(1).max(100).meta({ example: "Avaliação Q4 2026" }),
@@ -35,13 +34,11 @@ export const createReviewCycleSchema = z.object({
     })
     .meta({ id: "CreateReviewCycleRequest", description: "Abrir um ciclo de avaliação" });
 
-//Schema QUERY listReviewCycles
 export const listReviewCyclesQuerySchema = z.object({
     companyId: companyIdSchema.optional(),
     open: flag("Só os ciclos ainda abertos."),
 }).meta({ id: "ListReviewCyclesQuery", description: "Filtros dos ciclos de avaliação" });
 
-//Schema REQUEST createReviewRequest (ad-hoc)
 export const createReviewRequestSchema = z.object({
     reviewerId: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     revieweeId: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a43" }),
@@ -55,13 +52,11 @@ export const createReviewRequestSchema = z.object({
     })
     .meta({ id: "CreateReviewRequestRequest", description: "Pedir uma avaliação fora de um ciclo" });
 
-//Schema QUERY listMyReviewRequests
 export const listMyReviewRequestsQuerySchema = z.object({
     status: z.string().trim().toLowerCase().pipe(z.enum(ReviewRequestStatus)).optional()
         .meta({ example: ReviewRequestStatus.Pending, description: "Filtra por estado." }),
 }).meta({ id: "ListMyReviewRequestsQuery", description: "Filtros da caixa de pedidos" });
 
-//Schema REQUEST submitReview
 export const submitReviewSchema = z.object({
     recommendsRaise: z.boolean().meta({ example: true, description: "Merece um aumento, ou não." }),
     performanceScore: z.int().min(1).max(5).optional().meta({ example: 4, description: "De 1 a 5." }),
@@ -69,12 +64,10 @@ export const submitReviewSchema = z.object({
         .meta({ example: "Muito autónomo, puxa pela equipa nas revisões de código." }),
 }).meta({ id: "SubmitReviewRequest", description: "Responder a um pedido de avaliação" });
 
-//Schema QUERY dos resultados de uma pessoa
 export const reviewResultsQuerySchema = z.object({
     cycleId: z.uuid().optional().meta({ description: "Só as avaliações deste ciclo." }),
 }).meta({ id: "ReviewResultsQuery", description: "Filtros dos resultados de uma pessoa" });
 
-//Como um ciclo é devolvido
 export const reviewCycleResponseSchema = z.object({
     id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     companyId: z.uuid(),
@@ -103,7 +96,6 @@ export const reviewCycleDetailResponseSchema = reviewCycleResponseSchema.extend(
     progress: reviewCycleProgressSchema,
 }).meta({ id: "ReviewCycleDetail", description: "Um ciclo e o seu progresso" });
 
-//Como um pedido é devolvido
 export const reviewRequestResponseSchema = z.object({
     id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     cycleId: z.uuid().nullable().meta({ description: "null num pedido ad-hoc." }),
@@ -116,7 +108,6 @@ export const reviewRequestResponseSchema = z.object({
 export const reviewRequestListResponseSchema = z.array(reviewRequestResponseSchema)
     .meta({ id: "ReviewRequestList", description: "Pedidos de avaliação" });
 
-//A avaliação que o próprio reviewer acabou de submeter
 export const submittedReviewResponseSchema = z.object({
     id: z.uuid(),
     requestId: z.uuid(),
@@ -126,7 +117,7 @@ export const submittedReviewResponseSchema = z.object({
     submittedAt: z.iso.datetime(),
 }).meta({ id: "SubmittedReview", description: "A avaliação submetida, devolvida a quem a escreveu" });
 
-//Os resultados, sem nunca dizer quem avaliou
+/** Nunca diz quem avaliou. */
 export const reviewSummaryResponseSchema = z.object({
     revieweeId: z.uuid(),
     requestsReceived: z.int().meta({ example: 5, description: "Pedidos feitos sobre esta pessoa." }),

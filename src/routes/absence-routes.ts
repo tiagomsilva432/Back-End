@@ -140,7 +140,6 @@ const WHO_DECIDES =
 const WHO_SEES =
     "Só a pessoa e quem gere as ausências da empresa veem o pedido. Para os outros é 404, como um que não existe.";
 
-//Documentação OpenAPI destas rotas
 export const absencePaths: ZodOpenApiPathsObject = {
     "/absences": {
         post: {

@@ -54,7 +54,6 @@ const readers =
     "Só a própria pessoa, ou quem administra a conta dela: um `company_admin` sobre os seus " +
     "`employee`, um `system_admin` sobre qualquer uma. Um colega recebe 403. ";
 
-//Documentação OpenAPI destas rotas
 export const salaryPaths: ZodOpenApiPathsObject = {
     "/users/{id}/salaries": {
         get: {

@@ -24,7 +24,6 @@ const titleSchema = z.string().trim().min(1).max(150).meta({ example: "Licenças
 const descriptionSchema = z.string().trim().min(1).max(2000)
     .meta({ example: "Renovação anual, 5 lugares" });
 
-//Schema REQUEST createExpense
 export const createExpenseSchema = z.object({
     projectId: idSchema.optional().meta({
         description:
@@ -64,7 +63,6 @@ export const patchExpenseSchema = z.object({
     .refine((patch) => Object.keys(patch).length > 0, { message: "Nada para alterar" })
     .meta({ id: "PatchExpenseRequest", description: "Alterar uma despesa" });
 
-//Schema QUERY listExpenses
 export const listExpensesQuerySchema = z.object({
     companyId: idSchema.optional().meta({ description: "Só para um system_admin, e obrigatório sem `projectId`." }),
     projectId: idSchema.optional().meta({
@@ -86,7 +84,6 @@ export const listExpensesQuerySchema = z.object({
     })
     .meta({ id: "ListExpensesQuery", description: "Filtros da listagem de despesas" });
 
-//Como uma despesa é devolvida
 export const expenseResponseSchema = z.object({
     id: idSchema,
     companyId: z.uuid(),

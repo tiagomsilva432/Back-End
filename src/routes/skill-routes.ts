@@ -88,7 +88,6 @@ router.delete(
 
 const skillIdParam = pathId("Id da competência", "skillId");
 
-//Documentação OpenAPI destas rotas
 export const skillPaths: ZodOpenApiPathsObject = {
     "/skills": {
         get: {

@@ -4,7 +4,6 @@ import { AnnouncementRead } from "../entities/AnnouncementRead.js";
 
 export const announcementReadRepo = AppDataSource.getRepository(AnnouncementRead);
 
-/** Dos avisos indicados, os que esta pessoa já leu. */
 export async function getReadAnnouncementIds(userId: string, announcementIds: string[]): Promise<Set<string>> {
     if (announcementIds.length === 0) {
         return new Set();

@@ -3,7 +3,6 @@ import { LOGO_EMAIL_PNG_BASE64 } from "./email-logo.js";
 /** O Content-ID com que o logótipo vai anexado; o HTML refere-o com cid:. */
 export const LOGO_CID = "logo@erp-os-silvas";
 
-/** Anexo inline do logótipo, pronto para o sendMail do nodemailer. */
 export const logoAttachment = () => ({
     filename: "logo.png",
     content: Buffer.from(LOGO_EMAIL_PNG_BASE64, "base64"),
@@ -17,7 +16,6 @@ export interface EmailContent {
     /** Texto que os clientes de email mostram na lista, ao lado do assunto. */
     preheader: string;
     title: string;
-    /** Parágrafos antes do botão. */
     paragraphs: string[];
     button: { label: string; url: string };
     /** Uma linha de destaque por baixo do botão (ex.: validade do link). */

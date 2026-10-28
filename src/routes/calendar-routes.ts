@@ -72,7 +72,6 @@ const WHAT_SHOWS =
     "ausências da empresa. Para um colega, `vacation` aparece como `vacation`, e `sick` e `leave` como " +
     "`absent`. A nota nunca vem. Sem as contas terminadas. O intervalo vai até 366 dias.";
 
-//Documentação OpenAPI destas rotas
 export const calendarPaths: ZodOpenApiPathsObject = {
     "/calendar": {
         get: {

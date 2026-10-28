@@ -235,7 +235,6 @@ describe("POST /auth/account/create — validação do corpo", () => {
     });
 });
 
-// Sem nome no convite, a conta nasce igual ao que nascia antes.
 describe("POST /auth/account/create - o perfil opcional", () => {
     it("grava o perfil quando o convite traz nome", async () => {
         const empresa = await criarEmpresa();

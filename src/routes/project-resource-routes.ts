@@ -82,7 +82,6 @@ const members =
 const editors =
     "Um admin ou o gestor do projeto altera qualquer recurso; os outros membros só os que adicionaram. ";
 
-//Documentação OpenAPI destas rotas
 export const projectResourcePaths: ZodOpenApiPathsObject = {
     "/projects/{id}/resources": {
         get: {

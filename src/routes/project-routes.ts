@@ -50,7 +50,6 @@ router.patch(
 
 const idParam = pathId("Id do projeto");
 
-//Documentação OpenAPI destas rotas
 export const projectPaths: ZodOpenApiPathsObject = {
     "/projects": {
         post: {

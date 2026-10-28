@@ -21,7 +21,7 @@ import { randomUUID } from "node:crypto";
 import { signupTokenExpDate } from "../env-vars.js";
 
 // Soft-deleted users keep occupying their (company, email) pair, so deletion
-// must anonymize the email to deleted-{id}@anonymized.local (see schema notes).
+// must anonymize the email to deleted-{id}@anonymized.local (see db/reference/erp_schema.sql).
 // No separate index on companyId: the unique below already indexes
 // (company_id, email), which Postgres uses for company_id lookups.
 @Entity("users")
@@ -58,11 +58,9 @@ export class User {
     @Column({ type: "timestamptz", nullable: true })
     passwordResetExpiresAt!: Date | null;
 
-    /** Not constrained by the database; guard with isUserRole before writing. */
     @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: UserRole.Employee })
     role!: UserRole;
 
-    /** Not constrained by the database; guard with isUserStatus before writing. */
     @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: UserStatus.Invited })
     status!: UserStatus;
 

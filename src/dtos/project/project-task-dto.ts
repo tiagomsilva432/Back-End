@@ -35,7 +35,6 @@ const assigneeIdSchema = idSchema.meta({ description: "Tem de estar no projeto: 
 
 const dueDateSchema = z.iso.date().meta({ example: "2026-11-15" });
 
-//Schema REQUEST createProjectTask
 export const createProjectTaskSchema = z.object({
     title: titleSchema,
     description: descriptionSchema.optional(),
@@ -62,7 +61,6 @@ export const patchProjectTaskSchema = z.object({
     .refine((patch) => Object.keys(patch).length > 0, { message: "Nada para alterar" })
     .meta({ id: "PatchProjectTaskRequest", description: "Alterar o conteúdo de uma tarefa" });
 
-//Schema REQUEST moveProjectTask
 export const moveProjectTaskSchema = z.object({
     status: taskStatusSchema,
     position: z.int().min(0).meta({
@@ -71,14 +69,12 @@ export const moveProjectTaskSchema = z.object({
     }),
 }).meta({ id: "MoveProjectTaskRequest", description: "Arrastar uma tarefa para uma coluna e um lugar" });
 
-//Schema QUERY getProjectBoard
 export const projectBoardQuerySchema = z.object({
     assigneeId: idSchema.optional().meta({ description: "Só as tarefas desta pessoa." }),
     label: labelSchema.optional().meta({ example: "bug", description: "Só as que têm esta etiqueta." }),
     priority: taskPrioritySchema.optional(),
 }).meta({ id: "ProjectBoardQuery", description: "Filtros do quadro" });
 
-//Como uma tarefa é devolvida
 export const projectTaskResponseSchema = z.object({
     id: idSchema,
     projectId: idSchema,
@@ -127,4 +123,3 @@ export type MoveProjectTaskRequest = z.infer<typeof moveProjectTaskSchema>;
 export type ProjectBoardQuery = z.infer<typeof projectBoardQuerySchema>;
 export type ProjectTaskResponse = z.infer<typeof projectTaskResponseSchema>;
 export type ProjectBoardResponse = z.infer<typeof projectBoardResponseSchema>;
-export type TaskOrder = z.infer<typeof taskOrderSchema>;

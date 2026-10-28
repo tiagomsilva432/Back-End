@@ -3,7 +3,6 @@ import { UserRole, UserStatus } from "../../types/enums.js";
 import { companyIdSchema } from "../common/fields-dto.js";
 import { employeeProfileResponseSchema } from "./employee-profile-dto.js";
 
-//Schema QUERY listUsers
 export const listUsersQuerySchema = z.object({
     companyId: companyIdSchema.optional(),
     role: z.string().trim().toLowerCase().pipe(z.enum(UserRole)).optional()
@@ -15,7 +14,6 @@ export const listUsersQuerySchema = z.object({
 /** `invited` não está aqui: uma conta só volta a convidada sendo criada de novo. */
 const settableStatuses = [UserStatus.Active, UserStatus.Suspended, UserStatus.Terminated] as const;
 
-//Schema REQUEST patchUserStatus
 export const patchUserStatusSchema = z.object({
     status: z.string().trim().toLowerCase().pipe(z.enum(settableStatuses)).meta({
         example: UserStatus.Suspended,

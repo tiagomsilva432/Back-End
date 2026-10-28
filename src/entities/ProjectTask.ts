@@ -36,7 +36,6 @@ export class ProjectTask {
     @Column({ type: "text", nullable: true })
     description!: string | null;
 
-    /** Not constrained by the database; guard with isTaskStatus before writing. */
     @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH })
     status!: TaskStatus;
 
@@ -54,7 +53,6 @@ export class ProjectTask {
     @Column({ type: "date", nullable: true })
     dueDate!: string | null;
 
-    /** Not constrained by the database; guard with isTaskPriority before writing. */
     @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: TaskPriority.Medium })
     priority!: TaskPriority;
 

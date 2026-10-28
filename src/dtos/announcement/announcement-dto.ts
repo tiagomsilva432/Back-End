@@ -32,7 +32,6 @@ const content = {
     endsAt: endsAtSchema.optional(),
 };
 
-//Schema REQUEST createAnnouncement
 export const createAnnouncementSchema = z.discriminatedUnion("scope", [
     z.object({
         scope: z.literal(AnnouncementScope.System),
@@ -64,7 +63,6 @@ export const patchAnnouncementSchema = z.object({
     .refine((patch) => Object.keys(patch).length > 0, { message: "Nada para alterar" })
     .meta({ id: "PatchAnnouncementRequest", description: "Alterar um aviso" });
 
-//Schemas QUERY
 export const listMyAnnouncementsQuerySchema = z.object({
     unread: flag("Só os que ainda não foram lidos."),
 }).meta({ id: "ListMyAnnouncementsQuery", description: "Filtros dos meus avisos" });
@@ -81,7 +79,6 @@ export const listAnnouncementsQuerySchema = z.object({
     includeInactive: flag("Também os agendados e os que já acabaram."),
 }).meta({ id: "ListAnnouncementsQuery", description: "Filtros dos avisos que se gerem" });
 
-//Como um aviso é devolvido
 export const announcementResponseSchema = z.object({
     id: idSchema,
     scope: z.enum(AnnouncementScope).meta({ example: AnnouncementScope.Company }),

@@ -89,7 +89,6 @@ const managers =
     "Uma despesa de projeto: um `system_admin`, um `company_admin` da empresa, ou o gestor do projeto " +
     "(`managerId`). Uma despesa da empresa, sem projeto: só os dois admins. Os outros da empresa recebem 403. ";
 
-//Documentação OpenAPI destas rotas
 export const expensePaths: ZodOpenApiPathsObject = {
     "/expenses": {
         post: {
