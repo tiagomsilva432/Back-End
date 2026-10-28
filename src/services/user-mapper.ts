@@ -22,7 +22,6 @@ export async function avatarUrlsOf(userIds: string[]): Promise<Map<string, strin
     return urls;
 }
 
-/** Entidade -> DTO. Num serviço porque o auth e o user usam os dois. */
 export const toProfileResponse = (profile: EmployeeProfile, avatarUrl: string | null): EmployeeProfileResponse => ({
     userId: profile.userId,
     firstName: profile.firstName,

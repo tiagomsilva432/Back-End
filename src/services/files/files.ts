@@ -165,7 +165,6 @@ export async function filesFor(kind: FileKind, ownerIds: string[]): Promise<Map<
     return byOwner;
 }
 
-/** Um só ficheiro, como a API o devolve: a resposta de um upload. */
 export async function fileResponseOf(file: StoredFile): Promise<FileResponse> {
     const duplicates = FILE_KINDS[file.kind].flagDuplicates
         ? await duplicatesOf(file.kind, [file])

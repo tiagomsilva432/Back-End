@@ -26,7 +26,6 @@ export const listMyNotifications = async (req: Request, res: Response) => {
     const actor: User = getCurrentActor(req);
     const query = req.validQuery as ListMyNotificationsQuery;
 
-    // Mais uma do que a página: se vier, há página seguinte.
     const rows = await getNotificationsByRecipientId(actor.id, {
         unread: query.unread,
         before: query.before,

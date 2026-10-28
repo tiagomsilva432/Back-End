@@ -5,17 +5,14 @@ const idSchema = z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42"
 const bodySchema = z.string().trim().min(1).max(2000)
     .meta({ example: "O servidor de testes já tem a versão de ontem.", description: "Texto simples, até 2000 caracteres." });
 
-//Schema REQUEST createProjectMessage
 export const createProjectMessageSchema = z.object({
     body: bodySchema,
 }).meta({ id: "CreateProjectMessageRequest", description: "Escrever no chat de um projeto" });
 
-//Schema REQUEST patchProjectMessage
 export const patchProjectMessageSchema = z.object({
     body: bodySchema,
 }).meta({ id: "PatchProjectMessageRequest", description: "Corrigir uma mensagem" });
 
-//Schema QUERY listProjectMessages
 export const listProjectMessagesQuerySchema = z.object({
     before: z.uuid().optional().meta({
         example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42",
@@ -25,7 +22,6 @@ export const listProjectMessagesQuerySchema = z.object({
         .meta({ example: 30, description: "Entre 1 e 100. Por omissão, 30." }),
 }).meta({ id: "ListProjectMessagesQuery", description: "Página do chat de um projeto" });
 
-//Como uma mensagem é devolvida, na REST e no stream
 export const projectMessageResponseSchema = z.object({
     id: idSchema,
     projectId: idSchema,

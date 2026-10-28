@@ -1,21 +1,10 @@
-//Formato de Resposta Standardizado
 import type { Response } from "express";
 import { z } from "zod";
-//Importar Mensagens Default
 import { getDefaults } from "../../utils/httpStatusDefaults.js";
 
-export interface ApiResponse {
-  status: number;
-  message: string;
-  code: string;
-  data?: unknown;
-}
-
 /**
- * Versão Zod do envelope acima — usada só para gerar o OpenAPI.
- * Fica ao lado do `ApiResponse` para as duas formas não divergirem.
- * Como o errorHandler também responde via HttpResponse, este mesmo
- * envelope serve para sucessos e erros.
+ * O envelope do HttpResponse em Zod, só para o OpenAPI. O errorHandler também
+ * responde por HttpResponse, por isso serve para sucessos e erros.
  */
 export const httpResponseSchema = (
   status: number,
@@ -40,10 +29,8 @@ export class HttpResponse {
   ) {
     const DEFAULT = getDefaults(status);
 
-    this.status = status;
     this.message = message ?? DEFAULT.message;
     this.code = code ?? DEFAULT.code;
-    this.data = data;
   }
 
   send(res: Response) {

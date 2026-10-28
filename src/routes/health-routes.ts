@@ -25,7 +25,6 @@ router.get("/health/db", async(_req: Request, res: Response, next: NextFunction)
     }
 });
 
-//Documentação OpenAPI desta rota
 export const healthPaths: ZodOpenApiPathsObject = {
     "/health": {
         get: {

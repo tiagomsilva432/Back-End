@@ -25,12 +25,11 @@ import projectMessageRouter from "./routes/project-message-routes.js"
 import projectTaskRouter from "./routes/project-task-routes.js"
 
 export const app = express();
-//Middlewares globais
+
 app.use(corsMiddleware);
 app.use(express.json());
 app.use(requestLogger);
 
-//Rotas
 app.use(docsRouter);
 app.use(healthRouter);
 app.use(authRouter);
@@ -52,10 +51,8 @@ app.use(projectResourceRouter);
 app.use(projectMessageRouter);
 app.use(projectTaskRouter);
 
-//Rota não encontrada
 app.use((_req: Request, res: Response) => {
     new HttpResponse(404).send(res);
 });
 
-//Tratamento de erros
 app.use(errorHandler);

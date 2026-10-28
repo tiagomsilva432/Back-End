@@ -72,7 +72,6 @@ router.post(
     confirmPasswordReset
 );
 
-//Documentação OpenAPI destas rotas
 export const authPaths: ZodOpenApiPathsObject = {
     "/auth/account/create": {
         post: {

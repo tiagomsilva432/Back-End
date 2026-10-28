@@ -16,7 +16,6 @@ const monthIndex = (month: string): number => {
     return year * 12 + m;
 };
 
-//Schema QUERY financeOverview
 export const financeOverviewQuerySchema = z.object({
     from: monthSchema.default(() => `${currentYear()}-01`)
         .meta({ example: "2026-01", description: "Primeiro mês, inclusivo. Por omissão, janeiro deste ano." }),

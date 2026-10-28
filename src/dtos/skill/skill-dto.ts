@@ -20,7 +20,6 @@ const yearsExperienceSchema = decimalString(
     "Anos de experiência inválidos: usa no máximo 3 dígitos e 1 casa decimal",
 );
 
-//Schema REQUEST createSkill
 export const createSkillSchema = z.object({
     name: nameSchema,
     category: categorySchema.default(SkillCategory.Other)
@@ -35,12 +34,10 @@ export const patchSkillSchema = z.object({
     .refine((patch) => Object.keys(patch).length > 0, { message: "Nada para alterar" })
     .meta({ id: "PatchSkillRequest", description: "Alterar uma competência do catálogo" });
 
-//Schema QUERY listSkills
 export const listSkillsQuerySchema = z.object({
     category: categorySchema.optional().meta({ description: "Filtra por categoria." }),
 }).meta({ id: "ListSkillsQuery", description: "Filtros do catálogo de competências" });
 
-//Schema QUERY listSkillUsers
 export const listSkillUsersQuerySchema = z.object({
     companyId: companyIdSchema.optional(),
 }).meta({ id: "ListSkillUsersQuery", description: "De que empresa são as pessoas" });
@@ -56,7 +53,6 @@ export const upsertEmployeeSkillSchema = z.object({
         .meta({ example: "3.5", description: "No máximo 3 dígitos e 1 casa decimal." }),
 }).meta({ id: "UpsertEmployeeSkillRequest", description: "Atribuir ou alterar uma competência de uma pessoa" });
 
-//Como uma competência do catálogo é devolvida
 export const skillResponseSchema = z.object({
     id: z.uuid().meta({ example: "0193a5f1-8c4e-7a2b-9d16-3f5b7c1e0a42" }),
     name: z.string().meta({ example: "TypeScript" }),
@@ -66,7 +62,6 @@ export const skillResponseSchema = z.object({
 export const skillListResponseSchema = z.array(skillResponseSchema)
     .meta({ id: "SkillList", description: "O catálogo, por nome" });
 
-//Como uma competência de uma pessoa é devolvida
 export const employeeSkillResponseSchema = z.object({
     userId: z.uuid(),
     skillId: z.uuid(),

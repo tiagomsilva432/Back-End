@@ -1,6 +1,3 @@
-//Formato de Erro Standardizado
-
-//Importar Mensagens Default
 import { getDefaults } from "../../utils/httpStatusDefaults.js";
 
 export class HttpError extends Error {
@@ -15,7 +12,6 @@ export class HttpError extends Error {
     super(finalMessage);
     this.name = "HttpError";
     this.code = code ?? DEFAULT.code;
-    this.details = details;
   }
 }
 

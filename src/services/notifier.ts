@@ -30,7 +30,6 @@ async function notify<T extends NotificationType>(type: T, options: NotifyOption
     const recipients = [...new Set(options.recipientIds)]
         .filter((id): id is string => Boolean(id) && !excluded.has(id));
 
-    // Sem destinatários não há query nenhuma.
     if (recipients.length === 0) {
         return;
     }

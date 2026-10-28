@@ -77,7 +77,6 @@ export const listProjectMessages = async (req: Request, res: Response) => {
     const query = req.validQuery as ListProjectMessagesQuery;
     const project = await requireChatProject(actor, req);
 
-    // Mais uma do que a página: se vier, há página seguinte.
     const rows = await getProjectMessagesPage(project.id, { before: query.before, limit: query.limit + 1 });
 
     const items = rows.slice(0, query.limit);
@@ -105,7 +104,6 @@ export const createProjectMessage = async (req: Request, res: Response) => {
         }),
     );
 
-    // Quem escreve viu o chat até aqui.
     await markProjectMessagesRead(project.id, actor.id, created.id);
 
     const data = toResponse(created);

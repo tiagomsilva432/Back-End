@@ -74,7 +74,6 @@ export class ReviewRequest {
     @JoinColumn({ name: "reviewee_id" })
     reviewee!: User;
 
-    /** Not constrained by the database; guard with isReviewRequestStatus before writing. */
     @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: ReviewRequestStatus.Pending })
     status!: ReviewRequestStatus;
 

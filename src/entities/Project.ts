@@ -46,7 +46,6 @@ export class Project {
     @Column({ type: "varchar", length: 150, nullable: true })
     clientName!: string | null;
 
-    /** Not constrained by the database; guard with isProjectStatus before writing. */
     @Column({ type: "varchar", length: ENUM_COLUMN_LENGTH, default: ProjectStatus.Planned })
     status!: ProjectStatus;
 
