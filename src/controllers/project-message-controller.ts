@@ -142,7 +142,7 @@ export const removeProjectMessage = async (req: Request, res: Response) => {
     const message = await requireMessage(project, req);
 
     if (message.authorId !== actor.id && !canManageProject(actor, project)) {
-        throw new HttpError(403, "Só quem escreveu, o gestor do projeto ou um admin apaga esta mensagem");
+        throw new HttpError(403, "Só quem escreveu, o gestor do projeto ou um administrador apaga esta mensagem");
     }
 
     await deleteProjectMessage(message.id);

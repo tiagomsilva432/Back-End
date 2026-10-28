@@ -32,7 +32,7 @@ export function resolveCompanyScope(
     }
 
     if (!companyId) {
-        throw invalidData([{ field: "companyId", message: "Obrigatório quando quem cria é um system_admin" }]);
+        throw invalidData([{ field: "companyId", message: "Obrigatório para o administrador do sistema" }]);
     }
 
     return companyId;

@@ -113,7 +113,7 @@ export const removeTaskComment = async (req: Request, res: Response) => {
     const comment = await requireComment(task, req);
 
     if (comment.authorId !== actor.id && !canManageProject(actor, project)) {
-        throw new HttpError(403, "Só quem escreveu, o gestor do projeto ou um admin apaga este comentário");
+        throw new HttpError(403, "Só quem escreveu, o gestor do projeto ou um administrador apaga este comentário");
     }
 
     await deleteProjectTaskComment(comment.id);

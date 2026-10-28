@@ -85,7 +85,7 @@ describe("errorHandler: os details de um 4xx chegam sempre ao cliente", () => {
 
             expect(res.status).toBe(400);
             expect(res.body.data).toEqual([
-                { field: "companyId", message: "Obrigatório quando quem cria é um system_admin" },
+                { field: "companyId", message: "Obrigatório para o administrador do sistema" },
             ]);
         });
     });

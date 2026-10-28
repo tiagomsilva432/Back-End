@@ -213,7 +213,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
     const user: User | null = await getUserById(claims.sub);
 
     if(!user){
-        throw new HttpError(401, "Token inválido");
+        throw new HttpError(401, "Sessão inválida. Inicie sessão novamente");
     }
 
     if(user.status !== UserStatus.Active || user.mustChangePassword){
@@ -281,7 +281,7 @@ export const changePassword = async (req: Request, res: Response) => {
     const user: User | null = await getUserById(claims.sub);
 
     if (!user) {
-        throw new HttpError(401, "Token inválido");
+        throw new HttpError(401, "Sessão inválida. Inicie sessão novamente");
     }
 
     if (user.status !== UserStatus.Active) {

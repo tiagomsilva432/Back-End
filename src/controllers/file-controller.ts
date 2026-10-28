@@ -23,7 +23,7 @@ export const downloadFile = async (req: Request, res: Response) => {
     const check = checkSignature(id, exp, sig);
 
     if (check !== "valid") {
-        throw new HttpError(403, check === "expired" ? "Este link expirou: pede o recurso outra vez" : "Link inválido");
+        throw new HttpError(403, check === "expired" ? "Este link expirou. Atualize a página para abrir o ficheiro" : "Link inválido");
     }
 
     const file = await getFileById(id);

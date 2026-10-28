@@ -181,7 +181,7 @@ describe("GET /users", () => {
 
         expect(res.status).toBe(400);
         expect(res.body.data).toEqual([
-            { field: "companyId", message: "Obrigatório quando quem cria é um system_admin" },
+            { field: "companyId", message: "Obrigatório para o administrador do sistema" },
         ]);
     });
 

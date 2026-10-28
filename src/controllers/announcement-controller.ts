@@ -86,7 +86,7 @@ export const createAnnouncement = async (req: Request, res: Response) => {
 
     if (body.scope === AnnouncementScope.System) {
         if (actor.role !== UserRole.SystemAdmin) {
-            throw new HttpError(403, "Só um system_admin publica avisos de sistema");
+            throw new HttpError(403, "Só o administrador do sistema publica avisos para toda a plataforma");
         }
     } else if (body.scope === AnnouncementScope.Company) {
         if (actor.role === UserRole.Employee) {
@@ -103,7 +103,7 @@ export const createAnnouncement = async (req: Request, res: Response) => {
         companyId = project.companyId;
 
         if (!canManageAnnouncement(actor, { scope: body.scope, companyId }, project)) {
-            throw new HttpError(403, "Só o gestor do projeto ou um admin publica avisos neste projeto");
+            throw new HttpError(403, "Só o gestor do projeto ou um administrador publica avisos neste projeto");
         }
     }
 

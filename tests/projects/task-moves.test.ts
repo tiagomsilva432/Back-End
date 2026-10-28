@@ -116,7 +116,7 @@ describe("POST /projects/:id/tasks/:taskId/move: o fluxo", () => {
         const res = await mover(projeto.id, daAna.id, authorization(rui), "in_progress", 0);
 
         expect(res.status).toBe(403);
-        expect(res.body.message).toBe("Só o responsável pela tarefa, o gestor ou um admin a move");
+        expect(res.body.message).toBe("Só o responsável pela tarefa, o gestor ou um administrador a move");
         expect((await tarefas().findOneByOrFail({ id: daAna.id })).status).toBe(TaskStatus.Todo);
         expect((await mover(projeto.id, deNinguem.id, authorization(rui), "in_progress", 0)).status).toBe(200);
     });
@@ -151,7 +151,7 @@ describe("POST /projects/:id/tasks/:taskId/move: o fluxo", () => {
         const daAna = await mover(projeto.id, tarefa.id, authorization(ana), "done", 0);
 
         expect(daAna.status).toBe(403);
-        expect(daAna.body.message).toBe("Só o gestor do projeto ou um admin aprova tarefas");
+        expect(daAna.body.message).toBe("Só o gestor do projeto ou um administrador aprova tarefas");
 
         const res = await mover(projeto.id, tarefa.id, adminHeader, "done", 0);
 

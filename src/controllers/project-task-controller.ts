@@ -261,7 +261,7 @@ export const removeProjectTask = async (req: Request, res: Response) => {
     const task = await requireBoardTask(project, req);
 
     if (task.createdBy !== actor.id && !canManageProject(actor, project)) {
-        throw new HttpError(403, "Só quem criou a tarefa, o gestor do projeto ou um admin a apaga");
+        throw new HttpError(403, "Só quem criou a tarefa, o gestor do projeto ou um administrador a apaga");
     }
 
     // Os comentários vão pelo CASCADE.

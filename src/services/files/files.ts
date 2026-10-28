@@ -53,7 +53,7 @@ export async function saveUpload(spec: FileKindSpec, target: UploadTarget, file:
     const detected = detectFileType(file.buffer);
 
     if (!detected || !spec.types.includes(detected)) {
-        throw invalidData([{ field: "file", message: `Tipo de ficheiro não aceite: usa ${describeTypes(spec.types)}` }]);
+        throw invalidData([{ field: "file", message: `Tipo de ficheiro não aceite: use ${describeTypes(spec.types)}` }]);
     }
 
     const sha256 = createHash("sha256").update(file.buffer).digest("hex");
@@ -66,7 +66,7 @@ export async function saveUpload(spec: FileKindSpec, target: UploadTarget, file:
         }
 
         if (existing.length >= spec.maxPerOwner) {
-            throw new HttpError(409, `Já tem ${spec.maxPerOwner} ficheiros: apaga um antes de enviar outro`);
+            throw new HttpError(409, `Já tem ${spec.maxPerOwner} ficheiros: apague um antes de enviar outro`);
         }
     }
 
