@@ -94,10 +94,12 @@ If port 3000 or 5433 is taken, set `API_EXPOSED_PORT` or `DB_EXPOSED_PORT` in
 The migrations also create a first company, **My Software Company**, and the
 shared skills catalog. No users are created.
 
-### 4. Create the first admin
+### 4. Create the first admin, or load the demo data
 
-The first `system_admin` cannot come from the API, so it is created from the
-shell. The same command works in zsh and PowerShell:
+Pick one.
+
+**A. Just the admin.** The first `system_admin` cannot come from the API, so it
+is created from the shell. The same command works in zsh and PowerShell:
 
 ```bash
 docker compose exec api npm run admin:create -- --email=admin@example.com --password='Admin@2026'
@@ -107,6 +109,31 @@ The password needs 8+ characters with an uppercase letter, a lowercase letter,
 a digit and one of `@$!%*?&#`. Keep the single quotes: `!` and `$` mean
 something to zsh and PowerShell. The admin joins the only company; with
 several, add `--company-id=<uuid>`.
+
+**B. The demo data.** A seed fills the database with two companies, an admin
+for each, employees, projects, tasks, salaries, absences, expenses,
+announcements and reviews, all dated around today:
+
+```bash
+docker compose exec api npm run db:seed
+```
+
+| Login | Password | Role | Company |
+| --- | --- | --- | --- |
+| `admin@erp.test` | `Demo@2026` | `system_admin` | Nexo Software |
+| `marta.sousa@nexo.test` | `Demo@2026` | `company_admin` | Nexo Software |
+| `rui.almeida@nexo.test` | `Demo@2026` | employee, manages Portal do Cliente and Website Institucional | Nexo Software |
+| `ana.ferreira@nexo.test` | `Demo@2026` | employee, manages Plataforma de Formação | Nexo Software |
+| `joao.costa@nexo.test` | `Demo@2026` | employee, manages App Mobile Entregas | Nexo Software |
+| `ines.martins@nexo.test` | `Demo@2026` | employee | Nexo Software |
+| `pedro.santos@nexo.test` | `Demo@2026` | employee, manages Migração para a Cloud | Nexo Software |
+| `beatriz.lopes@nexo.test` | `Demo@2026` | employee | Nexo Software |
+| `carla.mendes@atlantico.test` | `Demo@2026` | `company_admin` | Atlântico Digital |
+| `nuno.pereira@atlantico.test` | `Demo@2026` | employee, manages Loja Online Onda Azul | Atlântico Digital |
+| `sofia.rodrigues@atlantico.test` | `Demo@2026` | employee | Atlântico Digital |
+
+The seed only runs in development, on a database with no users, and renames
+My Software Company to Nexo Software. To start over, `docker compose down -v`.
 
 ### 5. Log in
 
@@ -180,6 +207,9 @@ npm run admin:create -- --email=admin@example.com --password='Admin@2026'
 npm run dev
 ```
 
+For the demo data instead of a lone admin, run `npm run db:seed` in place of
+`admin:create` (see step 4).
+
 ---
 
 ## Configuration
@@ -230,7 +260,7 @@ src/
   dtos/          Zod schemas: they validate requests and generate /docs
   middleware/    auth, roles, validation, uploads, errors, CORS, request log
   migrations/    the only way the schema changes (synchronize is off)
-  scripts/       admin:create, files:sweep, check-sharp
+  scripts/       admin:create, db:seed, files:sweep, check-sharp
 tests/           Jest + supertest against a real PostgreSQL
 deploy/          Caddy, the production web image, up/update/backup scripts
 ```
@@ -394,6 +424,7 @@ are stored under `UPLOADS_DIR`.
 | `npm run db:generate -- src/migrations/Name` | write a migration from the entity changes (read it before running it) |
 | `npm run db:check` | fail if the entities and the migrations disagree |
 | `npm run admin:create -- --email=… --password='…'` | create a `system_admin` |
+| `npm run db:seed` | fill an empty database with demo data (development only) |
 | `npm run files:sweep` | delete files whose owner is gone |
 
 Inside the Docker stack, prefix them with `docker compose exec api`.
