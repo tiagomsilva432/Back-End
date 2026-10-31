@@ -95,10 +95,13 @@ irem ao sítio certo) e o `VITE_API_URL` do frontend.
 As migrações também criam uma primeira empresa, a **My Software Company**, e o
 catálogo de competências partilhado. Não criam utilizadores.
 
-### 4. Criar o primeiro administrador
+### 4. Criar o primeiro administrador, ou carregar os dados de demonstração
 
-O primeiro `system_admin` não pode vir da API, por isso cria-se pela linha de
-comandos. O mesmo comando serve no zsh e no PowerShell:
+Escolhe um dos dois.
+
+**A. Só o administrador.** O primeiro `system_admin` não pode vir da API, por
+isso cria-se pela linha de comandos. O mesmo comando serve no zsh e no
+PowerShell:
 
 ```bash
 docker compose exec api npm run admin:create -- --email=admin@example.com --password='Admin@2026'
@@ -108,6 +111,33 @@ A palavra-passe precisa de 8 ou mais caracteres, com uma maiúscula, uma
 minúscula, um número e um de `@$!%*?&#`. Mantém as aspas simples: o `!` e o `$`
 querem dizer outra coisa no zsh e no PowerShell. O administrador fica na única
 empresa que existe; se houver várias, junta `--company-id=<uuid>`.
+
+**B. Os dados de demonstração.** Um seed enche a base de dados com duas
+empresas, um administrador para cada, colaboradores, projetos, tarefas,
+salários, ausências, despesas, anúncios e avaliações, tudo com datas à volta
+de hoje:
+
+```bash
+docker compose exec api npm run db:seed
+```
+
+| Login | Palavra-passe | Papel | Empresa |
+| --- | --- | --- | --- |
+| `admin@erp.test` | `Demo@2026` | `system_admin` | Nexo Software |
+| `marta.sousa@nexo.test` | `Demo@2026` | `company_admin` | Nexo Software |
+| `rui.almeida@nexo.test` | `Demo@2026` | colaborador, gere o Portal do Cliente e o Website Institucional | Nexo Software |
+| `ana.ferreira@nexo.test` | `Demo@2026` | colaboradora, gere a Plataforma de Formação | Nexo Software |
+| `joao.costa@nexo.test` | `Demo@2026` | colaborador, gere a App Mobile Entregas | Nexo Software |
+| `ines.martins@nexo.test` | `Demo@2026` | colaboradora | Nexo Software |
+| `pedro.santos@nexo.test` | `Demo@2026` | colaborador, gere a Migração para a Cloud | Nexo Software |
+| `beatriz.lopes@nexo.test` | `Demo@2026` | colaboradora | Nexo Software |
+| `carla.mendes@atlantico.test` | `Demo@2026` | `company_admin` | Atlântico Digital |
+| `nuno.pereira@atlantico.test` | `Demo@2026` | colaborador, gere a Loja Online Onda Azul | Atlântico Digital |
+| `sofia.rodrigues@atlantico.test` | `Demo@2026` | colaboradora | Atlântico Digital |
+
+Só corre em desenvolvimento, numa base de dados sem utilizadores, e muda o nome
+da My Software Company para Nexo Software. Para recomeçar,
+`docker compose down -v`.
 
 ### 5. Entrar
 
@@ -181,6 +211,9 @@ npm run admin:create -- --email=admin@example.com --password='Admin@2026'
 npm run dev
 ```
 
+Para os dados de demonstração em vez de um administrador sozinho, corre
+`npm run db:seed` no lugar do `admin:create` (ver o passo 4).
+
 ---
 
 ## Configuração
@@ -232,7 +265,7 @@ src/
   dtos/          schemas Zod: validam os pedidos e geram o /docs
   middleware/    autenticação, roles, validação, uploads, erros, CORS, log dos pedidos
   migrations/    a única forma de o esquema mudar (o synchronize está desligado)
-  scripts/       admin:create, files:sweep, check-sharp
+  scripts/       admin:create, db:seed, files:sweep, check-sharp
 tests/           Jest + supertest contra um PostgreSQL a sério
 deploy/          Caddy, a imagem web de produção, scripts up/update/backup
 ```
@@ -396,6 +429,7 @@ vez em vez de o guardar. Os ficheiros ficam em `UPLOADS_DIR`.
 | `npm run db:generate -- src/migrations/Nome` | escreve uma migração a partir das alterações às entidades (lê-a antes de a correr) |
 | `npm run db:check` | falha se as entidades e as migrações não baterem certo |
 | `npm run admin:create -- --email=… --password='…'` | cria um `system_admin` |
+| `npm run db:seed` | enche uma base de dados vazia com dados de demonstração (só em desenvolvimento) |
 | `npm run files:sweep` | apaga os ficheiros cujo dono já não existe |
 
 Na stack do Docker, põe-lhes `docker compose exec api` à frente.

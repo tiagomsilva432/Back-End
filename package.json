@@ -18,6 +18,7 @@
     "typeorm": "node --import tsx ./node_modules/typeorm/cli.js -d src/data-source.ts",
     "admin:create": "node --import tsx src/scripts/create-system-admin.ts",
     "admin:create:prod": "node dist/scripts/create-system-admin.js",
+    "db:seed": "node --import tsx src/scripts/seed-demo.ts",
     "files:sweep": "node --import tsx src/scripts/sweep-files.ts",
     "files:sweep:prod": "node dist/scripts/sweep-files.js",
     "db:migrate:prod": "node ./node_modules/typeorm/cli.js -d dist/data-source.js migration:run",
